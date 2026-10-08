@@ -1,5 +1,6 @@
 import type { Hl7Message, Repetition, Segment, Subcomponent } from "./model";
 import { parsePath, type ParsedPath } from "./path";
+import type { Hl7Path } from "./path-type";
 
 /**
  * Reads the text at a path, or `undefined` when there is none.
@@ -16,6 +17,7 @@ import { parsePath, type ParsedPath } from "./path";
  *   explicit null `""`; use {@link isNull} to tell the null from the absence.
  * - A path that does not parse (see `parsePath`) matches nothing, so the result is `undefined`.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.5.1`.
  * @returns The text, or `undefined`.
@@ -31,7 +33,10 @@ import { parsePath, type ParsedPath } from "./path";
  * }
  * ```
  */
-export function get(message: Hl7Message, path: string): string | undefined {
+export function get<P extends string>(
+  message: Hl7Message,
+  path: Hl7Path<P>,
+): string | undefined {
   const parsed = parsePath(path);
   if (!parsed.ok) return undefined;
   const subcomponent = subcomponentAt(message, parsed.value);
@@ -47,6 +52,7 @@ export function get(message: Hl7Message, path: string): string | undefined {
  * {@link get} would return for it; empty positions and the explicit null `""` contribute nothing. A path that does not
  * parse selects nothing.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.3.1`.
  * @returns The texts in message order; empty when the path selects nothing.
@@ -61,7 +67,10 @@ export function get(message: Hl7Message, path: string): string | undefined {
  * }
  * ```
  */
-export function getAll(message: Hl7Message, path: string): readonly string[] {
+export function getAll<P extends string>(
+  message: Hl7Message,
+  path: Hl7Path<P>,
+): readonly string[] {
   const parsed = parsePath(path);
   if (!parsed.ok) return [];
   const { value: target } = parsed;
@@ -83,6 +92,7 @@ export function getAll(message: Hl7Message, path: string): readonly string[] {
  * means "not sent". The path is read like {@link get} reads it. The result is `true` only for the explicit null; it is
  * `false` for a value, an empty position, a missing position and a path that does not parse.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.8`.
  * @returns Whether the position holds the explicit null.
@@ -98,7 +108,10 @@ export function getAll(message: Hl7Message, path: string): readonly string[] {
  * }
  * ```
  */
-export function isNull(message: Hl7Message, path: string): boolean {
+export function isNull<P extends string>(
+  message: Hl7Message,
+  path: Hl7Path<P>,
+): boolean {
   const parsed = parsePath(path);
   return parsed.ok && subcomponentAt(message, parsed.value)?.kind === "null";
 }
