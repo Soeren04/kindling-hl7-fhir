@@ -1,7 +1,8 @@
 # 0007. API report without API Extractor
 
-- Status: accepted (implemented together with the first public entry points)
+- Status: accepted
 - Date: 2026-10-08
+- Implementation: planned (added with the first public entry points; the API freeze review is phase 5)
 
 ## Context
 

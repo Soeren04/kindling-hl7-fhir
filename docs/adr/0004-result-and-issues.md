@@ -2,6 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
+- Implementation: partly implemented (`Result` exists in `src/shared/result.ts`; `Issue`, the PHI tests and the CLI
+  output rule follow in phases 1 and 4)
 
 ## Context
 
