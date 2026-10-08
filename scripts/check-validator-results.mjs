@@ -29,6 +29,7 @@ const fileExtension =
  *
  * @param {unknown} output - The parsed JSON the validator wrote.
  * @returns {ValidatorIssue[]} Every issue the validator reported.
+ * @throws {Error} When the output is not an OperationOutcome or a Bundle of them, or the Bundle is empty.
  */
 export function collectIssues(output) {
   const outcomes = isResource(output, "Bundle")
@@ -36,6 +37,9 @@ export function collectIssues(output) {
         isRecord(entry) ? entry["resource"] : undefined,
       )
     : [output];
+  // A run that validated nothing must not pass as a clean one.
+  if (outcomes.length === 0)
+    throw new Error("The validator output is a Bundle without entries");
   return outcomes.flatMap((outcome) => {
     if (!isResource(outcome, "OperationOutcome")) {
       throw new Error(
@@ -176,6 +180,8 @@ function stringOr(value, fallback) {
   return typeof value === "string" ? value : fallback;
 }
 
+// Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
+/* v8 ignore start */
 if (import.meta.main) {
   const [outputPath, allowlistPath] = process.argv.slice(2);
   if (outputPath === undefined || allowlistPath === undefined) {
@@ -194,3 +200,4 @@ if (import.meta.main) {
   );
   process.exitCode = problems.length === 0 ? 0 : 1;
 }
+/* v8 ignore stop */
