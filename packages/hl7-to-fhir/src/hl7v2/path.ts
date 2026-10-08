@@ -8,6 +8,8 @@ import { isValidSegmentId } from "./segment";
  *
  * @example
  * ```ts
+ * import { parsePath } from "hl7-to-fhir/hl7v2";
+ *
  * const result = parsePath("OBX[3].5.1");
  * // { segment: "OBX", segmentIndex: 3, field: 5, fieldIndex: undefined, component: 1, subcomponent: undefined }
  * ```
@@ -53,6 +55,8 @@ export type PathErrorCode =
  *
  * @example
  * ```ts
+ * import { parsePath } from "hl7-to-fhir/hl7v2";
+ *
  * const result = parsePath("PID.x");
  * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
  * ```

@@ -29,6 +29,8 @@ export interface Err<E> {
  *
  * @example
  * ```ts
+ * import type { Result } from "hl7-to-fhir";
+ *
  * declare const result: Result<number, "EMPTY">;
  * if (result.ok) console.log(result.value + 1);
  * else console.error(result.error);
