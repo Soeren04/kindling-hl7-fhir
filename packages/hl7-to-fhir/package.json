@@ -1,0 +1,11 @@
+{
+  "name": "hl7-to-fhir",
+  "version": "0.0.0",
+  "description": "Convert HL7 v2 messages to FHIR R4 resources. TypeScript, zero dependencies, runs in the browser and Node.",
+  "keywords": ["hl7", "hl7v2", "fhir", "fhir-r4", "healthcare", "parser", "typescript"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soeren04/kindling-hl7-fhir.git",
+    "directory": "packages/hl7-to-fhir"
+  }
+}
