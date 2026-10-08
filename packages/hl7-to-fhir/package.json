@@ -15,5 +15,8 @@
     "type": "git",
     "url": "git+https://github.com/soeren04/kindling-hl7-fhir.git",
     "directory": "packages/hl7-to-fhir"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json"
   }
 }

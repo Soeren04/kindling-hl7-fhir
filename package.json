@@ -10,10 +10,19 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:fast": "pnpm format:check",
-    "verify": "pnpm verify:fast"
+    "typecheck": "tsc -p tsconfig.json && pnpm --recursive run typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "verify:fast": "pnpm format:check && pnpm typecheck && pnpm test",
+    "verify": "pnpm format:check && pnpm typecheck && pnpm test:coverage"
   },
   "devDependencies": {
-    "prettier": "3.9.9"
+    "@fast-check/vitest": "0.5.0",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
+    "fast-check": "4.10.2",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
   }
 }
