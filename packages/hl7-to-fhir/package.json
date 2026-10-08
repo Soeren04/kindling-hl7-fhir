@@ -1,22 +1,68 @@
 {
   "name": "hl7-to-fhir",
-  "version": "0.0.0",
-  "description": "Convert HL7 v2 messages to FHIR R4 resources. TypeScript, zero dependencies, runs in the browser and Node.",
+  "version": "1.0.0",
+  "description": "Convert HL7 v2 messages to FHIR R4. TypeScript, zero dependencies, browser and Node.",
   "keywords": [
     "hl7",
     "hl7v2",
     "fhir",
     "fhir-r4",
     "healthcare",
+    "interoperability",
     "parser",
+    "converter",
     "typescript"
   ],
+  "homepage": "https://soeren04.github.io/kindling-hl7-fhir/",
+  "bugs": {
+    "url": "https://github.com/Soeren04/kindling-hl7-fhir/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/soeren04/kindling-hl7-fhir.git",
+    "url": "git+https://github.com/Soeren04/kindling-hl7-fhir.git",
     "directory": "packages/hl7-to-fhir"
   },
+  "license": "MIT",
+  "author": "Sören Todenhagen (https://github.com/Soeren04)",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json"
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json",
+    "check:package": "pnpm check:publint && pnpm check:attw && pnpm check:contents && pnpm publish:dry-run",
+    "prepack": "node ../../scripts/copy-package-files.mjs",
+    "check:publint": "publint --strict",
+    "check:attw": "attw --pack --profile node16",
+    "check:contents": "node ../../scripts/check-package-contents.mjs",
+    "publish:dry-run": "npm publish --dry-run"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "publint": "0.3.25",
+    "tsdown": "0.23.0"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

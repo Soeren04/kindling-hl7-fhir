@@ -70,6 +70,8 @@ export default defineConfig(
       },
     },
     rules: {
+      // TypeScript checks every file (JavaScript via checkJs) and knows the globals of each environment.
+      "no-undef": "off",
       eqeqeq: "error",
       "no-warning-comments": [
         "error",

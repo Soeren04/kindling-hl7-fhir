@@ -2,12 +2,11 @@
   "$schema": "https://unpkg.com/knip@6.40.0/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["tooling/*.test.ts"],
-      "project": ["*.{js,mjs,ts}", "tooling/**"],
+      "entry": ["scripts/*.mjs", "tooling/*.test.ts", "scripts/*.test.ts"],
+      "project": ["*.{js,mjs,ts}", "scripts/**", "tooling/**"],
       "ignore": ["tooling/fixtures/**"]
     },
     "packages/hl7-to-fhir": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"]
     }
   }
