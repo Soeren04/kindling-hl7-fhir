@@ -3,6 +3,8 @@ name: FHIR validator
 # Validates FHIR output with the official HL7 FHIR validator: zero errors, and only allowlisted warnings.
 on:
   pull_request:
+    # The src/** filter only becomes meaningful in Phase 3, when generated goldens are validated; until then the
+    # validator checks the committed spike bundle and nothing in src/ changes its result.
     paths:
       - packages/hl7-to-fhir/src/**
       - packages/hl7-to-fhir/test/fhir-spike/**

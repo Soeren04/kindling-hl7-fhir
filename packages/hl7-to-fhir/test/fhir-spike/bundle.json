@@ -1,7 +1,7 @@
 {
   "resourceType": "Bundle",
   "identifier": {
-    "system": "http://example.org/fhir/sid/message-control-id",
+    "system": "urn:oid:2.16.840.1.113883.19.5.1",
     "value": "MSG00001"
   },
   "type": "collection",
@@ -26,7 +26,7 @@
                 }
               ]
             },
-            "system": "http://example.org/fhir/sid/mrn",
+            "system": "urn:oid:2.16.840.1.113883.19.5.2",
             "value": "12345"
           }
         ],
