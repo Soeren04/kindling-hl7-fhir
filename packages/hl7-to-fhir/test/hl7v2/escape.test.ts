@@ -277,6 +277,12 @@ describe("encodeText", () => {
     expect(decode(encoded, "ascii", quoteEscape).value).toBe('""');
   });
 
+  it("writes a line feed as a hexadecimal escape when the period is a delimiter", () => {
+    expect(encodeText("a\nb", { ...standard, component: "." })).toBe(
+      "a\\X0A\\b",
+    );
+  });
+
   it("escapes the truncation character only when the message declares one", () => {
     expect(encodeText("#", standard)).toBe("#");
     expect(encodeText("#", { ...standard, truncation: "#" })).toBe("\\P\\");
