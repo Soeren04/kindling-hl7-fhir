@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 
-import type { Field, Segment } from "../../src/hl7v2/model";
+import type { Field, Hl7Message, Segment } from "../../src/hl7v2/model";
 import { parse, type ParsedMessage } from "../../src/hl7v2/parse";
 
 /** Parses `input` and fails the test when parsing fails. */
@@ -33,6 +33,18 @@ export function fieldShape(field: Field | undefined): FieldShape | undefined {
             return "";
         }
       }),
+    ),
+  );
+}
+
+/**
+ * A message as plain data without the spans, which describe the text a tree was read from and so differ between
+ * texts that hold the same message.
+ */
+export function withoutSpans(message: Hl7Message): unknown {
+  return JSON.parse(
+    JSON.stringify(message, (key, value: unknown) =>
+      key === "span" ? undefined : value,
     ),
   );
 }
