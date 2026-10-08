@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-Security fixes are released for the latest minor version of the current major version of `hl7-to-fhir`.
+`hl7-to-fhir` has not been released yet. Once it is, only the latest release receives security fixes; to get a fix,
+upgrade to the latest release.
 
 ## Reporting a vulnerability
 
@@ -14,7 +15,8 @@ Include the affected version, a description of the impact and a synthetic reprod
 response within seven days. Once a fix is released, the advisory is published with credit to the reporter unless
 you prefer to stay anonymous.
 
-Examples of what counts as a vulnerability here:
+Examples of what counts as a vulnerability. The parser, the CLI and the playground are not released yet, so these
+apply from the release that contains them:
 
 - input that makes the parser hang, consume unbounded memory or crash instead of returning a result (denial of
   service, including regular-expression backtracking);
