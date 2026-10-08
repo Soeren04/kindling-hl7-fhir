@@ -58,7 +58,13 @@ describe("readDeclarations and writeDeclarations", () => {
 
   it("makes the directory hold exactly the given declarations", () => {
     const directory = path.join(temporaryDirectory(), "api");
-    writeDeclarations(directory, new Map([["stale.d.ts", "old"]]));
+    writeDeclarations(
+      directory,
+      new Map([
+        ["stale.d.ts", "old"],
+        ["hl7v2.d.ts", "old"],
+      ]),
+    );
     writeFileSync(path.join(directory, "README.md"), "kept");
     writeDeclarations(
       directory,

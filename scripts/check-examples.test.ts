@@ -55,7 +55,7 @@ describe("findFunctionsWithoutExample", () => {
   it("ignores functions that are not exported and exports that are not functions", () => {
     expect(
       missing(
-        `declare function helper(): void;\n${noExample}\ninterface Options {}\nexport type { Options };\nexport * from "./other.js";`,
+        `declare function helper(): void;\n${noExample}\ninterface Options {}\nexport type { Options };\nexport * from "./other.js";\nexport * as other from "./other.js";`,
       ),
     ).toStrictEqual([]);
   });

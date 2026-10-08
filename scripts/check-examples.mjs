@@ -14,7 +14,7 @@ import ts from "typescript";
  *
  * @param {string} fileName - The file name, for messages and parsing.
  * @param {string} text - The declaration file content.
- * @returns {string[]} The public names of the functions without an example, in source order.
+ * @returns {string[]} The public names of the functions without an example, in export order.
  */
 export function findFunctionsWithoutExample(fileName, text) {
   const source = ts.createSourceFile(
@@ -35,9 +35,9 @@ export function findFunctionsWithoutExample(fileName, text) {
       .some((tag) => tag.tagName.text === "example");
     documented.set(local, (documented.get(local) ?? false) || hasExample);
   }
-  return [...documented]
-    .filter(([local, hasExample]) => exportedAs.has(local) && !hasExample)
-    .map(([local]) => exportedAs.get(local) ?? local);
+  return [...exportedAs]
+    .filter(([local]) => documented.get(local) === false)
+    .map(([, exported]) => exported);
 }
 
 /**
