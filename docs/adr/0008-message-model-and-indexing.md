@@ -101,3 +101,7 @@ the public shape and is not planned.
   consumers that need it read the raw text through the span.
 - Trimming trailing empties makes `stringify` canonical: it cannot reproduce trailing delimiters, so
   `stringify(parse(x)) === x` holds for canonical input only.
+- `stringify` writes the tree as it stands: every segment, the last one included, ends with `\r`; MSH-1 and MSH-2 are
+  taken verbatim from the first two fields of MSH (falling back to `delimiters` for hand-built trees); nulls are
+  always `""`, so a tree with nulls cannot use the quote as a delimiter. Values are escaped by `encodeText` only, in
+  one function (`stringifySubcomponent`), so changes to escaping stay in `escape.ts`.
