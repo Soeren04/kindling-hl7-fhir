@@ -15,8 +15,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "depcruise": "depcruise packages/hl7-to-fhir/src --config .dependency-cruiser.mjs",
+    "knip": "knip --treat-config-hints-as-errors",
     "verify:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise && pnpm knip"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -29,6 +30,7 @@
     "eslint-plugin-regexp": "3.3.1",
     "eslint-plugin-tsdoc": "0.5.4",
     "fast-check": "4.10.2",
+    "knip": "6.40.0",
     "prettier": "3.9.9",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
