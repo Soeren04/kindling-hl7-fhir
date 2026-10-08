@@ -8,6 +8,7 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "build": "pnpm --filter hl7-to-fhir run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint --max-warnings 0 .",
@@ -16,8 +17,9 @@
     "test:coverage": "vitest run --coverage",
     "depcruise": "depcruise packages/hl7-to-fhir/src --config .dependency-cruiser.mjs",
     "knip": "knip --treat-config-hints-as-errors",
+    "check:package": "pnpm --filter hl7-to-fhir run check:package",
     "verify:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise && pnpm knip"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise && pnpm knip && pnpm build && pnpm check:package"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
