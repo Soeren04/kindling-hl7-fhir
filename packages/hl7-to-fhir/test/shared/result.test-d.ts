@@ -1,7 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
 
-import type { Err, Ok, Result } from "../../src/index";
-import { err, ok } from "../../src/shared/result";
+import {
+  err,
+  type Err,
+  ok,
+  type Ok,
+  type Result,
+} from "../../src/shared/result";
 
 describe("Result", () => {
   it("narrows to Ok or Err on the ok discriminant", () => {
@@ -17,15 +22,18 @@ describe("Result", () => {
   });
 
   it("has readonly properties", () => {
-    const result: Result<number, string> = ok(1);
-    // @ts-expect-error -- results are immutable
-    result.ok = false;
+    const freeze = (result: Result<number, string>): void => {
+      // @ts-expect-error -- results are immutable
+      result.ok = false;
+    };
+    expectTypeOf(freeze).toBeFunction();
   });
 
-  it("does not expose value on a failed result without narrowing", () => {
-    const result: Result<number, string> = err("failure");
-    // @ts-expect-error -- value only exists after narrowing to Ok
-    expectTypeOf(result.value).toBeNumber();
+  it("does not expose value on a result that is not narrowed", () => {
+    const read = (result: Result<number, string>): unknown =>
+      // @ts-expect-error -- value only exists after narrowing to Ok
+      result.value;
+    expectTypeOf(read).toBeFunction();
   });
 });
 
