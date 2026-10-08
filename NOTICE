@@ -5,10 +5,9 @@ Licensed under the MIT License (see LICENSE).
 HL7 and FHIR
 ============
 
-HL7®, HEALTH LEVEL SEVEN® and FHIR® are trademarks owned by Health Level Seven
-International, registered with the United States Patent and Trademark Office.
-This project is not affiliated with, sponsored or endorsed by Health Level
-Seven International.
+HL7®, HEALTH LEVEL SEVEN® and FHIR® are registered trademarks of Health Level
+Seven International. This project is not affiliated with, sponsored or endorsed
+by Health Level Seven International.
 
 This software implements the HL7 Version 2 messaging standard (baseline
 version 2.5.1) and produces resources conforming to HL7 FHIR Release 4
@@ -32,6 +31,10 @@ Universal public domain dedication:
   Segment, data type and vocabulary mappings from HL7 Version 2 to FHIR R4.
 - HL7 FHIR Release 4 (4.0.1), https://hl7.org/fhir/R4/
   FHIR resource definitions and code systems.
+
+The Implementation Guide declares the CC0-1.0 license for its content. This
+software relies on that declaration for the field and segment tables the guide
+contains.
 
 Where this software contains HL7 Terminology content it is a derivative work:
 it includes only a subset of the codes, possibly in a different form, and it
