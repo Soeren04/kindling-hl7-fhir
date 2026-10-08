@@ -28,6 +28,8 @@ export function findReleaseProblems(tag, version) {
   return [];
 }
 
+// Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
+/* v8 ignore start */
 if (import.meta.main) {
   const tag = process.argv[2];
   if (tag === undefined) throw new Error("Usage: check-version.mjs <tag>");
@@ -38,7 +40,7 @@ if (import.meta.main) {
   /** @type {unknown} */
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const version =
-    typeof manifest === "object" && manifest !== null && "version" in manifest
+    manifest instanceof Object && "version" in manifest
       ? manifest.version
       : undefined;
   const problems = findReleaseProblems(tag, version);
@@ -47,3 +49,4 @@ if (import.meta.main) {
     console.log(`Release guard: tag ${tag} matches the package version.`);
   process.exitCode = problems.length === 0 ? 0 : 1;
 }
+/* v8 ignore stop */
