@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6.40.0/schema.json",
+  "ignoreBinaries": ["go", "pipx"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.mjs", "tooling/*.test.ts", "scripts/*.test.ts"],
