@@ -13,3 +13,4 @@ rewritten, they are superseded.
 | [0005](0005-hl7-content-licensing.md)                  | HL7 content licensing                                 |
 | [0006](0006-tooling.md)                                | Build, lint and test tooling                          |
 | [0007](0007-api-report-without-api-extractor.md)       | API report without API Extractor                      |
+| [0008](0008-message-model-and-indexing.md)             | Message model and field indexing                      |
