@@ -38,6 +38,10 @@ export type StringifyFailureCode = Extract<
  *
  * @example
  * ```ts
+ * import { stringify, type Hl7Message } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const message: Hl7Message;
+ *
  * const result = stringify(message);
  * if (!result.ok) console.error(result.error.code, result.error.location.field); // "ESCAPE_CHARACTER_REQUIRED", 5
  * ```

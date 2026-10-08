@@ -13,6 +13,8 @@ import type { Span } from "../shared/issue";
  *
  * @example
  * ```ts
+ * import type { Delimiters } from "hl7-to-fhir/hl7v2";
+ *
  * // MSH|^~\&|...
  * const standard: Delimiters = {
  *   field: "|",
@@ -46,6 +48,10 @@ export interface Delimiters {
  *
  * @example
  * ```ts
+ * import type { Hl7Message } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const message: Hl7Message;
+ *
  * const pid = message.segments.find((segment) => segment.id === "PID");
  * ```
  */
@@ -72,6 +78,10 @@ export interface Hl7Message {
  *
  * @example
  * ```ts
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
  * // PID-5: patient name
  * const name = pid.fields[5 - 1];
  * ```
@@ -95,6 +105,10 @@ export interface Segment {
  *
  * @example
  * ```ts
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
  * // Every repetition of PID-3, the patient identifier list
  * for (const identifier of pid.fields[3 - 1]?.repetitions ?? []) console.log(identifier.components.length);
  * ```
@@ -113,8 +127,12 @@ export interface Field {
  *
  * @example
  * ```ts
- * // XPN.1 family name of the first repetition of PID-5
- * const family = pid.fields[4]?.repetitions[0]?.components[0];
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
+ * // The first component (XPN.1, the family name) of the first repetition of PID-5
+ * const family = pid.fields[5 - 1]?.repetitions[0]?.components[1 - 1];
  * ```
  */
 export interface Repetition {
@@ -132,6 +150,10 @@ export interface Repetition {
  *
  * @example
  * ```ts
+ * import type { Component } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const component: Component;
+ *
  * const first = component.subcomponents[0];
  * if (first?.kind === "value") console.log(first.value);
  * ```
@@ -159,6 +181,10 @@ export interface Component {
  *
  * @example
  * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
  * if (subcomponent.kind === "value") console.log(subcomponent.value);
  * ```
  */
@@ -182,6 +208,10 @@ export interface ValueSubcomponent {
  *
  * @example
  * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
  * const deleted = subcomponent.kind === "null";
  * ```
  */
@@ -200,6 +230,10 @@ export interface NullSubcomponent {
  *
  * @example
  * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
  * const present = subcomponent.kind !== "empty";
  * ```
  */
@@ -215,6 +249,8 @@ export interface EmptySubcomponent {
  *
  * @example
  * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
  * function text(subcomponent: Subcomponent): string | undefined {
  *   return subcomponent.kind === "value" ? subcomponent.value : undefined;
  * }

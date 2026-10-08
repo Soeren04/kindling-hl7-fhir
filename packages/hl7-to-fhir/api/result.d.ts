@@ -7,6 +7,11 @@
  *
  * @example
  * ```ts
+ * import type { Span } from "hl7-to-fhir";
+ *
+ * declare const input: string;
+ * declare const span: Span;
+ *
  * const raw = input.slice(span.start, span.end);
  * ```
  */
@@ -42,6 +47,8 @@ type IssueCode = "INVALID_INPUT" | "EMPTY_INPUT" | "MISSING_MSH" | "UNEXPECTED_M
  *
  * @example
  * ```ts
+ * import type { Location } from "hl7-to-fhir";
+ *
  * // PID-5, second repetition, first component: "PID-5[2].1"
  * const location: Location = {
  *   span: { start: 120, end: 128 },
@@ -77,6 +84,10 @@ interface Location {
  *
  * @example
  * ```ts
+ * import type { Issue } from "hl7-to-fhir";
+ *
+ * declare const issues: readonly Issue[];
+ *
  * for (const issue of issues) {
  *   // Safe to log: code, severity, message and location never contain message content.
  *   console.warn(issue.severity, issue.code, issue.message, issue.location?.span);
@@ -131,6 +142,8 @@ interface Err<E> {
  *
  * @example
  * ```ts
+ * import type { Result } from "hl7-to-fhir";
+ *
  * declare const result: Result<number, "EMPTY">;
  * if (result.ok) console.log(result.value + 1);
  * else console.error(result.error);

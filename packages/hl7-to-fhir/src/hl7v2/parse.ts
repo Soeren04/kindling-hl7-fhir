@@ -22,6 +22,10 @@ import { parseSegment } from "./segment";
  *
  * @example
  * ```ts
+ * import { parse } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const input: string;
+ *
  * const result = parse(input);
  * if (result.ok) {
  *   const { message, issues } = result.value;
@@ -61,6 +65,8 @@ export type ParseFailureCode =
  *
  * @example
  * ```ts
+ * import { parse } from "hl7-to-fhir/hl7v2";
+ *
  * const result = parse("PID|1");
  * if (!result.ok) console.error(result.error.code, result.error.message); // "MISSING_MSH", ...
  * ```

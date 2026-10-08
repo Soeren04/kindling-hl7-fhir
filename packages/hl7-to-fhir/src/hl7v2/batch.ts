@@ -23,6 +23,10 @@ import {
  *
  * @example
  * ```ts
+ * import { splitBatch } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const input: string;
+ *
  * const { messages, issues } = splitBatch(input);
  * console.log(messages.length, issues.length);
  * ```
