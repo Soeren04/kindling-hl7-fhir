@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 const templateDirectory = path.resolve(
@@ -69,8 +69,13 @@ describe("issue template chooser", () => {
 });
 
 describe.each(formFiles)("issue form %s", (file) => {
-  const form = readYaml(path.join(templateDirectory, file));
-  const body = bodyOf(form);
+  let form: YamlMapping;
+  let body: readonly YamlMapping[];
+
+  beforeAll(() => {
+    form = readYaml(path.join(templateDirectory, file));
+    body = bodyOf(form);
+  });
 
   it("has a name, a description and documented labels", () => {
     expect(form["name"]).toEqual(expect.any(String));
@@ -78,10 +83,18 @@ describe.each(formFiles)("issue form %s", (file) => {
     const labels = form["labels"];
     expect(Array.isArray(labels) && labels.length > 0).toBe(true);
     for (const label of labels as unknown[])
-      expect(labelNames).toContain(label);
+      expect(
+        labelNames,
+        `label ${JSON.stringify(label)} of ${file} is missing in .github/labels.yml`,
+      ).toContain(label);
   });
 
-  it("uses only valid elements with unique ids", () => {
+  it("has no title, or a non-empty one", () => {
+    const title = form["title"];
+    if (title !== undefined) expect(title).toMatch(/\S/u);
+  });
+
+  it("uses only valid elements", () => {
     for (const element of body) {
       expect(elementTypes).toContain(element["type"]);
       const attributes = attributesOf(element);
@@ -89,10 +102,29 @@ describe.each(formFiles)("issue form %s", (file) => {
         expect(attributes["value"]).toEqual(expect.any(String));
       else expect(attributes["label"]).toEqual(expect.any(String));
     }
+  });
+
+  it("gives elements unique ids made of letters, digits, hyphens and underscores", () => {
     const ids = body
       .map((element) => element["id"])
       .filter((id) => id !== undefined);
+    for (const id of ids) expect(id).toMatch(/^[\w-]+$/u);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("offers at least one non-empty option in every dropdown and checkbox group", () => {
+    const choices = body.filter(
+      (element) =>
+        element["type"] === "dropdown" || element["type"] === "checkboxes",
+    );
+    for (const element of choices) {
+      const options = attributesOf(element)["options"];
+      expect(Array.isArray(options) && options.length > 0).toBe(true);
+      for (const option of options as unknown[]) {
+        const text = isMapping(option) ? option["label"] : option;
+        expect(text).toMatch(/\S/u);
+      }
+    }
   });
 
   it("warns against posting patient data before any input", () => {
