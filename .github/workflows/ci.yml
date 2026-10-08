@@ -107,7 +107,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
+          # Nothing is installed in this job, so there is no pnpm store to cache; caching would fail in the post step.
+          package-manager-cache: false
       # actionlint (Go) and zizmor (Python) run through the toolchains preinstalled on the runner.
       - run: pnpm lint:workflows
         env:
