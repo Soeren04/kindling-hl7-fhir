@@ -1,8 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { findReleaseProblems } from "./check-version.mjs";
 
@@ -54,20 +61,38 @@ describe("findReleaseProblems", () => {
 });
 
 const script = path.resolve(import.meta.dirname, "check-version.mjs");
-const manifest = JSON.parse(
-  readFileSync(
-    path.resolve(import.meta.dirname, "../packages/hl7-to-fhir/package.json"),
-    "utf8",
-  ),
-) as { version: string };
+const manifestVersion = "3.2.1";
+const directories: string[] = [];
 
+afterEach(() => {
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
+});
+
+/**
+ * Runs a copy of the script next to a manifest of a known version. The script finds the manifest relative to itself,
+ * so the result does not depend on the version the package has at the time the test runs (which may be a prerelease).
+ */
 function check(...args: string[]) {
-  return spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+  const root = mkdtempSync(path.join(tmpdir(), "check-version-"));
+  directories.push(root);
+  mkdirSync(path.join(root, "scripts"));
+  mkdirSync(path.join(root, "packages/hl7-to-fhir"), { recursive: true });
+  copyFileSync(script, path.join(root, "scripts/check-version.mjs"));
+  writeFileSync(
+    path.join(root, "packages/hl7-to-fhir/package.json"),
+    JSON.stringify({ version: manifestVersion }),
+  );
+  return spawnSync(
+    process.execPath,
+    [path.join(root, "scripts/check-version.mjs"), ...args],
+    { encoding: "utf8" },
+  );
 }
 
 describe("check-version.mjs", () => {
-  it("accepts the tag of the current package version", () => {
-    const tag = `v${manifest.version}`;
+  it("accepts the tag of the manifest version", () => {
+    const tag = `v${manifestVersion}`;
     expect(check(tag)).toMatchObject({
       status: 0,
       stdout: `Release guard: tag ${tag} matches the package version.\n`,
@@ -76,11 +101,12 @@ describe("check-version.mjs", () => {
   });
 
   it("rejects a tag of another version", () => {
-    const result = check("v0.0.0");
+    const otherTag = `v${manifestVersion}-other`;
+    const result = check(otherTag);
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe(
-      `Release guard: tag "v0.0.0" does not match the package version; expected "v${manifest.version}"\n`,
+      `Release guard: tag "${otherTag}" does not match the package version; expected "v${manifestVersion}"\n`,
     );
   });
 
