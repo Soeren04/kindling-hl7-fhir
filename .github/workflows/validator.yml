@@ -31,7 +31,7 @@ env:
   VALIDATOR_VERSION: 7.0.1
   # SHA-256 of validator_cli.jar for VALIDATOR_VERSION. When the version changes, leave this empty once: the job
   # prints the checksum of the downloaded jar and fails; compare it with an independent download, then pin it here.
-  VALIDATOR_SHA256: ""
+  VALIDATOR_SHA256: 1178b6a3a3fe98d9cd9545cadee505274967332466001d857e4d8bed7138a5bc
 
 jobs:
   validate:
