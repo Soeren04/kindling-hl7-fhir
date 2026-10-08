@@ -9,7 +9,11 @@
     },
     "packages/hl7-to-fhir": {
       "project": ["src/**/*.ts", "test/**/*.ts"],
-      "entry": ["test/**/*.test.ts", "test/**/*.test-d.ts"],
+      "entry": [
+        "test/**/*.test.ts",
+        "test/**/*.test-d.ts",
+        "test/type-perf/paths.ts"
+      ],
       "vitest": false
     }
   }

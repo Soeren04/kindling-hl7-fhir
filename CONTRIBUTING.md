@@ -44,23 +44,24 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 
 ## Scripts
 
-| Script                | What it does                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| `pnpm format`         | Formats everything with Prettier                                                    |
-| `pnpm lint`           | ESLint with zero warnings allowed                                                   |
-| `pnpm typecheck`      | `tsc` for every config, including the Node-free library config                      |
-| `pnpm test`           | Vitest: library and tooling tests                                                   |
-| `pnpm test:coverage`  | Tests with coverage; fails below 95 % on the library sources and the gating scripts |
-| `pnpm depcruise`      | Checks the layer boundaries with dependency-cruiser                                 |
-| `pnpm knip`           | Finds unused files, exports and dependencies                                        |
-| `pnpm build`          | Builds the library (ESM, CommonJS and declarations) with tsdown                     |
-| `pnpm check:api`      | Compares the built declarations with the API report and checks examples             |
-| `pnpm update:api`     | Builds and rewrites the API report in `packages/hl7-to-fhir/api/`                   |
-| `pnpm check:package`  | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run`          |
-| `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                   |
-| `pnpm verify:fast`    | Format check, lint, typecheck and tests: run before every commit                    |
-| `pnpm verify:ci`      | Every gate except `lint:workflows`: needs neither Go nor pipx                       |
-| `pnpm verify`         | `verify:ci` plus `lint:workflows`: everything CI runs                               |
+| Script                        | What it does                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm format`                 | Formats everything with Prettier                                                            |
+| `pnpm lint`                   | ESLint with zero warnings allowed                                                           |
+| `pnpm typecheck`              | `tsc` for every config, including the Node-free library config                              |
+| `pnpm test`                   | Vitest: library and tooling tests                                                           |
+| `pnpm test:coverage`          | Tests with coverage; fails below 95 % on the library sources and the gating scripts         |
+| `pnpm depcruise`              | Checks the layer boundaries with dependency-cruiser                                         |
+| `pnpm knip`                   | Finds unused files, exports and dependencies                                                |
+| `pnpm build`                  | Builds the library (ESM, CommonJS and declarations) with tsdown                             |
+| `pnpm check:type-performance` | Compiles a fixture of path calls and fails above the budgeted number of type instantiations |
+| `pnpm check:api`              | Compares the built declarations with the API report and checks examples                     |
+| `pnpm update:api`             | Builds and rewrites the API report in `packages/hl7-to-fhir/api/`                           |
+| `pnpm check:package`          | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run`                  |
+| `pnpm lint:workflows`         | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                           |
+| `pnpm verify:fast`            | Format check, lint, typecheck and tests: run before every commit                            |
+| `pnpm verify:ci`              | Every gate except `lint:workflows`: needs neither Go nor pipx                               |
+| `pnpm verify`                 | `verify:ci` plus `lint:workflows`: everything CI runs                                       |
 
 `pnpm check:api` and `pnpm check:package` inspect the build output, so run `pnpm build` first; `pnpm verify:ci` and
 `pnpm verify` do.
