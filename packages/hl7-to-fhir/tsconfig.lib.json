@@ -2,7 +2,6 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": [],
-    "lib": ["ES2022"],
     // tsc reports isolatedDeclarations errors only while emitting declarations, so this config emits them into a
     // throwaway cache directory instead of using noEmit. The published .d.ts files are produced by tsdown.
     "noEmit": false,

@@ -83,7 +83,7 @@ export default defineConfig(
   regexp.configs["flat/recommended"],
   {
     rules: {
-      "regexp/no-super-linear-backtracking": "error",
+      // The recommended preset already enables no-super-linear-backtracking; this one is the stricter companion.
       "regexp/no-super-linear-move": "error",
     },
   },
