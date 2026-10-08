@@ -35,6 +35,18 @@ export type IssueCode =
   | "EMPTY_INPUT"
   /** The first segment is not `MSH`. */
   | "MISSING_MSH"
+  /** A byte order mark at the start of the input was removed. */
+  | "BYTE_ORDER_MARK_REMOVED"
+  /** An MLLP start block (`0x0B`) or end block (`0x1C`, optionally followed by a carriage return) was removed. */
+  | "MLLP_FRAMING_REMOVED"
+  /** Whitespace after the last segment was removed. */
+  | "TRAILING_WHITESPACE_REMOVED"
+  /** Segments end with a line feed or carriage return plus line feed instead of a carriage return. */
+  | "NON_STANDARD_SEGMENT_TERMINATOR"
+  /** An empty line between segments was removed. */
+  | "BLANK_LINE_REMOVED"
+  /** A segment identifier is not three upper-case letters or digits starting with a letter; the segment is kept. */
+  | "INVALID_SEGMENT_ID"
   /** MSH-1 is missing, or it is not a printable ASCII punctuation character. */
   | "INVALID_FIELD_SEPARATOR"
   /** MSH-2 is empty or longer than five characters, or its delimiters are not distinct punctuation characters. */
@@ -129,3 +141,6 @@ export interface Issue {
    */
   readonly value?: string;
 }
+
+/** An issue that has a location. Every issue the parser reports has one; the type lets it sort them by position. */
+export type LocatedIssue = Issue & { readonly location: Location };

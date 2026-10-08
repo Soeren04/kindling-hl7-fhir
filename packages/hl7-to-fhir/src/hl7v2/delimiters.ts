@@ -1,4 +1,4 @@
-import type { Issue, Location, Span } from "../shared/issue";
+import type { LocatedIssue, Location, Span } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { indexOfOrEnd, readHeaderValue } from "./header";
 import type { Delimiters } from "./model";
@@ -8,8 +8,13 @@ export interface DelimiterReading {
   /** The delimiters, with standard values for those MSH-2 omits. */
   readonly delimiters: Delimiters;
   /** Remarks about MSH-1 and MSH-2, such as defaulted delimiters. */
-  readonly issues: readonly Issue[];
+  readonly issues: readonly LocatedIssue[];
 }
+
+/** Why the delimiters cannot be used. */
+export type DelimiterFailure = LocatedIssue & {
+  readonly code: "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS";
+};
 
 /** The standard delimiters `|^~\&`, used for the characters a shortened MSH-2 omits. */
 const standard = {
@@ -39,7 +44,7 @@ const maxEncodingCharacters = 5;
 export function readDelimiters(
   input: string,
   msh: Span,
-): Result<DelimiterReading, Issue> {
+): Result<DelimiterReading, DelimiterFailure> {
   const separatorStart = msh.start + fieldSeparatorOffset;
   const field = input.slice(
     separatorStart,
@@ -85,7 +90,7 @@ export function readDelimiters(
     });
   }
 
-  const issues: Issue[] = [];
+  const issues: LocatedIssue[] = [];
   if (encoding.length < 4) {
     issues.push({
       code: "ENCODING_CHARACTERS_DEFAULTED",
@@ -136,7 +141,7 @@ function invalidFieldSeparator(
   field: string,
   start: number,
   segmentEnd: number,
-): Issue {
+): DelimiterFailure {
   const location = mshLocation(1, {
     start,
     end: Math.min(start + 1, segmentEnd),
