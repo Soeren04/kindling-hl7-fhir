@@ -71,7 +71,7 @@ export function writeDeclarations(directory, declarations) {
   }
 }
 
-// Exercised by running the script in `pnpm check:api`; V8 coverage cannot follow child processes.
+// Exercised by spawning the script in the tests and by `pnpm check:api`; V8 coverage cannot follow child processes.
 /* v8 ignore start */
 if (import.meta.main) {
   const build = readDeclarations("dist");
@@ -81,7 +81,13 @@ if (import.meta.main) {
     );
     process.exitCode = 1;
   } else if (process.argv.includes("--update")) {
+    const changes = compareApiReport(readDeclarations("api"), build);
     writeDeclarations("api", build);
+    console.log(
+      changes.length === 0
+        ? "API report: api/ is already up to date."
+        : `API report: updated api/ (${changes.join("; ")}).`,
+    );
   } else {
     const problems = compareApiReport(readDeclarations("api"), build);
     for (const problem of problems) console.error(`API report: ${problem}`);
