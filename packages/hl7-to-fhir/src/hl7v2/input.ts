@@ -11,9 +11,9 @@ export interface Content {
   readonly issues: readonly LocatedIssue[];
 }
 
-const byteOrderMark = "\uFEFF";
-const mllpStartBlock = "\u000B";
-const mllpEndBlock = "\u001C";
+export const byteOrderMark = "\uFEFF";
+export const mllpStartBlock = "\u000B";
+export const mllpEndBlock = "\u001C";
 
 /**
  * Finds the segments in `input`: skips a leading byte order mark and MLLP start block, and an MLLP end block and
@@ -23,11 +23,15 @@ export function locateContent(input: string): Content {
   const issues: LocatedIssue[] = [];
   let start = 0;
   if (input.startsWith(byteOrderMark)) {
-    issues.push(removed("BYTE_ORDER_MARK_REMOVED", { start, end: start + 1 }));
+    issues.push(
+      removalIssue("BYTE_ORDER_MARK_REMOVED", { start, end: start + 1 }),
+    );
     start += 1;
   }
   if (input.startsWith(mllpStartBlock, start)) {
-    issues.push(removed("MLLP_FRAMING_REMOVED", { start, end: start + 1 }));
+    issues.push(
+      removalIssue("MLLP_FRAMING_REMOVED", { start, end: start + 1 }),
+    );
     start += 1;
   }
 
@@ -37,7 +41,10 @@ export function locateContent(input: string): Content {
     // The end block is followed by a carriage return in MLLP; anything after that is ordinary trailing whitespace.
     const frameEnd = textEnd + (input.charAt(textEnd) === "\r" ? 1 : 0);
     issues.push(
-      removed("MLLP_FRAMING_REMOVED", { start: textEnd - 1, end: frameEnd }),
+      removalIssue("MLLP_FRAMING_REMOVED", {
+        start: textEnd - 1,
+        end: frameEnd,
+      }),
     );
     issues.push(...trailingWhitespace(frameEnd, end));
     end = textEnd - 1;
@@ -86,7 +93,7 @@ function isWhitespace(character: string): boolean {
 
 function trailingWhitespace(start: number, end: number): LocatedIssue[] {
   return start < end
-    ? [removed("TRAILING_WHITESPACE_REMOVED", { start, end })]
+    ? [removalIssue("TRAILING_WHITESPACE_REMOVED", { start, end })]
     : [];
 }
 
@@ -97,11 +104,22 @@ const removalMessages = {
   TRAILING_WHITESPACE_REMOVED: "Whitespace after the last segment was removed.",
 } as const;
 
-function removed(code: keyof typeof removalMessages, span: Span): LocatedIssue {
+/** The info issue for an artifact removed from the input. */
+export function removalIssue(
+  code: keyof typeof removalMessages,
+  span: Span,
+): LocatedIssue {
   return {
     code,
     severity: "info",
     message: removalMessages[code],
     location: { span },
   };
+}
+
+/** Sorts issues by their position in the input; issues at the same position keep the order they were found in. */
+export function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
+  return [...issues].sort(
+    (a, b) => a.location.span.start - b.location.span.start,
+  );
 }

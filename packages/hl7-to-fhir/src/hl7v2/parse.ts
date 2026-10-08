@@ -3,7 +3,7 @@ import { err, ok, type Result } from "../shared/result";
 import { readDelimiters } from "./delimiters";
 import { resolveCharset } from "./escape";
 import { readHeaderValue } from "./header";
-import { locateContent, terminatorLength } from "./input";
+import { inInputOrder, locateContent, terminatorLength } from "./input";
 import type { Hl7Message, Segment } from "./model";
 import { parseSegment } from "./segment";
 
@@ -196,11 +196,4 @@ function fail(
     message: cause.message,
     issues: [...inInputOrder(issues), cause],
   });
-}
-
-/** Sorts issues by their position in the input; issues at the same position keep the order they were found in. */
-function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
-  return [...issues].sort(
-    (a, b) => a.location.span.start - b.location.span.start,
-  );
 }
