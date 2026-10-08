@@ -4,6 +4,7 @@ name: FHIR validator
 on:
   pull_request:
     paths:
+      - packages/hl7-to-fhir/src/**
       - packages/hl7-to-fhir/test/fhir-spike/**
       - packages/hl7-to-fhir/test/golden/**
       - packages/hl7-to-fhir/test/validator-allowlist.json
@@ -12,6 +13,7 @@ on:
   push:
     branches: [main]
     paths:
+      - packages/hl7-to-fhir/src/**
       - packages/hl7-to-fhir/test/fhir-spike/**
       - packages/hl7-to-fhir/test/golden/**
       - packages/hl7-to-fhir/test/validator-allowlist.json
