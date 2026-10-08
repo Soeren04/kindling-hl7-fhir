@@ -6,11 +6,11 @@
 
 ## Context
 
-Real HL7 v2 feeds deviate from the standard all the time: `\n` instead of `\r` as segment terminator, MLLP framing
+Real HL7 v2 feeds are assumed to deviate from the standard regularly: `\n` instead of `\r` as segment terminator, MLLP framing
 characters or a byte order mark left in the text, a shortened MSH-2, trailing whitespace, unknown escape sequences,
-local Z segments. Interface engines such as Mirth Connect and Rhapsody accept such messages and let routes decide
-what to reject. A parser that refuses them is unusable on real data; a parser that silently repairs them hides
-problems from the people who must fix the sending system.
+local Z segments. A parser that refuses them is of little use on such data; a parser that silently repairs them hides
+problems from the people who must fix the sending system. The split between a tolerant parse and an explicit
+validation step follows from that.
 
 ## Decision
 
