@@ -11,6 +11,15 @@ export default defineConfig({
           include: ["test/**/*.test.ts"],
         },
       },
+      {
+        test: {
+          name: "tooling",
+          root: "tooling",
+          include: ["*.test.ts"],
+          // Type-aware linting of the fixtures starts a TypeScript program, which takes a few seconds.
+          testTimeout: 30_000,
+        },
+      },
     ],
     coverage: {
       provider: "v8",
