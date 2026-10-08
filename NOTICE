@@ -1,0 +1,49 @@
+hl7-to-fhir
+Copyright (c) 2026 Sören Todenhagen
+Licensed under the MIT License (see LICENSE).
+
+HL7 and FHIR
+============
+
+HL7®, HEALTH LEVEL SEVEN® and FHIR® are trademarks owned by Health Level Seven
+International, registered with the United States Patent and Trademark Office.
+This project is not affiliated with, sponsored or endorsed by Health Level
+Seven International.
+
+This software implements the HL7 Version 2 messaging standard (baseline
+version 2.5.1) and produces resources conforming to HL7 FHIR Release 4
+(version 4.0.1).
+
+HL7 content in this software
+----------------------------
+
+Any HL7 Version 2 metadata in this software is limited to what the code needs
+to parse, validate and convert messages: segment, field, data type and table
+identifiers, their short names, structural rules (optionality, cardinality,
+data types) and table codes. It is taken from these publications, which
+Health Level Seven International releases under the Creative Commons CC0 1.0
+Universal public domain dedication:
+
+- HL7 Terminology (THO), https://terminology.hl7.org/
+  HL7 Version 2 tables and code systems. THO is copyright (c) 1989+ Health
+  Level Seven International.
+- HL7 Version 2 to FHIR Implementation Guide, version 1.0.0 (STU 1),
+  https://hl7.org/fhir/uv/v2mappings/
+  Segment, data type and vocabulary mappings from HL7 Version 2 to FHIR R4.
+- HL7 FHIR Release 4 (4.0.1), https://hl7.org/fhir/R4/
+  FHIR resource definitions and code systems.
+
+Where this software contains HL7 Terminology content it is a derivative work:
+it includes only a subset of the codes, possibly in a different form, and it
+is not the official HL7 Terminology.
+
+No text of the HL7 Version 2 standard documents (definitions, descriptions,
+usage notes) is reproduced. The HL7 Version 2 standard is available from
+Health Level Seven International under its intellectual property policy.
+
+Third-party terminologies
+-------------------------
+
+LOINC, SNOMED CT, UCUM and other external code systems are referenced only by
+their identifiers and system URIs. This software contains none of their
+content; their use is governed by their own licenses.
