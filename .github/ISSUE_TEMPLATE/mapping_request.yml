@@ -1,0 +1,49 @@
+name: Mapping request
+description: Ask for an HL7 v2 message, segment or field to be mapped to FHIR.
+labels: ["mapping"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **Never post real patient data.** Issues are public and permanent. Only use synthetic messages or messages
+        > that are fully de-identified (names, identifiers, dates, addresses, phone numbers and free text replaced).
+        > If you posted real data by mistake, follow the steps in [SECURITY.md](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/SECURITY.md#patient-data-posted-by-mistake).
+  - type: checkboxes
+    id: synthetic-data
+    attributes:
+      label: Data
+      options:
+        - label: Every message, resource and log in this issue is synthetic or fully de-identified.
+          required: true
+  - type: input
+    id: v2-element
+    attributes:
+      label: HL7 v2 element
+      description: Message type, segment or field, and the HL7 v2 version you receive.
+      placeholder: NK1 segment in ADT^A01, v2.5.1
+    validations:
+      required: true
+  - type: input
+    id: fhir-target
+    attributes:
+      label: FHIR target
+      description: The FHIR R4 resource or element you expect.
+      placeholder: RelatedPerson
+    validations:
+      required: true
+  - type: input
+    id: ig-reference
+    attributes:
+      label: HL7 v2-to-FHIR IG reference
+      description: The segment or datatype map in the HL7 Version 2 to FHIR Implementation Guide, if you know it.
+      placeholder: https://hl7.org/fhir/uv/v2mappings/...
+    validations:
+      required: false
+  - type: textarea
+    id: example
+    attributes:
+      label: Synthetic example message
+      render: text
+    validations:
+      required: true

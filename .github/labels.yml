@@ -1,0 +1,28 @@
+# Repository labels, documented here and created by the maintainer.
+- name: bug
+  color: d73a4a
+  description: Something does not work as documented
+- name: enhancement
+  color: a2eeef
+  description: New feature or improvement
+- name: mapping
+  color: 5319e7
+  description: HL7 v2 to FHIR mapping request
+- name: documentation
+  color: 0075ca
+  description: Documentation only
+- name: dependencies
+  color: 0366d6
+  description: Dependency update (Renovate)
+- name: good first issue
+  color: 7057ff
+  description: Well scoped for a first contribution
+- name: help wanted
+  color: 008672
+  description: Contributions welcome
+- name: security
+  color: b60205
+  description: Security hardening (vulnerabilities go through private reporting)
+- name: phi-removed
+  color: e99695
+  description: Patient data was posted by mistake and has been removed
