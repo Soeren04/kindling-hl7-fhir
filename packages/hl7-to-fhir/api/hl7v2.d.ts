@@ -48,7 +48,7 @@ interface Hl7Message {
   /** The version ID from MSH-12.1 (for example `2.5.1`), as written; absent when MSH-12 is empty. */
   readonly version?: string;
   /** Every segment in input order, including Z segments and segments with unknown identifiers. */
-  readonly segments: readonly Segment[];
+  readonly segments: readonly Segment$1[];
 }
 /**
  * One segment: a line of the message such as `PID|1||...`.
@@ -65,11 +65,11 @@ interface Hl7Message {
  * const name = pid.fields[5 - 1];
  * ```
  */
-interface Segment {
+interface Segment$1 {
   /** The segment identifier, such as `PID` or `ZPI`, as written. */
   readonly id: string;
   /** The fields after the identifier; `fields[n - 1]` is field `n`. */
-  readonly fields: readonly Field[];
+  readonly fields: readonly Field$1[];
   /** The segment text without its terminator. */
   readonly span: Span;
 }
@@ -84,7 +84,7 @@ interface Segment {
  * for (const identifier of pid.fields[3 - 1]?.repetitions ?? []) console.log(identifier.components.length);
  * ```
  */
-interface Field {
+interface Field$1 {
   /** The repetitions in input order. */
   readonly repetitions: readonly Repetition[];
   /** The field text between its field delimiters. */
@@ -103,7 +103,7 @@ interface Field {
  */
 interface Repetition {
   /** The components in input order; `components[n - 1]` is component `n`. */
-  readonly components: readonly Component[];
+  readonly components: readonly Component$1[];
   /** The repetition text between its delimiters. */
   readonly span: Span;
 }
@@ -119,9 +119,9 @@ interface Repetition {
  * if (first?.kind === "value") console.log(first.value);
  * ```
  */
-interface Component {
+interface Component$1 {
   /** The subcomponents in input order; `subcomponents[n - 1]` is subcomponent `n`. */
-  readonly subcomponents: readonly Subcomponent[];
+  readonly subcomponents: readonly Subcomponent$1[];
   /** The component text between its delimiters. */
   readonly span: Span;
 }
@@ -190,7 +190,49 @@ interface EmptySubcomponent {
  * }
  * ```
  */
-type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
+type Subcomponent$1 = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
+//#endregion
+//#region src/hl7v2/path-type.d.ts
+/**
+ * A path in HL7 notation: `PID.5`, `PID.5.1`, `PID.3[2].1`, `OBX[3].5`. See `get` for what a path selects.
+ *
+ * As a plain type, `Hl7Path` is `string`: any string is accepted at runtime, and one that is not a valid path matches
+ * nothing (`parsePath` explains why). With a type argument, it checks the shape of a string literal and rejects
+ * obvious mistakes while you type:
+ *
+ * - the segment is three upper-case letters or digits, optionally followed by an index such as `[2]`,
+ * - a field number follows the segment, and component and subcomponent numbers may follow it,
+ * - every number is a positive whole number without leading zeros, and only the segment and the field take an index.
+ *
+ * The check is shallow on purpose: it does not know which segments and fields exist, so `PID.99` passes, and it
+ * costs a few type instantiations per literal. Strings that are not literals (variables, template strings) always
+ * pass.
+ *
+ * @typeParam P - The path to check; inferred from the argument by `get`, `getAll` and `isNull`.
+ *
+ * @example
+ * ```ts
+ * import type { Hl7Path } from "hl7-to-fhir/hl7v2";
+ *
+ * const name: Hl7Path = "PID.5.1";
+ * const checked: Hl7Path<"OBX[3].5"> = "OBX[3].5";
+ * // const broken: Hl7Path<"PID..5"> = "PID..5"; // error: Invalid HL7 path: ...
+ * ```
+ */
+type Hl7Path<P extends string = string> = string extends P ? string : Problem<P> extends (infer Reason extends string) ? [Reason] extends [""] ? P : `Invalid HL7 path: ${Reason}` : never;
+/** What is wrong with a path literal: the empty string when nothing is. */
+type Problem<P extends string> = P extends `${infer Segment}.${infer Rest}` ? SegmentProblem<Segment> extends "" ? FieldProblem<Rest> : SegmentProblem<Segment> : "a field number must follow the segment, as in PID.5";
+type SegmentProblem<S extends string> = S extends `${infer Id}[${infer Index}]` ? IdProblem<Id> extends "" ? IndexProblem<Index> : IdProblem<Id> : IdProblem<S>;
+/** An identifier has three characters and no lower-case letters. */
+type IdProblem<Id extends string> = string extends Id ? "" : Id extends `${string}${string}${string}${infer Rest}` ? Rest extends "" ? Id extends Uppercase<Id> ? "" : "the segment identifier must be upper case" : "the segment identifier has three characters" : "the segment identifier has three characters";
+type FieldProblem<R extends string> = R extends `${infer Field}.${infer Rest}` ? NumberedProblem<Field, "field"> extends "" ? ComponentProblem<Rest> : NumberedProblem<Field, "field"> : NumberedProblem<R, "field">;
+type ComponentProblem<R extends string> = R extends `${infer Component}.${infer Subcomponent}` ? NumberProblem<Component, "component"> extends "" ? NumberProblem<Subcomponent, "subcomponent"> : NumberProblem<Component, "component"> : NumberProblem<R, "component">;
+/** A field with an optional repetition index in brackets. */
+type NumberedProblem<F extends string, What extends string> = F extends `${infer Number}[${infer Index}]` ? NumberProblem<Number, What> extends "" ? IndexProblem<Index> : NumberProblem<Number, What> : NumberProblem<F, What>;
+type IndexProblem<Index extends string> = NumberProblem<Index, "repetition index">;
+/** A positive whole number: digits only, not starting with zero. */
+type NumberProblem<N extends string, What extends string> = string extends N ? "" : N extends `0${string}` ? `a ${What} is a positive number without leading zeros` : DigitsOnly<N> extends true ? "" : `a ${What} is a positive number`;
+type DigitsOnly<N extends string> = N extends `${infer Head}${infer Tail}` ? Head extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ? Tail extends "" ? true : DigitsOnly<Tail> : false : false;
 //#endregion
 //#region src/hl7v2/access.d.ts
 /**
@@ -208,6 +250,7 @@ type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
  *   explicit null `""`; use {@link isNull} to tell the null from the absence.
  * - A path that does not parse (see `parsePath`) matches nothing, so the result is `undefined`.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.5.1`.
  * @returns The text, or `undefined`.
@@ -223,7 +266,7 @@ type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
  * }
  * ```
  */
-export declare function get(message: Hl7Message, path: string): string | undefined;
+export declare function get<P extends string>(message: Hl7Message, path: Hl7Path<P>): string | undefined;
 /**
  * Reads the text at every position a path selects.
  *
@@ -233,6 +276,7 @@ export declare function get(message: Hl7Message, path: string): string | undefin
  * {@link get} would return for it; empty positions and the explicit null `""` contribute nothing. A path that does not
  * parse selects nothing.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.3.1`.
  * @returns The texts in message order; empty when the path selects nothing.
@@ -247,7 +291,7 @@ export declare function get(message: Hl7Message, path: string): string | undefin
  * }
  * ```
  */
-export declare function getAll(message: Hl7Message, path: string): readonly string[];
+export declare function getAll<P extends string>(message: Hl7Message, path: Hl7Path<P>): readonly string[];
 /**
  * Whether the sender stated that the value at a path is null.
  *
@@ -255,6 +299,7 @@ export declare function getAll(message: Hl7Message, path: string): readonly stri
  * means "not sent". The path is read like {@link get} reads it. The result is `true` only for the explicit null; it is
  * `false` for a value, an empty position, a missing position and a path that does not parse.
  *
+ * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.8`.
  * @returns Whether the position holds the explicit null.
@@ -270,7 +315,7 @@ export declare function getAll(message: Hl7Message, path: string): readonly stri
  * }
  * ```
  */
-export declare function isNull(message: Hl7Message, path: string): boolean;
+export declare function isNull<P extends string>(message: Hl7Message, path: Hl7Path<P>): boolean;
 //#endregion
 //#region src/hl7v2/batch.d.ts
 /**
@@ -520,4 +565,4 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  */
 export declare function stringify(message: Hl7Message): string;
 //#endregion
-export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, ParsedPath, PathError, PathErrorCode, Repetition, Segment, Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, Subcomponent$1 as Subcomponent, ValueSubcomponent };
