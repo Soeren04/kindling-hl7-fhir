@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   collectIssues,
@@ -73,6 +78,33 @@ describe("collectIssues", () => {
 
   it("returns no issues for a clean OperationOutcome", () => {
     expect(collectIssues(outcome("bundle.json", []))).toStrictEqual([]);
+  });
+
+  it.each([
+    ["without entries", { resourceType: "Bundle", entry: [] }],
+    ["without an entry list", { resourceType: "Bundle" }],
+  ])("rejects a Bundle %s because nothing was validated", (_d, output) => {
+    expect(() => collectIssues(output)).toThrow(
+      "The validator output is a Bundle without entries",
+    );
+  });
+
+  it("reports an issue without a usable severity as unknown", () => {
+    const issues = collectIssues(
+      outcome("bundle.json", [{ extension: [messageId("ODD")] }]),
+    );
+    expect(issues).toStrictEqual([
+      {
+        severity: "<unknown severity>",
+        messageId: "ODD",
+        file: "bundle.json",
+        location: "<unknown location>",
+        text: "",
+      },
+    ]);
+    expect(findValidationProblems(issues, [])).toStrictEqual([
+      "<unknown severity> ODD in bundle.json at <unknown location>: ",
+    ]);
   });
 
   it.each([
@@ -170,5 +202,62 @@ describe("parseAllowlist", () => {
         default: unknown;
       };
     expect(() => parseAllowlist(allowlist)).not.toThrow();
+  });
+});
+
+const script = path.resolve(import.meta.dirname, "check-validator-results.mjs");
+const directories: string[] = [];
+
+afterEach(() => {
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
+});
+
+function check(output: unknown, allowlist: unknown) {
+  const directory = mkdtempSync(path.join(tmpdir(), "validator-results-"));
+  directories.push(directory);
+  const outputPath = path.join(directory, "output.json");
+  const allowlistPath = path.join(directory, "allowlist.json");
+  writeFileSync(outputPath, JSON.stringify(output));
+  writeFileSync(allowlistPath, JSON.stringify(allowlist));
+  return spawnSync(process.execPath, [script, outputPath, allowlistPath], {
+    encoding: "utf8",
+  });
+}
+
+describe("check-validator-results.mjs", () => {
+  const allowlist = {
+    warnings: [
+      { messageId: "BUNDLE_BUNDLE_ENTRY_NOTFOUND", reason: "Expected" },
+    ],
+  };
+
+  it("passes when only allowlisted warnings occur", () => {
+    expect(check(outcome("bundle.json", [warning]), allowlist)).toMatchObject({
+      status: 0,
+      stdout: "FHIR validator: 1 issue(s), 0 problem(s).\n",
+      stderr: "",
+    });
+  });
+
+  it("fails and names the problem when a warning is not allowlisted", () => {
+    const result = check(outcome("bundle.json", [warning]), { warnings: [] });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("FHIR validator: 1 issue(s), 1 problem(s).\n");
+    expect(result.stderr).toBe(
+      "warning BUNDLE_BUNDLE_ENTRY_NOTFOUND in bundle.json at Bundle.entry[0]: Example warning\n",
+    );
+  });
+
+  it("fails when the validator output holds no OperationOutcome", () => {
+    const result = check({ resourceType: "Bundle", entry: [] }, allowlist);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Bundle without entries");
+  });
+
+  it("fails with a usage message when an argument is missing", () => {
+    const result = spawnSync(process.execPath, [script], { encoding: "utf8" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Usage: check-validator-results.mjs");
   });
 });
