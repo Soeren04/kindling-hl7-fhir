@@ -5,6 +5,13 @@
     "allowJs": true,
     "checkJs": true
   },
-  "include": ["*.ts", "*.js", "*.mjs", "scripts", "tooling"],
+  "include": [
+    "*.ts",
+    "*.js",
+    "*.mjs",
+    ".dependency-cruiser.mjs",
+    "scripts",
+    "tooling"
+  ],
   "exclude": ["tooling/fixtures"]
 }
