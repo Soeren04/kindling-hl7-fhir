@@ -87,7 +87,8 @@ characters. A body is welcome when the _why_ is not obvious. Details of what the
 
 Keep commits small and atomic. **Every commit must pass `pnpm verify:fast` on its own**: CI replays each commit of a
 pull request and runs the fast gates on it, and pull requests are merged with rebase, so every commit lands on `main`
-unchanged. Commit tests together with the code they test.
+unchanged. Commit tests together with the code they test. The fast gates must not need a build: CI runs them on a
+fresh checkout without `dist/`.
 
 ## Changesets
 

@@ -55,7 +55,7 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.lib.json && tsc -p bench/tsconfig.json",
     "check:package": "pnpm check:publint && pnpm check:attw && pnpm check:contents && pnpm publish:dry-run",
     "prepack": "node ../../scripts/copy-package-files.mjs",
     "check:publint": "publint --strict",

@@ -15,6 +15,8 @@
     "typecheck": "tsc -p tsconfig.json && pnpm --recursive run typecheck",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "bench": "pnpm build && vitest bench --config packages/hl7-to-fhir/bench/bench.config.ts",
+    "bench:memory": "pnpm build && vitest run --config packages/hl7-to-fhir/bench/bench.config.ts",
     "depcruise": "depcruise packages/hl7-to-fhir/src --config .dependency-cruiser.mjs",
     "knip": "knip --treat-config-hints-as-errors",
     "check:package": "pnpm --filter hl7-to-fhir run check:package",
