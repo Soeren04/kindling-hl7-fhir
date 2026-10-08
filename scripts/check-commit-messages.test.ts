@@ -42,6 +42,7 @@ describe("findCommitMessageProblems", () => {
     ["a fixup marker", "fixup! feat: add parser"],
     ["a squash marker", "squash! feat: add parser"],
     ["a revert of an invalid subject", 'Revert "Add parser"'],
+    ["a nested revert", 'Revert "Revert "feat: add parser""'],
     ["an unterminated revert", 'Revert "feat: add parser'],
     ["an empty message", ""],
   ])("rejects %s", (_description, message) => {

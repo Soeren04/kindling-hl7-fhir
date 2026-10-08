@@ -7,7 +7,8 @@ commits, changesets and test data. By participating you agree to the [Code of Co
 
 Issues, pull requests, tests, samples and documentation must only contain **synthetic** HL7 messages and FHIR
 resources. Use the fictional names from the HL7 standard (for example `Everyman^Adam` and `Everywoman^Eve`),
-`example.org` systems and obviously fake identifiers. Never paste real patient data, not even "just for a minute".
+fictional `urn:oid:` identifier systems (the official validator rejects `example.org` URLs) and obviously fake
+identifiers. Never paste real patient data, not even "just for a minute".
 If it happens anyway, follow [Patient data posted by mistake](SECURITY.md#patient-data-posted-by-mistake).
 
 ## Setup
@@ -30,34 +31,34 @@ set.
 
 ## Repository layout
 
-| Path                   | Contents                                                                 |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `packages/hl7-to-fhir` | The published library: `src/` sources, `test/` unit, type and FHIR tests |
-| `tooling/`             | Tests proving that the lint and boundary rules fire, with their fixtures |
-| `scripts/`             | Small, tested Node scripts used by CI and the release                    |
-| `docs/adr/`            | Architecture decision records                                            |
-| `.github/workflows/`   | CI, release and FHIR validator workflows                                 |
+| Path                   | Contents                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `packages/hl7-to-fhir` | The published library: `src/` sources, `test/` unit, type and FHIR tests                           |
+| `tooling/`             | Tests proving that the lint and boundary rules fire, with their fixtures, and the issue-form tests |
+| `scripts/`             | Small, tested Node scripts used by CI and the release                                              |
+| `docs/adr/`            | Architecture decision records                                                                      |
+| `.github/workflows/`   | CI, release and FHIR validator workflows                                                           |
 
 The architecture boundaries are enforced, not just documented: `src/hl7v2` knows nothing about FHIR, `src/fhir`
 builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs/adr/0002-single-package-with-tooling-boundaries.md).
 
 ## Scripts
 
-| Script                | What it does                                                               |
-| --------------------- | -------------------------------------------------------------------------- |
-| `pnpm format`         | Formats everything with Prettier                                           |
-| `pnpm lint`           | ESLint with zero warnings allowed                                          |
-| `pnpm typecheck`      | `tsc` for every config, including the Node-free library config             |
-| `pnpm test`           | Vitest: library and tooling tests                                          |
-| `pnpm test:coverage`  | Tests with coverage; fails below 95 % on the library                       |
-| `pnpm depcruise`      | Checks the layer boundaries with dependency-cruiser                        |
-| `pnpm knip`           | Finds unused files, exports and dependencies                               |
-| `pnpm build`          | Builds the library (ESM, CommonJS and declarations) with tsdown            |
-| `pnpm check:package`  | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run` |
-| `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows (needs Go and pipx)          |
-| `pnpm verify:fast`    | Format check, lint, typecheck and tests: run before every commit           |
-| `pnpm verify:ci`      | Every gate except `lint:workflows`: needs neither Go nor pipx              |
-| `pnpm verify`         | `verify:ci` plus `lint:workflows`: everything CI runs                      |
+| Script                | What it does                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `pnpm format`         | Formats everything with Prettier                                                    |
+| `pnpm lint`           | ESLint with zero warnings allowed                                                   |
+| `pnpm typecheck`      | `tsc` for every config, including the Node-free library config                      |
+| `pnpm test`           | Vitest: library and tooling tests                                                   |
+| `pnpm test:coverage`  | Tests with coverage; fails below 95 % on the library sources and the gating scripts |
+| `pnpm depcruise`      | Checks the layer boundaries with dependency-cruiser                                 |
+| `pnpm knip`           | Finds unused files, exports and dependencies                                        |
+| `pnpm build`          | Builds the library (ESM, CommonJS and declarations) with tsdown                     |
+| `pnpm check:package`  | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run`          |
+| `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                   |
+| `pnpm verify:fast`    | Format check, lint, typecheck and tests: run before every commit                    |
+| `pnpm verify:ci`      | Every gate except `lint:workflows`: needs neither Go nor pipx                       |
+| `pnpm verify`         | `verify:ci` plus `lint:workflows`: everything CI runs                               |
 
 `pnpm check:package` inspects the build output, so run `pnpm build` first; `pnpm verify:ci` and `pnpm verify` do.
 
@@ -66,7 +67,13 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<optional scope>): <description>`
 with one of the types `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, `style` or
 `revert`. The description is imperative, starts lowercase, has no trailing period, and the subject line is at most 72
-characters. A body is welcome when the _why_ is not obvious.
+characters. A body is welcome when the _why_ is not obvious. Details of what the check accepts:
+
+- `revert:` is a normal type. Git's default message, `Revert "<subject>"`, is accepted when the inner subject is
+  valid; the 72-character limit applies to the inner subject. A revert of a revert (a nested `Revert "Revert …"`) is
+  rejected: write a `revert:` or `fix:` subject that says why instead.
+- The optional `!` before the colon marks a breaking change, as in `feat(api)!: rename the convert options`.
+- `fixup!` and `squash!` commits are rejected. Squash them before the review.
 
 Keep commits small and atomic. **Every commit must pass `pnpm verify:fast` on its own**: CI replays each commit of a
 pull request and runs the fast gates on it, and pull requests are merged with rebase, so every commit lands on `main`
