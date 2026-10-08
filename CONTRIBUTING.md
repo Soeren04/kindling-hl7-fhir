@@ -12,8 +12,10 @@ If it happens anyway, follow [Patient data posted by mistake](SECURITY.md#patien
 
 ## Setup
 
-You need Node.js 22.18 or newer (the version in [`.nvmrc`](.nvmrc) is recommended) and pnpm, which Corepack provides
-in the version pinned in `package.json`:
+Contributors need Node.js 22.18 or newer, or 24.11 or newer (the version in [`.nvmrc`](.nvmrc) is recommended), and
+pnpm, which Corepack provides in the version pinned in `package.json`. The floor is higher than the one for library
+users (Node.js 22.12) because the build tool, tsdown, declares `^22.18.0 || ^24.11.0 || >=26.0.0` in its `engines`
+field; the published library itself runs on Node.js 22.12 and newer, which the `Consumer (Node 22.12)` CI job checks.
 
 ```sh
 corepack enable
@@ -21,8 +23,9 @@ pnpm install
 pnpm verify:fast
 ```
 
-Checking the GitHub workflows (`pnpm lint:workflows`, part of `pnpm verify`) additionally needs Go and pipx. zizmor
-runs its online audits only when `GH_TOKEN` is set.
+`pnpm verify` also checks the GitHub workflows (`pnpm lint:workflows`) and therefore needs Go (actionlint) and pipx
+(zizmor). `pnpm verify:ci` runs every other gate without them. zizmor runs its online audits only when `GH_TOKEN` is
+set.
 
 ## Repository layout
 
@@ -50,9 +53,12 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 | `pnpm knip`           | Finds unused files, exports and dependencies                               |
 | `pnpm build`          | Builds the library (ESM, CommonJS and declarations) with tsdown            |
 | `pnpm check:package`  | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run` |
-| `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows                              |
+| `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows (needs Go and pipx)          |
 | `pnpm verify:fast`    | Format check, lint, typecheck and tests: run before every commit           |
-| `pnpm verify`         | Everything CI runs                                                         |
+| `pnpm verify:ci`      | Every gate except `lint:workflows`: needs neither Go nor pipx              |
+| `pnpm verify`         | `verify:ci` plus `lint:workflows`: everything CI runs                      |
+
+`pnpm check:package` inspects the build output, so run `pnpm build` first; `pnpm verify:ci` and `pnpm verify` do.
 
 ## Commits
 
@@ -78,11 +84,27 @@ CI requires a changeset whenever `packages/hl7-to-fhir/src` changes.
 
 ## Pull requests
 
-Open the pull request from a branch named `feat/…`, `fix/…`, `docs/…`, `chore/…`, `test/…` or `refactor/…` and fill
-in the template. Every pull request needs a green CI run and a completed review gate before it is merged.
+Open the pull request from a branch whose prefix is a commit type: `feat/…`, `fix/…`, `docs/…`, `test/…`,
+`refactor/…`, `perf/…`, `build/…`, `ci/…` or `chore/…`. Fill in the template. A pull request is merged when these
+checks are green and the review gate is completed:
+
+- `Verify (Node 22)` and `Verify (Node 24)`: the full gates on both Node versions
+- `Consumer (Node 22.12)`: the packed library installs and imports on its minimum Node version
+- `Every commit passes`: commit messages and `pnpm verify:fast` on each commit
+- `Changeset`: a changeset exists when the library changed
+- `Workflows`: actionlint and zizmor
+
+The FHIR validator workflow only runs when mappings or its own files change, so it is not a required check; when it runs
+and fails, the pull request is not ready. Bumping `VALIDATOR_VERSION` in `.github/workflows/validator.yml` also needs a new
+`VALIDATOR_SHA256`: leave it empty once, let the job print the checksum of the downloaded jar, verify it against the
+upstream release and commit it. Renovate can propose the version but cannot compute the checksum.
 
 ## Releases
 
 Releases are cut by the maintainer: a `chore(release): vX.Y.Z` pull request runs `pnpm changeset version`, and after it
 is merged the maintainer pushes the tag `vX.Y.Z`. The release workflow checks that the tag matches the package
 version, runs the gates again and publishes to npm with provenance.
+
+The first release, 1.0.0, is the exception: `packages/hl7-to-fhir/package.json` already has that version, so there is
+no version bump, the changelog entry is written by hand, and the maintainer verifies the package with `pnpm build` and
+`npm publish --dry-run` before pushing the tag `v1.0.0`.
