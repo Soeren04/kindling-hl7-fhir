@@ -57,6 +57,8 @@ export function findCommitMessageProblems(message) {
   return problems;
 }
 
+// Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
+/* v8 ignore start */
 /**
  * Runs git and returns its trimmed standard output.
  *
@@ -67,8 +69,6 @@ function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trimEnd();
 }
 
-// Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
-/* v8 ignore start */
 if (import.meta.main) {
   const base = process.argv[2];
   if (base === undefined)
