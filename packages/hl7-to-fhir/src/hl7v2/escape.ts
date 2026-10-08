@@ -104,18 +104,24 @@ export function decodeText(
 /**
  * Escapes `value` so that it can be written as one subcomponent: delimiters (and the truncation character, if
  * declared) become their escape sequences, a line feed becomes `\.br\` and a carriage return `\X0D\`, which
- * would otherwise end the segment. A value of exactly `""` is written as `\X22\"` so it is not read as the HL7 null.
+ * would otherwise end the segment. The first quote of a value of exactly `""` is written as `\X22\`, so the value is
+ * not read as the HL7 null.
  *
  * `decodeText` restores the original value in every supported character set.
  */
 export function encodeText(value: string, delimiters: Delimiters): string {
   const escape = (sequence: string) =>
     `${delimiters.escape}${sequence}${delimiters.escape}`;
-  if (value === '""') return `${escape("X22")}"`;
+  // Written as is, a value of exactly `""` would read as the HL7 null; a hexadecimal escape for its first quote
+  // keeps it a value. The second quote takes the normal path, which escapes it if the quote is a delimiter.
+  const quotedNull = value === '""';
   let encoded = "";
   for (let index = 0; index < value.length; index++) {
     const character = value.charAt(index);
-    const sequence = escapeSequenceFor(character, delimiters);
+    const sequence =
+      quotedNull && index === 0
+        ? "X22"
+        : escapeSequenceFor(character, delimiters);
     encoded += sequence === undefined ? character : escape(sequence);
   }
   return encoded;

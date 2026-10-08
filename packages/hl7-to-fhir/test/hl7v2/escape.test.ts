@@ -270,6 +270,13 @@ describe("encodeText", () => {
     expect(encodeText(value, standard)).toBe(encoded);
   });
 
+  it("keeps a quoted null distinct when the quote is the escape character", () => {
+    const quoteEscape = { ...standard, escape: '"' };
+    const encoded = encodeText('""', quoteEscape);
+    expect(encoded).toBe('"X22""E"');
+    expect(decode(encoded, "ascii", quoteEscape).value).toBe('""');
+  });
+
   it("escapes the truncation character only when the message declares one", () => {
     expect(encodeText("#", standard)).toBe("#");
     expect(encodeText("#", { ...standard, truncation: "#" })).toBe("\\P\\");
