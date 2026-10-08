@@ -1,0 +1,597 @@
+{
+  "ok": true,
+  "value": {
+    "message": {
+      "delimiters": {
+        "field": "#",
+        "component": "$",
+        "repetition": "*",
+        "escape": "!",
+        "subcomponent": "%",
+        "truncation": "?"
+      },
+      "version": "2.8.2",
+      "segments": [
+        {
+          "id": "MSH",
+          "fields": [
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "#",
+                          "span": { "start": 3, "end": 4 }
+                        }
+                      ],
+                      "span": { "start": 3, "end": 4 }
+                    }
+                  ],
+                  "span": { "start": 3, "end": 4 }
+                }
+              ],
+              "span": { "start": 3, "end": 4 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "$*!%?",
+                          "span": { "start": 4, "end": 9 }
+                        }
+                      ],
+                      "span": { "start": 4, "end": 9 }
+                    }
+                  ],
+                  "span": { "start": 4, "end": 9 }
+                }
+              ],
+              "span": { "start": 4, "end": 9 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "REG",
+                          "span": { "start": 10, "end": 13 }
+                        }
+                      ],
+                      "span": { "start": 10, "end": 13 }
+                    }
+                  ],
+                  "span": { "start": 10, "end": 13 }
+                }
+              ],
+              "span": { "start": 10, "end": 13 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "GOOD HEALTH HOSPITAL",
+                          "span": { "start": 14, "end": 34 }
+                        }
+                      ],
+                      "span": { "start": 14, "end": 34 }
+                    }
+                  ],
+                  "span": { "start": 14, "end": 34 }
+                }
+              ],
+              "span": { "start": 14, "end": 34 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "EHR",
+                          "span": { "start": 35, "end": 38 }
+                        }
+                      ],
+                      "span": { "start": 35, "end": 38 }
+                    }
+                  ],
+                  "span": { "start": 35, "end": 38 }
+                }
+              ],
+              "span": { "start": 35, "end": 38 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "GOOD HEALTH HOSPITAL",
+                          "span": { "start": 39, "end": 59 }
+                        }
+                      ],
+                      "span": { "start": 39, "end": 59 }
+                    }
+                  ],
+                  "span": { "start": 39, "end": 59 }
+                }
+              ],
+              "span": { "start": 39, "end": 59 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "20240117120000+0100",
+                          "span": { "start": 60, "end": 79 }
+                        }
+                      ],
+                      "span": { "start": 60, "end": 79 }
+                    }
+                  ],
+                  "span": { "start": 60, "end": 79 }
+                }
+              ],
+              "span": { "start": 60, "end": 79 }
+            },
+            {
+              "repetitions": [],
+              "span": { "start": 80, "end": 80 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "ADT",
+                          "span": { "start": 81, "end": 84 }
+                        }
+                      ],
+                      "span": { "start": 81, "end": 84 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "A04",
+                          "span": { "start": 85, "end": 88 }
+                        }
+                      ],
+                      "span": { "start": 85, "end": 88 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "ADT_A01",
+                          "span": { "start": 89, "end": 96 }
+                        }
+                      ],
+                      "span": { "start": 89, "end": 96 }
+                    }
+                  ],
+                  "span": { "start": 81, "end": 96 }
+                }
+              ],
+              "span": { "start": 81, "end": 96 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "MSG00003",
+                          "span": { "start": 97, "end": 105 }
+                        }
+                      ],
+                      "span": { "start": 97, "end": 105 }
+                    }
+                  ],
+                  "span": { "start": 97, "end": 105 }
+                }
+              ],
+              "span": { "start": 97, "end": 105 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "P",
+                          "span": { "start": 106, "end": 107 }
+                        }
+                      ],
+                      "span": { "start": 106, "end": 107 }
+                    }
+                  ],
+                  "span": { "start": 106, "end": 107 }
+                }
+              ],
+              "span": { "start": 106, "end": 107 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "2.8.2",
+                          "span": { "start": 108, "end": 113 }
+                        }
+                      ],
+                      "span": { "start": 108, "end": 113 }
+                    }
+                  ],
+                  "span": { "start": 108, "end": 113 }
+                }
+              ],
+              "span": { "start": 108, "end": 113 }
+            }
+          ],
+          "span": { "start": 0, "end": 113 }
+        },
+        {
+          "id": "EVN",
+          "fields": [
+            {
+              "repetitions": [],
+              "span": { "start": 118, "end": 118 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "20240117120000+0100",
+                          "span": { "start": 119, "end": 138 }
+                        }
+                      ],
+                      "span": { "start": 119, "end": 138 }
+                    }
+                  ],
+                  "span": { "start": 119, "end": 138 }
+                }
+              ],
+              "span": { "start": 119, "end": 138 }
+            }
+          ],
+          "span": { "start": 114, "end": 138 }
+        },
+        {
+          "id": "PID",
+          "fields": [
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "1",
+                          "span": { "start": 143, "end": 144 }
+                        }
+                      ],
+                      "span": { "start": 143, "end": 144 }
+                    }
+                  ],
+                  "span": { "start": 143, "end": 144 }
+                }
+              ],
+              "span": { "start": 143, "end": 144 }
+            },
+            {
+              "repetitions": [],
+              "span": { "start": 145, "end": 145 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "PATID5678",
+                          "span": { "start": 146, "end": 155 }
+                        }
+                      ],
+                      "span": { "start": 146, "end": 155 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 156, "end": 156 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 157, "end": 157 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "GOOD HEALTH HOSPITAL",
+                          "span": { "start": 158, "end": 178 }
+                        },
+                        {
+                          "kind": "value",
+                          "value": "1.2.3.4.5",
+                          "span": { "start": 179, "end": 188 }
+                        },
+                        {
+                          "kind": "value",
+                          "value": "ISO",
+                          "span": { "start": 189, "end": 192 }
+                        }
+                      ],
+                      "span": { "start": 158, "end": 192 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "MR",
+                          "span": { "start": 193, "end": 195 }
+                        }
+                      ],
+                      "span": { "start": 193, "end": 195 }
+                    }
+                  ],
+                  "span": { "start": 146, "end": 195 }
+                }
+              ],
+              "span": { "start": 146, "end": 195 }
+            },
+            {
+              "repetitions": [],
+              "span": { "start": 196, "end": 196 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Everywoman",
+                          "span": { "start": 197, "end": 207 }
+                        }
+                      ],
+                      "span": { "start": 197, "end": 207 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Eve",
+                          "span": { "start": 208, "end": 211 }
+                        }
+                      ],
+                      "span": { "start": 208, "end": 211 }
+                    }
+                  ],
+                  "span": { "start": 197, "end": 211 }
+                },
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Everywoman",
+                          "span": { "start": 212, "end": 222 }
+                        }
+                      ],
+                      "span": { "start": 212, "end": 222 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Eve",
+                          "span": { "start": 223, "end": 226 }
+                        }
+                      ],
+                      "span": { "start": 223, "end": 226 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 227, "end": 227 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 228, "end": 228 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 229, "end": 229 }
+                    },
+                    {
+                      "subcomponents": [],
+                      "span": { "start": 230, "end": 230 }
+                    },
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "M",
+                          "span": { "start": 231, "end": 232 }
+                        }
+                      ],
+                      "span": { "start": 231, "end": 232 }
+                    }
+                  ],
+                  "span": { "start": 212, "end": 232 }
+                }
+              ],
+              "span": { "start": 197, "end": 232 }
+            },
+            {
+              "repetitions": [],
+              "span": { "start": 233, "end": 233 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "19850505",
+                          "span": { "start": 234, "end": 242 }
+                        }
+                      ],
+                      "span": { "start": 234, "end": 242 }
+                    }
+                  ],
+                  "span": { "start": 234, "end": 242 }
+                }
+              ],
+              "span": { "start": 234, "end": 242 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "F",
+                          "span": { "start": 243, "end": 244 }
+                        }
+                      ],
+                      "span": { "start": 243, "end": 244 }
+                    }
+                  ],
+                  "span": { "start": 243, "end": 244 }
+                }
+              ],
+              "span": { "start": 243, "end": 244 }
+            }
+          ],
+          "span": { "start": 139, "end": 244 }
+        },
+        {
+          "id": "NTE",
+          "fields": [
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "1",
+                          "span": { "start": 249, "end": 250 }
+                        }
+                      ],
+                      "span": { "start": 249, "end": 250 }
+                    }
+                  ],
+                  "span": { "start": 249, "end": 250 }
+                }
+              ],
+              "span": { "start": 249, "end": 250 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "L",
+                          "span": { "start": 251, "end": 252 }
+                        }
+                      ],
+                      "span": { "start": 251, "end": 252 }
+                    }
+                  ],
+                  "span": { "start": 251, "end": 252 }
+                }
+              ],
+              "span": { "start": 251, "end": 252 }
+            },
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Room #12, shared?",
+                          "span": { "start": 253, "end": 272 }
+                        }
+                      ],
+                      "span": { "start": 253, "end": 272 }
+                    }
+                  ],
+                  "span": { "start": 253, "end": 272 }
+                },
+                {
+                  "components": [
+                    {
+                      "subcomponents": [
+                        {
+                          "kind": "value",
+                          "value": "Truncated note?",
+                          "span": { "start": 273, "end": 290 }
+                        }
+                      ],
+                      "span": { "start": 273, "end": 290 }
+                    }
+                  ],
+                  "span": { "start": 273, "end": 290 }
+                }
+              ],
+              "span": { "start": 253, "end": 290 }
+            }
+          ],
+          "span": { "start": 245, "end": 290 }
+        }
+      ]
+    },
+    "issues": []
+  }
+}
