@@ -1,0 +1,48 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **Never post real patient data.** Issues are public and permanent. Only use synthetic messages or messages
+        > that are fully de-identified (names, identifiers, dates, addresses, phone numbers and free text replaced).
+        > If you posted real data by mistake, follow the steps in [SECURITY.md](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/SECURITY.md#patient-data-posted-by-mistake).
+  - type: checkboxes
+    id: synthetic-data
+    attributes:
+      label: Data
+      options:
+        - label: Every message, resource and log in this issue is synthetic or fully de-identified.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest synthetic HL7 message and code that show the problem.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: hl7-to-fhir version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Runtime
+      description: Node version, or browser name and version.
+      placeholder: Node 24.1.0
+    validations:
+      required: true
