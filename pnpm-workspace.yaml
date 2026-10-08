@@ -2,3 +2,8 @@ packages:
   - packages/*
   - apps/*
   - docs
+
+overrides:
+  # eslint-plugin-tsdoc pins @typescript-eslint/utils ~8.56, whose peer range excludes TypeScript 6.
+  # Use the typescript-eslint version the workspace already runs.
+  eslint-plugin-tsdoc>@typescript-eslint/utils: 8.71.1
