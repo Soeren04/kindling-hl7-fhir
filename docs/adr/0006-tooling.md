@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: implemented
+- Implementation: implemented (every gate runs in CI; the release workflow is exercised by the first release)
 
 ## Context
 

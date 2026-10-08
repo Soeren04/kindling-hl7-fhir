@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: `NOTICE` ships with the package now; the data files this record governs are added with the
-  validation and mapping phases.
+- Implementation: partial (`NOTICE` ships with the package; the data files this record governs are still missing and
+  are added with the validation and mapping phases)
 
 ## Context
 
@@ -58,7 +58,7 @@ its source, so affected files can be found and removed.
 
 ## Consequences
 
-- The package is safe to redistribute under MIT, with HL7 attribution in `NOTICE`.
+- The package is intended to be redistributable under MIT, with HL7 attribution in `NOTICE`.
 - Adding a segment or table means sourcing it from THO or the v2-to-FHIR IG and citing the source; reviewers reject
   definitions copied from the standard text.
 - This is a reading of public license statements, not legal advice. If HL7 changes its terms, or objects to the

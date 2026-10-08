@@ -2,7 +2,7 @@
 
 - Status: proposed | accepted | superseded by [NNNN](NNNN-title.md)
 - Date: YYYY-MM-DD
-- Implementation: implemented | planned (phase and what is still missing)
+- Implementation: implemented (what matches the decision) | planned (phase and what is still missing) | partial (what exists; what is still missing)
 
 <!-- Status is about the decision; Implementation says whether the code already matches it. -->
 
