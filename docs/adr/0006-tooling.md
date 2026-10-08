@@ -41,7 +41,11 @@ a promise.
 - **Workflows:** actionlint and zizmor; every action pinned to a full commit SHA. `pnpm verify:ci` runs every gate
   except the workflow lint; `pnpm verify` adds `lint:workflows`, which needs Go (actionlint) and pipx (zizmor). CI
   runs `verify:ci` in the matrix job and `lint:workflows` as a separate job, so the matrix needs neither tool.
-- **Releases:** Changesets for versions and changelog; tag-triggered publishing behind a version guard.
+- **Releases:** Changesets for versions and changelog; publishing is triggered by a `v*` tag. The release workflow
+  checks that the tagged commit is an ancestor of `main`, runs the version guard (the tag must be `v` plus the
+  package version, a plain `MAJOR.MINOR.PATCH`), `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` and
+  `pnpm check:package`, and then publishes with provenance. It uses no dependency cache, so a poisoned cache cannot
+  reach the publishing job.
 
 Details worth recording:
 

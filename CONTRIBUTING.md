@@ -97,14 +97,16 @@ checks are green and the review gate is completed:
 
 The FHIR validator workflow only runs when mappings or its own files change, so it is not a required check; when it runs
 and fails, the pull request is not ready. Bumping `VALIDATOR_VERSION` in `.github/workflows/validator.yml` also needs a new
-`VALIDATOR_SHA256`: leave it empty once, let the job print the checksum of the downloaded jar, verify it against the
-upstream release and commit it. Renovate can propose the version but cannot compute the checksum.
+`VALIDATOR_SHA256`: leave it empty once, let the job print the checksum of the downloaded jar, compare it with an
+independent download and commit it. Renovate can propose the version but cannot compute the checksum.
 
 ## Releases
 
 Releases are cut by the maintainer: a `chore(release): vX.Y.Z` pull request runs `pnpm changeset version`, and after it
-is merged the maintainer pushes the tag `vX.Y.Z`. The release workflow checks that the tag matches the package
-version, runs the gates again and publishes to npm with provenance.
+is merged the maintainer pushes the tag `vX.Y.Z`. The release workflow checks that the tagged commit is an
+ancestor of `main`, runs the version guard (the tag must be `v` plus the package version, a plain `MAJOR.MINOR.PATCH`),
+`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` and `pnpm check:package`, and then publishes to npm with
+provenance. A final job installs the published version from npm and loads it as ESM and CommonJS.
 
 The first release, 1.0.0, is the exception: `packages/hl7-to-fhir/package.json` already has that version, so there is
 no version bump, the changelog entry is written by hand, and the maintainer verifies the package with `pnpm build` and
