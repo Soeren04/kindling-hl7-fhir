@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "pin",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "packageRules": [
+    {
+      "description": "Group non-major devDependency updates into one pull request.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "devDependencies (non-major)"
+    },
+    {
+      "description": "Automerge only devDependency patch and minor updates, after CI passes.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "typescript-eslint and TypeDoc do not support TypeScript 7 yet (ADR 0006).",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "Node types follow the oldest supported Node major.",
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<23"
+    },
+    {
+      "description": "Group GitHub Actions updates.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "actionlint, run with go run in the lint:workflows script.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^package\\.json$/"],
+      "matchStrings": [
+        "github\\.com/rhysd/actionlint/cmd/actionlint@(?<currentValue>v[\\d.]+)"
+      ],
+      "depNameTemplate": "github.com/rhysd/actionlint",
+      "datasourceTemplate": "go"
+    },
+    {
+      "description": "zizmor, run with pipx in the lint:workflows script.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^package\\.json$/"],
+      "matchStrings": ["zizmor==(?<currentValue>[\\d.]+)"],
+      "depNameTemplate": "zizmor",
+      "datasourceTemplate": "pypi"
+    }
+  ]
+}
