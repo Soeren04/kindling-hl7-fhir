@@ -21,27 +21,34 @@ const header = new RegExp(
   `^(?:${types.join("|")})(?:\\([a-z0-9-]+\\))?!?: \\S`,
   "u",
 );
+const gitRevert = /^Revert "(.*)"$/u;
 
 /**
  * Lists every rule a commit message breaks.
+ *
+ * Git's default message for a revert, `Revert "<original subject>"`, is accepted when the original subject is valid.
+ * Autosquash subjects (`fixup!`, `squash!`) are rejected: they must be squashed before a pull request is ready.
  *
  * @param {string} message - The full commit message as printed by `git log --format=%B`.
  * @returns {string[]} One problem per broken rule; empty when the message is fine.
  */
 export function findCommitMessageProblems(message) {
-  const [subject = "", secondLine] = message.trimEnd().split("\n");
-  const problems = [];
+  const [fullSubject = "", secondLine] = message.trimEnd().split("\n");
+  const subject = fullSubject.replace(gitRevert, "$1");
   if (!header.test(subject)) {
-    problems.push(
+    // The remaining rules read the description, which only exists behind a valid header.
+    return [
       `subject must be "<type>(<optional scope>): <description>" with a type of ${types.join(", ")}`,
-    );
+    ];
   }
+  const problems = [];
   if (subject.length > maxSubjectLength)
     problems.push(
       `subject is longer than ${String(maxSubjectLength)} characters`,
     );
+  // The header test guarantees ": ", and its first occurrence ends the type and the scope.
   const description = subject.slice(subject.indexOf(": ") + 2);
-  if (/^[A-Z]/u.test(description))
+  if (/^\p{Lu}/u.test(description))
     problems.push("description must start with a lowercase letter");
   if (subject.endsWith("."))
     problems.push("subject must not end with a period");
@@ -60,6 +67,8 @@ function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trimEnd();
 }
 
+// Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
+/* v8 ignore start */
 if (import.meta.main) {
   const base = process.argv[2];
   if (base === undefined)
@@ -87,3 +96,4 @@ if (import.meta.main) {
   console.log(`Checked ${String(commits.length)} commit message(s).`);
   process.exitCode = failed ? 1 : 0;
 }
+/* v8 ignore stop */
