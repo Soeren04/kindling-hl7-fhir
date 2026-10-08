@@ -61,6 +61,8 @@
     "check:publint": "publint --strict",
     "check:attw": "attw --pack --profile node16",
     "check:contents": "node ../../scripts/check-package-contents.mjs",
+    "check:api": "node ../../scripts/check-api-report.mjs && node ../../scripts/check-examples.mjs api",
+    "update:api": "node ../../scripts/check-api-report.mjs --update",
     "publish:dry-run": "npm publish --dry-run"
   },
   "devDependencies": {

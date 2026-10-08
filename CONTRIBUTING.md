@@ -54,13 +54,23 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 | `pnpm depcruise`      | Checks the layer boundaries with dependency-cruiser                                 |
 | `pnpm knip`           | Finds unused files, exports and dependencies                                        |
 | `pnpm build`          | Builds the library (ESM, CommonJS and declarations) with tsdown                     |
+| `pnpm check:api`      | Compares the built declarations with the API report and checks examples             |
+| `pnpm update:api`     | Builds and rewrites the API report in `packages/hl7-to-fhir/api/`                   |
 | `pnpm check:package`  | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run`          |
 | `pnpm lint:workflows` | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                   |
 | `pnpm verify:fast`    | Format check, lint, typecheck and tests: run before every commit                    |
 | `pnpm verify:ci`      | Every gate except `lint:workflows`: needs neither Go nor pipx                       |
 | `pnpm verify`         | `verify:ci` plus `lint:workflows`: everything CI runs                               |
 
-`pnpm check:package` inspects the build output, so run `pnpm build` first; `pnpm verify:ci` and `pnpm verify` do.
+`pnpm check:api` and `pnpm check:package` inspect the build output, so run `pnpm build` first; `pnpm verify:ci` and
+`pnpm verify` do.
+
+## Public API
+
+The bundled declarations of both entry points are committed in `packages/hl7-to-fhir/api/` as an API report
+([ADR 0007](docs/adr/0007-api-report-without-api-extractor.md)). When a change alters the public API on purpose, run
+`pnpm update:api` and commit the updated report with the change, so reviewers see the API difference. Every exported
+function needs an `@example` in its TSDoc; `pnpm check:api` fails otherwise.
 
 ## Commits
 

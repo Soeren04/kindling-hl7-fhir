@@ -53,6 +53,8 @@ export default defineConfig(
     "**/dist/",
     "**/coverage/",
     "**/node_modules/",
+    // The API report: build output committed for review (ADR 0007).
+    "packages/hl7-to-fhir/api/",
     // Deliberately broken code; linted by the tooling tests with `ignore: false`.
     "tooling/fixtures/",
   ]),

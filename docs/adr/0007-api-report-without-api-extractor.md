@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: planned (added with the first public entry points; the API freeze review is phase 5)
+- Implementation: partly implemented (the API report and the `@example` check run in `pnpm check:api`; TypeDoc
+  validation and the API freeze review follow in phase 5)
 
 ## Context
 
