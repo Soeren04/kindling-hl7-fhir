@@ -12,10 +12,11 @@ If it happens anyway, follow [Patient data posted by mistake](SECURITY.md#patien
 
 ## Setup
 
-Contributors need Node.js 22.18 or newer, or 24.11 or newer (the version in [`.nvmrc`](.nvmrc) is recommended), and
-pnpm, which Corepack provides in the version pinned in `package.json`. The floor is higher than the one for library
-users (Node.js 22.12) because the build tool, tsdown, declares `^22.18.0 || ^24.11.0 || >=26.0.0` in its `engines`
-field; the published library itself runs on Node.js 22.12 and newer, which the `Consumer (Node 22.12)` CI job checks.
+Contributors need Node.js 22.18+ on the 22 line, 24.11+ on the 24 line, or 26+ (the version in [`.nvmrc`](.nvmrc) is
+recommended), and pnpm, which Corepack provides in the version pinned in `package.json`. The floor is higher than the
+one for library users (Node.js 22.12) because the build tool, tsdown, declares `^22.18.0 || ^24.11.0 || >=26.0.0` in
+its `engines` field, which the root `package.json` repeats; the published library itself runs on Node.js 22.12 and
+newer, which the `Consumer (Node 22.12)` CI job checks.
 
 ```sh
 corepack enable

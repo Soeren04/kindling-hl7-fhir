@@ -19,9 +19,9 @@ a promise.
 - **Library isolation:** `tsconfig.lib.json` with `"types": []`, `lib: ["ES2022"]` and `isolatedDeclarations`
   (ADR 0002).
 - **Build:** tsdown (exact version) producing ESM, CommonJS, `.d.ts` and `.d.cts`.
-- **Node versions:** the library supports Node >= 22.12 (`engines`); contributors need Node >= 22.18 (or 24.11+),
-  the range tsdown 0.23.0 declares in its `engines` field
-  ([npm](https://www.npmjs.com/package/tsdown/v/0.23.0)). CI runs the full gates on Node 22 and 24, and the
+- **Node versions:** the library supports Node >= 22.12 (`engines`); contributors need Node.js 22.18+ on
+  the 22 line, 24.11+ on the 24 line, or 26+, the range tsdown 0.23.0 declares in its `engines` field
+  ([npm](https://www.npmjs.com/package/tsdown/v/0.23.0)) and the root `package.json` repeats. CI runs the full gates on Node 22 and 24, and the
   `Consumer (Node 22.12)` job builds and packs the library, installs the tarball into a temporary project on
   Node 22.12 and imports it through both ESM and CommonJS, so the library floor is tested, not assumed.
 - **Package checks:** publint `--strict`, Are the Types Wrong `--pack`, a tarball contents check and
