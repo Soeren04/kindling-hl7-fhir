@@ -22,7 +22,11 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      include: ["packages/hl7-to-fhir/src/**"],
+      // The library, whose quality is the product, and the scripts that gate commits, releases and packages.
+      // The tooling fixtures and tests are inputs and checks, not code to cover.
+      include: ["packages/hl7-to-fhir/src/**", "scripts/**/*.mjs"],
+      // Only copies files and is run by `npm pack` (see `pnpm check:package`).
+      exclude: ["scripts/copy-package-files.mjs"],
       thresholds: { lines: 95, branches: 95, functions: 95, statements: 95 },
     },
   },
