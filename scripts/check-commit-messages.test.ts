@@ -1,11 +1,15 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { findCommitMessageProblems } from "./check-commit-messages.mjs";
+import {
+  createEmptyRepository,
+  git,
+  isolatedEnvironment,
+} from "./isolated-git.js";
 
 const headerProblem =
   'subject must be "<type>(<optional scope>): <description>" with a type of build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test';
@@ -103,31 +107,15 @@ const script = path.resolve(import.meta.dirname, "check-commit-messages.mjs");
 const repositories: string[] = [];
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const repository of repositories.splice(0))
     rmSync(repository, { recursive: true, force: true });
 });
 
-function git(repository: string, ...args: string[]): string {
-  return execFileSync(
-    "git",
-    [
-      "-c",
-      "user.name=Test",
-      "-c",
-      "user.email=test@invalid",
-      "-c",
-      "commit.gpgsign=false",
-      ...args,
-    ],
-    { cwd: repository, encoding: "utf8" },
-  ).trim();
-}
-
 /** Creates a repository whose `main` branch holds one valid commit and checks out a `topic` branch from it. */
 function createRepository(): string {
-  const repository = mkdtempSync(path.join(tmpdir(), "commit-messages-"));
+  const repository = createEmptyRepository("commit-messages-");
   repositories.push(repository);
-  git(repository, "init", "--quiet", "--initial-branch=main");
   git(repository, "commit", "--quiet", "--allow-empty", "-m", "chore: base");
   git(repository, "checkout", "--quiet", "-b", "topic");
   return repository;
@@ -141,6 +129,7 @@ function commit(repository: string, message: string): string {
 function check(repository: string, ...args: string[]) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: repository,
+    env: isolatedEnvironment(repository),
     encoding: "utf8",
   });
 }
@@ -226,5 +215,57 @@ describe("check-commit-messages.mjs", () => {
     const result = check(createRepository(), "no-such-branch");
     expect(result.status).not.toBe(0);
     expect(result.stdout).toBe("");
+  });
+});
+
+describe("test isolation", () => {
+  function snapshot(repository: string) {
+    return {
+      log: git(repository, "log", "--format=%H %s"),
+      bare: git(repository, "config", "--get", "core.bare"),
+      branches: git(repository, "branch", "--list"),
+    };
+  }
+
+  it("never touches the repository named by an inherited GIT_DIR", () => {
+    const decoy = createEmptyRepository("decoy-");
+    repositories.push(decoy);
+    git(decoy, "commit", "--quiet", "--allow-empty", "-m", "chore: decoy");
+    const before = snapshot(decoy);
+
+    vi.stubEnv("GIT_DIR", path.join(decoy, ".git"));
+    vi.stubEnv("GIT_WORK_TREE", decoy);
+    vi.stubEnv("GIT_INDEX_FILE", path.join(decoy, ".git", "index"));
+    const repository = createRepository();
+    commit(repository, "feat: add parser");
+    const result = check(repository, "main");
+    vi.unstubAllEnvs();
+
+    expect(result).toMatchObject({
+      status: 0,
+      stdout: "Checked 1 commit message(s).\n",
+    });
+    expect(git(repository, "log", "--format=%s")).toBe(
+      "feat: add parser\nchore: base",
+    );
+    expect(snapshot(decoy)).toStrictEqual(before);
+  });
+
+  it("drops every GIT_ variable and fences discovery at the repository's parent", () => {
+    const repository = path.join(path.sep, "tmp", "repository");
+    expect(
+      isolatedEnvironment(repository, {
+        GIT_DIR: "x",
+        git_work_tree: "y",
+        PATH: "/bin",
+        HOME: "/home/user",
+      }),
+    ).toStrictEqual({
+      PATH: "/bin",
+      GIT_CEILING_DIRECTORIES: path.join(path.sep, "tmp"),
+      GIT_CONFIG_NOSYSTEM: "1",
+      HOME: repository,
+      USERPROFILE: repository,
+    });
   });
 });
