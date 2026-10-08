@@ -19,6 +19,7 @@ export type {
   Subcomponent,
   ValueSubcomponent,
 } from "./hl7v2/model";
+export { get, getAll, isNull } from "./hl7v2/access";
 export { type BatchSplit, splitBatch } from "./hl7v2/batch";
 export {
   parse,
