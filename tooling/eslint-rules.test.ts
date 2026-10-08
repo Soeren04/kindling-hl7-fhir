@@ -35,6 +35,7 @@ describe("ESLint configuration", () => {
     ],
     ["hl7v2/super-linear-move.ts", "regexp/no-super-linear-move"],
     ["fhir/class-declaration.ts", "no-restricted-syntax"],
+    ["fhir/class-expression.ts", "no-restricted-syntax"],
   ])("reports exactly %s with %s", async (fixture, ruleId) => {
     expect(await errorRuleIds(fixture)).toStrictEqual([ruleId]);
   });
