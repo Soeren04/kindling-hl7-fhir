@@ -14,14 +14,16 @@
     "typecheck": "tsc -p tsconfig.json && pnpm --recursive run typecheck",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "depcruise": "depcruise packages/hl7-to-fhir/src --config .dependency-cruiser.mjs",
     "verify:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@fast-check/vitest": "0.5.0",
     "@types/node": "22.20.5",
     "@vitest/coverage-v8": "5.0.3",
+    "dependency-cruiser": "18.5.0",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-regexp": "3.3.1",
