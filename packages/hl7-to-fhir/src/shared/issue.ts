@@ -39,6 +39,12 @@ export type IssueCode =
   | "BYTE_ORDER_MARK_REMOVED"
   /** An MLLP start block (`0x0B`) or end block (`0x1C`, optionally followed by a carriage return) was removed. */
   | "MLLP_FRAMING_REMOVED"
+  /** An MLLP start block (`0x0B`) has no matching end block; the message runs to the next start block or the end of the input. */
+  | "MLLP_FRAME_UNTERMINATED"
+  /** Text outside any message (before the first `MSH`, between batches or between MLLP frames) was dropped. */
+  | "CONTENT_OUTSIDE_MESSAGE"
+  /** A trailer count differs from what the input contains: `BTS-1` counts messages, `FTS-1` counts batches. */
+  | "BATCH_COUNT_MISMATCH"
   /** Whitespace after the last segment was removed. */
   | "TRAILING_WHITESPACE_REMOVED"
   /** Segments end with a line feed or carriage return plus line feed instead of a carriage return. */

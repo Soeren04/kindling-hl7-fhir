@@ -192,6 +192,69 @@ interface EmptySubcomponent {
  */
 type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
 //#endregion
+//#region src/hl7v2/batch.d.ts
+/**
+ * The messages found in a batch file or stream, and what was dropped or doubtful on the way.
+ *
+ * @example
+ * ```ts
+ * const { messages, issues } = splitBatch(input);
+ * console.log(messages.length, issues.length);
+ * ```
+ */
+interface BatchSplit {
+  /** The messages in input order. Each starts with `MSH` and keeps its own segment terminators. */
+  readonly messages: readonly string[];
+  /** Remarks in input order, located in the string passed to {@link splitBatch}. */
+  readonly issues: readonly Issue[];
+}
+/**
+ * Splits text that holds several HL7 v2 messages into single messages.
+ *
+ * The input may be a batch file (`FHS`, `BHS`, messages, `BTS`, `FTS`), a stream of MLLP frames (`0x0B` message
+ * `0x1C` `0x0D`), plain concatenated messages, or a mixture. A message starts at an `MSH` segment and ends before
+ * the next `MSH`, the next envelope segment, the MLLP end block or the end of the input. Segments end with `\r`, `\n`
+ * or `\r\n`; the final terminator of a message is kept, so each message can be passed to `parse` as it is. Blank
+ * lines between messages are ignored.
+ *
+ * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
+ * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
+ * frame without end block, text that belongs to no message and is dropped, and a `BTS-1` or `FTS-1` count that
+ * differs from the number of messages or batches (warnings). Envelope segments are dropped without a remark,
+ * because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
+ * messages, which are independent strings; the position of a message in the result tells which message a later
+ * `parse` issue belongs to.
+ *
+ * The scan is a single pass over the characters, so the time is linear in the size of the input.
+ *
+ * @param input - The text of a batch file or stream.
+ * @returns The messages and the issues found while splitting.
+ *
+ * @example
+ * ```ts
+ * import { parse, splitBatch } from "hl7-to-fhir/hl7v2";
+ *
+ * const input = [
+ *   "FHS|^~\\&|LAB",
+ *   "BHS|^~\\&|LAB",
+ *   "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1",
+ *   "PID|1||12345||Everyman^Adam",
+ *   "MSH|^~\\&|LAB|HOSP|||20240115103100||ADT^A01|MSG00002|P|2.5.1",
+ *   "PID|1||67890||Everywoman^Eve",
+ *   "BTS|2",
+ *   "FTS|1",
+ * ].join("\r");
+ *
+ * const { messages } = splitBatch(input);
+ * console.log(messages.length); // 2
+ * for (const message of messages) {
+ *   const result = parse(message);
+ *   if (result.ok) console.log(result.value.message.segments.length); // 2
+ * }
+ * ```
+ */
+export declare function splitBatch(input: string): BatchSplit;
+//#endregion
 //#region src/hl7v2/parse.d.ts
 /**
  * A successfully parsed message and everything the parser tolerated or could not interpret.
@@ -269,4 +332,4 @@ interface ParseFailure {
  */
 export declare function parse(input: string): Result<ParsedMessage, ParseFailure>;
 //#endregion
-export type { Component, Delimiters, EmptySubcomponent, Field, Hl7Message, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, Repetition, Segment, Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, Repetition, Segment, Subcomponent, ValueSubcomponent };
