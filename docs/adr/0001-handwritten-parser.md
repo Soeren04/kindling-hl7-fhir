@@ -20,8 +20,14 @@ and never recurses, so its run time and stack depth are linear in the input size
 
 ## Alternatives considered
 
-- **An existing JavaScript HL7 v2 parser.** The maintained ones are Node-only or transport-focused, none exposes
-  spans for every node, and each would become a runtime dependency.
+- **An existing JavaScript HL7 v2 parser.** Looked at on 2026-10-08, from npm metadata and READMEs:
+  [node-hl7-client](https://www.npmjs.com/package/node-hl7-client) describes itself as "a pure Node.js HL7 Client"
+  for talking to an HL7 server, so parsing is secondary and tied to Node;
+  [hl7-standard](https://www.npmjs.com/package/hl7-standard) (1.0.4, last published 2022-05-11) declares no type
+  definitions; [@atomic-ehr/hl7v2](https://www.npmjs.com/package/@atomic-ehr/hl7v2) is at 0.0.1 (2025-12-10). The
+  READMEs of the first two do not describe character offsets for parsed nodes. Independent of their quality, using
+  one adds a runtime dependency, which conflicts with the zero-dependency goal, and the offsets would still have to
+  be built on top.
 - **A parser generator (PEG, parser combinators).** The grammar is not the hard part; the special cases (MSH-1/MSH-2,
   version-dependent escapes, lenient terminators) would be written as hand-coded exceptions inside a generated
   parser, and generated parsers make linear-time guarantees and span bookkeeping harder to see.
