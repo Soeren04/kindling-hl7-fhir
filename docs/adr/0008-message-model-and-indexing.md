@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partial (`src/hl7v2/model.ts` and `src/hl7v2/parse.ts` implement the model; the phase 1 benchmark
-  that measures the span representation is still missing)
+- Implementation: implemented (`src/hl7v2/model.ts` and `src/hl7v2/parse.ts` implement the model; the benchmark in
+  `packages/hl7-to-fhir/bench` measured the span representation and kept it, see "Span representation")
 
 ## Context
 
@@ -58,12 +58,45 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   after `\E\` is decoded a literal backslash cannot be told apart from an escape sequence, so a raw form and a decoded
   form would both have to be stored or recomputed from the span on every access.
 
+## Span representation
+
+The plan left open whether every node should carry a span object or whether the offsets should be packed into one
+`Int32Array` per message. The parser was measured as built (`pnpm bench`, `pnpm bench:memory`; numbers and method in
+`packages/hl7-to-fhir/bench/README.md`, Intel Xeon 2.8 GHz, Node.js 22.22.0):
+
+- An ADT^A01 (0.6 KB) parses in 0.04 ms, an ORU^R01 with 50 OBX (3.1 KB) in 0.25 ms, and the worst 1 MB inputs in
+  0.02 to 0.3 s.
+- The retained tree is about 160 times the size of the input for segment-heavy messages (498 KB for the ORU with 50
+  OBX, 159 MB for 1 MB of OBX), about 113 bytes per tree object.
+
+To see how much the spans cost, a throwaway build of the parser stored one shared constant instead of a span object
+at every node (what the best packed representation could save at most, since it would still need an offset per
+node), and the same inputs were measured with `node --expose-gc` on the built bundle:
+
+| Input       | Time with span objects | Time without | Heap with span objects | Heap without |
+| ----------- | ---------------------: | -----------: | ---------------------: | -----------: |
+| ADT^A01     |                38.5 us |      36.1 us |                  64 KB |        53 KB |
+| ORU, 50 OBX |                 238 us |       207 us |                 427 KB |       353 KB |
+| ORU, 1 MB   |                 289 ms |       211 ms |                 158 MB |       131 MB |
+
+Removing the spans entirely saves 6 to 27 % of the time and about 17 % of the memory. The rest is the nesting itself:
+every field is an object holding an array of repetitions, each holding an array of components, and so on.
+
+**Decision: keep span objects.** The most a packed alternative can win is below a third of the time and a fifth of the
+memory, and it would cost what this model was chosen for: `span` would no longer be a plain property of a plain
+object, so trees would stop being comparable with `toStrictEqual`, and views onto a shared array would not survive
+`structuredClone` or `postMessage` without copying the array separately. Typical messages (up to some tens of
+kilobytes) parse in under a millisecond and retain a few megabytes, and 1 MB inputs finish in well under a second,
+so there is no problem the change would solve. A change of the model that removes nesting levels (for example,
+collapsing fields with a single repetition) would gain much more than any span encoding; it is a breaking change of
+the public shape and is not planned.
+
 ## Consequences
 
 - One indexing rule for every segment, MSH included; walking the tree needs no special cases, and `get` hides the
   `n - 1` for users who prefer HL7 notation.
-- The tree is larger than bare arrays: one object and one span per node. The phase 1 benchmark compares span objects
-  with a packed representation; the public shape `span: { start, end }` stays either way.
+- The tree is larger than bare arrays: one object and one span per node, about 150 times the size of the input for
+  ordinary messages (see "Span representation").
 - Formatting that has no plain-text equivalent (highlighting, indentation) is lost from values. It is reported, and
   consumers that need it read the raw text through the span.
 - Trimming trailing empties makes `stringify` canonical: it cannot reproduce trailing delimiters, so
