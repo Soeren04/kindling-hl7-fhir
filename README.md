@@ -1,18 +1,30 @@
 # hl7-to-fhir
 
-Convert HL7 v2 messages to FHIR R4 in TypeScript: zero runtime dependencies, fully typed, runs in the browser and
-Node.
+[![CI](https://github.com/Soeren04/kindling-hl7-fhir/actions/workflows/ci.yml/badge.svg)](https://github.com/Soeren04/kindling-hl7-fhir/actions/workflows/ci.yml)
 
-**Status:** first release in preparation. The baseline is HL7 v2.5.1 and FHIR R4 (4.0.1).
+A TypeScript library, in development, for converting HL7 v2 messages to FHIR R4. The goals are zero runtime
+dependencies, full typing, and one codebase that runs in the browser and in Node.
+
+**Status:** first release in preparation; nothing is published to npm yet and the public API is not final. The
+baseline is HL7 v2.5.1 and FHIR R4 (4.0.1).
+
+## Design
+
+The decisions behind the library and its tooling are written down as
+[architecture decision records](https://github.com/Soeren04/kindling-hl7-fhir/tree/main/docs/adr), including which
+parts are already implemented.
 
 ## Contributing
 
-Contributions are welcome: read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup and the quality gates, and the
-[Code of Conduct](CODE_OF_CONDUCT.md). Issues, tests and samples only ever contain synthetic or fully de-identified
-messages. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Design decisions are recorded
-in [docs/adr](docs/adr/README.md).
+Contributions are welcome: read
+[CONTRIBUTING.md](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/CONTRIBUTING.md) for the setup and the
+quality gates, and the
+[Code of Conduct](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/CODE_OF_CONDUCT.md). Issues, tests and
+samples only ever contain synthetic or fully de-identified messages. Report vulnerabilities privately as described in
+[SECURITY.md](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/SECURITY.md).
 
 ## License
 
-[MIT](LICENSE). HL7® and FHIR® are trademarks of Health Level Seven International; see [NOTICE](NOTICE) for the HL7
-attribution and what HL7 content this project contains.
+[MIT](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/LICENSE). HL7® and FHIR® are registered trademarks of
+Health Level Seven International; see [NOTICE](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/NOTICE) for the
+HL7 attribution and what HL7 content this project contains.
