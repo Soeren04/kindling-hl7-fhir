@@ -1,6 +1,6 @@
 import type { LocatedIssue, Location, Span } from "../shared/issue";
 import { type DecodeContext, decodeText } from "./escape";
-import { indexOfOrEnd } from "./header";
+import { indexOfOrEnd } from "./input";
 import type {
   Component,
   Field,

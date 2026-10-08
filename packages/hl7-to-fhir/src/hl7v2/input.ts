@@ -1,6 +1,7 @@
 // Real feeds wrap messages in transport artifacts: a byte order mark from a file, MLLP framing from a socket capture,
 // a trailing newline from an editor. They are removed here, so the parser sees only segments, and every removal is
-// reported (ADR 0003). Offsets stay those of the original input.
+// reported (ADR 0003). Offsets stay those of the original input. The module also cuts the content into lines and
+// holds the bounded scans the other modules use, so that no search runs past the segment it belongs to.
 import type { LocatedIssue, Span } from "../shared/issue";
 
 /** Where the segments are in the input, and what was removed around them. */
@@ -53,6 +54,62 @@ export function locateContent(input: string): Content {
   const contentEnd = textEnd + terminatorLength(input, textEnd, end);
   issues.push(...trailingWhitespace(contentEnd, end));
   return { span: { start, end: contentEnd }, issues };
+}
+
+/** The non-empty lines of the content, and the issues about blank lines and terminators. */
+export interface Lines {
+  readonly spans: readonly Span[];
+  readonly issues: readonly LocatedIssue[];
+}
+
+/**
+ * Splits the content into segment spans at `\r`, `\n` and `\r\n`. Blank lines are dropped, and the first terminator
+ * other than `\r` is reported once.
+ */
+export function splitLines(input: string, content: Span): Lines {
+  const spans: Span[] = [];
+  const issues: LocatedIssue[] = [];
+  let terminatorReported = false;
+  let lineStart = content.start;
+  let index = content.start;
+  while (index < content.end) {
+    const length = terminatorLength(input, index, content.end);
+    if (length === 0) {
+      index++;
+      continue;
+    }
+    const terminator = { start: index, end: index + length };
+    if (lineStart === index) {
+      issues.push({
+        code: "BLANK_LINE_REMOVED",
+        severity: "info",
+        message: "An empty line between segments was removed.",
+        location: { span: terminator },
+      });
+    } else {
+      spans.push({ start: lineStart, end: index });
+    }
+    const standard = length === 1 && input.charAt(index) === "\r";
+    if (!standard && !terminatorReported) {
+      issues.push(nonStandardTerminator(terminator));
+      terminatorReported = true;
+    }
+    index += length;
+    lineStart = index;
+  }
+  if (lineStart < content.end)
+    spans.push({ start: lineStart, end: content.end });
+  return { spans, issues };
+}
+
+function nonStandardTerminator(span: Span): LocatedIssue {
+  return {
+    code: "NON_STANDARD_SEGMENT_TERMINATOR",
+    severity: "info",
+    message:
+      "Segments end with a line feed or a carriage return and line feed; HL7 v2 uses a carriage return alone.",
+    location: { span },
+  };
 }
 
 /**
@@ -122,4 +179,23 @@ export function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
   return [...issues].sort(
     (a, b) => a.location.span.start - b.location.span.start,
   );
+}
+
+/**
+ * Finds `character` in `input` between `from` and `end`.
+ *
+ * Unlike `String.prototype.indexOf`, the search stops at `end`, so looking for a field inside one segment never
+ * scans the rest of the message.
+ *
+ * @returns The offset of the character, or `end` when it does not occur in the range.
+ */
+export function indexOfOrEnd(
+  input: string,
+  character: string,
+  from: number,
+  end: number,
+): number {
+  let index = from;
+  while (index < end && input.charAt(index) !== character) index++;
+  return index;
 }

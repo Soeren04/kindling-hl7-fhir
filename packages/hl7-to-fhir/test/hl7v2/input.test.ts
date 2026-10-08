@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { locateContent, terminatorLength } from "../../src/hl7v2/input";
+import {
+  indexOfOrEnd,
+  locateContent,
+  terminatorLength,
+} from "../../src/hl7v2/input";
 import type { IssueCode, Span } from "../../src/shared/issue";
 
 /** The located content as text, and the removed parts as [code, removed text] pairs. */
@@ -87,5 +91,16 @@ describe("terminatorLength", () => {
     ["\r", 1, 1, 0],
   ])("reads %j at %i before %i as %i", (input, index, end, length) => {
     expect(terminatorLength(input, index, end)).toBe(length);
+  });
+});
+
+describe("indexOfOrEnd", () => {
+  it("finds the character inside the range", () => {
+    expect(indexOfOrEnd("a|b|c", "|", 2, 5)).toBe(3);
+  });
+
+  it("returns the end of the range when the character only occurs after it", () => {
+    expect(indexOfOrEnd("a|b|c", "|", 2, 3)).toBe(3);
+    expect(indexOfOrEnd("abc|", "|", 0, 2)).toBe(2);
   });
 });

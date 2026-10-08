@@ -1,7 +1,7 @@
 // Escape sequences (HL7 v2.5.1 chapter 2.7). Decoding turns the raw text of a subcomponent into the text a reader
 // sees; encoding is the inverse for text that has to be written into a message.
 import type { IssueCode, Severity, Span } from "../shared/issue";
-import { indexOfOrEnd } from "./header";
+import { indexOfOrEnd } from "./input";
 import type { Delimiters } from "./model";
 
 /**
