@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: planned (phase 1: parser, property tests and benchmark; mutation testing follows)
+- Implementation: partial (the parser, its property tests and golden trees exist; the benchmark and
+  mutation testing follow)
 
 ## Context
 

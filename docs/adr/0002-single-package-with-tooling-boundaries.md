@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partial (the boundary checks run in CI against the fixtures in `tooling/`; the `./hl7v2` export and
-  the `bin` are missing, and the `cli`, `hl7v2` and `fhir` sources they guard are added in later phases)
+- Implementation: partial (the boundary checks run in CI against the fixtures in `tooling/`; the `bin` is
+  missing, and the `cli` and `fhir` sources they guard are added in later phases)
 
 ## Context
 

@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: implemented (`src/hl7v2/model.ts`, `src/hl7v2/parse.ts`); the span representation is measured by the
-  phase 1 benchmark
+- Implementation: partial (`src/hl7v2/model.ts` and `src/hl7v2/parse.ts` implement the model; the phase 1 benchmark
+  that measures the span representation is still missing)
 
 ## Context
 

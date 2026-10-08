@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: planned (phase 1: lenient `parse` and issue codes; phase 2: `validate`)
+- Implementation: partial (lenient `parse` and its issue codes exist; `validate` follows in phase 2)
 
 ## Context
 

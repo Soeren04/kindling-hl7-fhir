@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partly implemented (the API report and the `@example` check run in `pnpm check:api`; TypeDoc
+- Implementation: partial (the API report and the `@example` check run in `pnpm check:api`; TypeDoc
   validation and the API freeze review follow in phase 5)
 
 ## Context
