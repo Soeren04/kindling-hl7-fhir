@@ -1,0 +1,4 @@
+{
+  "$comment": "Warnings of the official HL7 FHIR validator that CI accepts. Each entry needs the exact message id and the reason why the warning does not indicate a defect. Unused entries fail CI, so the list never goes stale.",
+  "warnings": []
+}

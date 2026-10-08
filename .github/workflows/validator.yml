@@ -1,0 +1,84 @@
+name: FHIR validator
+
+# Validates FHIR output with the official HL7 FHIR validator: zero errors, and only allowlisted warnings.
+on:
+  pull_request:
+    paths:
+      - packages/hl7-to-fhir/test/fhir-spike/**
+      - packages/hl7-to-fhir/test/golden/**
+      - packages/hl7-to-fhir/test/validator-allowlist.json
+      - scripts/check-validator-results.mjs
+      - .github/workflows/validator.yml
+  push:
+    branches: [main]
+    paths:
+      - packages/hl7-to-fhir/test/fhir-spike/**
+      - packages/hl7-to-fhir/test/golden/**
+      - packages/hl7-to-fhir/test/validator-allowlist.json
+      - scripts/check-validator-results.mjs
+      - .github/workflows/validator.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # https://github.com/hapifhir/org.hl7.fhir.core/releases
+  VALIDATOR_VERSION: 7.0.1
+  # SHA-256 of validator_cli.jar for VALIDATOR_VERSION. When the version changes, leave this empty once: the job
+  # prints the checksum of the downloaded jar and fails; compare it with an independent download, then pin it here.
+  VALIDATOR_SHA256: ""
+
+jobs:
+  validate:
+    name: Validate FHIR resources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Cache the validator and the FHIR packages it loads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/fhir-validator
+            ~/.fhir/packages
+          key: fhir-validator-${{ env.VALIDATOR_VERSION }}-r4
+      - name: Download the validator and verify its checksum
+        run: |
+          mkdir -p ~/fhir-validator
+          jar=~/fhir-validator/validator_cli.jar
+          if [ ! -f "$jar" ]; then
+            curl --fail --silent --show-error --location --retry 3 --output "$jar" \
+              "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/$VALIDATOR_VERSION/validator_cli.jar"
+          fi
+          if [ -z "$VALIDATOR_SHA256" ]; then
+            echo "::error::VALIDATOR_SHA256 is not pinned. The downloaded jar has SHA-256 $(sha256sum "$jar" | cut -d ' ' -f 1)"
+            exit 1
+          fi
+          echo "$VALIDATOR_SHA256  $jar" | sha256sum --check --strict
+      - name: Run the validator
+        # The validator exits non-zero on errors; the next step evaluates its output either way.
+        run: >-
+          java -jar ~/fhir-validator/validator_cli.jar
+          packages/hl7-to-fhir/test/fhir-spike/bundle.json
+          -version 4.0.1 -tx n/a -output "$RUNNER_TEMP/validator-output.json"
+          || echo "The validator exited with status $?"
+      - name: Check the results against the allowlist
+        run: >-
+          node scripts/check-validator-results.mjs
+          "$RUNNER_TEMP/validator-output.json"
+          packages/hl7-to-fhir/test/validator-allowlist.json
