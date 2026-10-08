@@ -1,5 +1,19 @@
 {
   "name": "hl7-to-fhir-workspace",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify:fast": "pnpm format:check",
+    "verify": "pnpm verify:fast"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
 }
