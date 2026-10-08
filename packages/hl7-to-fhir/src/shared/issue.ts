@@ -42,7 +42,21 @@ export type IssueCode =
   /** MSH-2 has fewer than four characters; the missing delimiters take their standard values. */
   | "ENCODING_CHARACTERS_DEFAULTED"
   /** MSH-2 has a fifth character, but the message version is older than 2.7, which introduced it. */
-  | "TRUNCATION_CHARACTER_IGNORED";
+  | "TRUNCATION_CHARACTER_IGNORED"
+  /** An escape sequence the standard does not define; it is kept as written. */
+  | "UNKNOWN_ESCAPE"
+  /** An escape sequence without its closing escape character; the rest of the value is kept as written. */
+  | "UNTERMINATED_ESCAPE"
+  /** A text formatting escape sequence (highlighting, indentation, centering, ...) was removed. */
+  | "FORMATTING_REMOVED"
+  /** A character set switching escape sequence (`\C…\`, `\M…\`); it is kept as written. */
+  | "CHARACTER_SET_ESCAPE_KEPT"
+  /** A locally defined escape sequence (`\Z…\`); it is kept as written. */
+  | "LOCAL_ESCAPE_KEPT"
+  /** A hexadecimal escape sequence that is malformed or not valid in the message character set; kept as written. */
+  | "INVALID_HEX_ESCAPE"
+  /** A hexadecimal escape sequence in a message whose character set (MSH-18) is not supported; kept as written. */
+  | "UNSUPPORTED_CHARACTER_SET";
 
 /**
  * Where in the input an {@link Issue} was found.
