@@ -67,6 +67,8 @@ jobs:
           npm install --save-exact "$RUNNER_TEMP"/pack/hl7-to-fhir-*.tgz
           node --input-type=module --eval 'await import("hl7-to-fhir");'
           node --input-type=commonjs --eval 'require("hl7-to-fhir");'
+          node --input-type=module --eval 'const { parse } = await import("hl7-to-fhir/hl7v2"); if (!parse("MSH|^~\\&|A").ok) process.exit(1);'
+          node --input-type=commonjs --eval 'const { parse } = require("hl7-to-fhir/hl7v2"); if (!parse("MSH|^~\\&|A").ok) process.exit(1);'
 
   commits:
     name: Every commit passes

@@ -19,7 +19,7 @@ export interface DecodeContext {
 }
 
 /** A remark about one escape sequence, located in the input. */
-export interface EscapeProblem {
+interface EscapeProblem {
   /** The issue code. */
   readonly code: IssueCode;
   /** How serious the problem is. */

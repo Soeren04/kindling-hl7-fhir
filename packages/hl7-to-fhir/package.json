@@ -37,6 +37,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./hl7v2": {
+      "import": {
+        "types": "./dist/hl7v2.d.ts",
+        "default": "./dist/hl7v2.js"
+      },
+      "require": {
+        "types": "./dist/hl7v2.d.cts",
+        "default": "./dist/hl7v2.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
