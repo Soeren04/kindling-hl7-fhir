@@ -2,6 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
+- Implementation: implemented (the checks run in CI against the fixtures in `tooling/`; the `cli`, `hl7v2` and
+  `fhir` sources they guard are added in later phases)
 
 ## Context
 
@@ -37,6 +39,7 @@ silently stop working.
 
 ## Consequences
 
-- One install, one version, one changelog; tree-shaking keeps the HL7-only entry small.
+- One install, one version, one changelog. The HL7-only entry point is a separate bundle, so parsing alone does not
+  load the FHIR mapping code.
 - The rules live in configuration that must match the folder layout. The path patterns (`(^|/)src/hl7v2/`) are shared
   by the real package and the fixtures, and the fixture tests catch drift.
