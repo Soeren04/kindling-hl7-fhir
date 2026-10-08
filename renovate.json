@@ -29,6 +29,14 @@
       "allowedVersions": "<23"
     },
     {
+      "description": "The FHIR validator jar is pinned by checksum, so a version bump needs a human to re-pin it.",
+      "matchPackageNames": ["hapifhir/org.hl7.fhir.core"],
+      "automerge": false,
+      "prBodyNotes": [
+        "Update `VALIDATOR_SHA256` in `.github/workflows/validator.yml` too: leave it empty once, copy the checksum the job prints, and compare it with an independent download before pinning it."
+      ]
+    },
+    {
       "description": "Group GitHub Actions updates.",
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
@@ -52,6 +60,20 @@
       "matchStrings": ["zizmor==(?<currentValue>[\\d.]+)"],
       "depNameTemplate": "zizmor",
       "datasourceTemplate": "pypi"
+    },
+    {
+      "description": "The FHIR validator version in the validator workflow.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/validator\\.yml$/"],
+      "matchStrings": [
+        "VALIDATOR_VERSION: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "hapifhir/org.hl7.fhir.core",
+      "datasourceTemplate": "github-releases"
     }
-  ]
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  }
 }
