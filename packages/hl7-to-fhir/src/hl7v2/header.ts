@@ -1,4 +1,5 @@
 import type { Span } from "../shared/issue";
+import { indexOfOrEnd } from "./input";
 import type { Delimiters } from "./model";
 
 /** The delimiters needed to find a value in the MSH segment. */
@@ -45,23 +46,4 @@ function endsHeaderValue(
     character === delimiters.repetition ||
     character === delimiters.component
   );
-}
-
-/**
- * Finds `character` in `input` between `from` and `end`.
- *
- * Unlike `String.prototype.indexOf`, the search stops at `end`, so looking for a field inside one segment never
- * scans the rest of the message.
- *
- * @returns The offset of the character, or `end` when it does not occur in the range.
- */
-export function indexOfOrEnd(
-  input: string,
-  character: string,
-  from: number,
-  end: number,
-): number {
-  let index = from;
-  while (index < end && input.charAt(index) !== character) index++;
-  return index;
 }

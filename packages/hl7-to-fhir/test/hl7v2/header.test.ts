@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { indexOfOrEnd, readHeaderValue } from "../../src/hl7v2/header";
+import { readHeaderValue } from "../../src/hl7v2/header";
 
 const delimiters = { field: "|", repetition: "~", component: "^" };
 
@@ -41,16 +41,5 @@ describe("readHeaderValue", () => {
     const segment = { start: 0, end: input.indexOf("\r") };
     expect(readHeaderValue(input, segment, delimiters, 3)).toBe("LAB");
     expect(readHeaderValue(input, segment, delimiters, 4)).toBeUndefined();
-  });
-});
-
-describe("indexOfOrEnd", () => {
-  it("finds the character inside the range", () => {
-    expect(indexOfOrEnd("a|b|c", "|", 2, 5)).toBe(3);
-  });
-
-  it("returns the end of the range when the character only occurs after it", () => {
-    expect(indexOfOrEnd("a|b|c", "|", 2, 3)).toBe(3);
-    expect(indexOfOrEnd("abc|", "|", 0, 2)).toBe(2);
   });
 });

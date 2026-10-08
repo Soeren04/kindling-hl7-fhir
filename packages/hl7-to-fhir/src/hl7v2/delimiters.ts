@@ -1,6 +1,7 @@
 import type { LocatedIssue, Location, Span } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
-import { indexOfOrEnd, readHeaderValue } from "./header";
+import { readHeaderValue } from "./header";
+import { indexOfOrEnd } from "./input";
 import type { Delimiters } from "./model";
 
 /** The delimiters of a message and the remarks made while reading them. */

@@ -2,9 +2,9 @@
 // messages: it only needs to recognize where a message starts (MSH), where it stops (the next MSH, an envelope
 // segment, an MLLP end block or the end of the input) and which lines belong to no message.
 import type { Issue, LocatedIssue, Span } from "../shared/issue";
-import { indexOfOrEnd } from "./header";
 import {
   byteOrderMark,
+  indexOfOrEnd,
   inInputOrder,
   mllpEndBlock,
   mllpStartBlock,

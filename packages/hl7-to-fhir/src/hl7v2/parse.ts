@@ -1,9 +1,9 @@
-import type { Issue, LocatedIssue, Span } from "../shared/issue";
+import type { Issue, LocatedIssue } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { readDelimiters } from "./delimiters";
 import { resolveCharset } from "./escape";
 import { readHeaderValue } from "./header";
-import { inInputOrder, locateContent, terminatorLength } from "./input";
+import { inInputOrder, locateContent, splitLines } from "./input";
 import type { Hl7Message, Segment } from "./model";
 import { parseSegment } from "./segment";
 
@@ -129,62 +129,6 @@ export function parse(input: string): Result<ParsedMessage, ParseFailure> {
       ? { delimiters, segments }
       : { delimiters, version, segments };
   return ok({ message, issues: inInputOrder(issues) });
-}
-
-/** The non-empty lines of the content, and remarks about blank lines and terminators. */
-interface Lines {
-  readonly spans: readonly Span[];
-  readonly issues: readonly LocatedIssue[];
-}
-
-/**
- * Splits the content into segment spans at `\r`, `\n` and `\r\n`. Blank lines are dropped, and the first terminator
- * other than `\r` is reported once.
- */
-function splitLines(input: string, content: Span): Lines {
-  const spans: Span[] = [];
-  const issues: LocatedIssue[] = [];
-  let terminatorReported = false;
-  let lineStart = content.start;
-  let index = content.start;
-  while (index < content.end) {
-    const length = terminatorLength(input, index, content.end);
-    if (length === 0) {
-      index++;
-      continue;
-    }
-    const terminator = { start: index, end: index + length };
-    if (lineStart === index) {
-      issues.push({
-        code: "BLANK_LINE_REMOVED",
-        severity: "info",
-        message: "An empty line between segments was removed.",
-        location: { span: terminator },
-      });
-    } else {
-      spans.push({ start: lineStart, end: index });
-    }
-    const standard = length === 1 && input.charAt(index) === "\r";
-    if (!standard && !terminatorReported) {
-      issues.push(nonStandardTerminator(terminator));
-      terminatorReported = true;
-    }
-    index += length;
-    lineStart = index;
-  }
-  if (lineStart < content.end)
-    spans.push({ start: lineStart, end: content.end });
-  return { spans, issues };
-}
-
-function nonStandardTerminator(span: Span): LocatedIssue {
-  return {
-    code: "NON_STANDARD_SEGMENT_TERMINATOR",
-    severity: "info",
-    message:
-      "Segments end with a line feed or a carriage return and line feed; HL7 v2 uses a carriage return alone.",
-    location: { span },
-  };
 }
 
 function fail(
