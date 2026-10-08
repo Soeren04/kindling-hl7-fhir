@@ -26,4 +26,10 @@ export {
   type ParseFailure,
   type ParseFailureCode,
 } from "./hl7v2/parse";
+export {
+  parsePath,
+  type ParsedPath,
+  type PathError,
+  type PathErrorCode,
+} from "./hl7v2/path";
 export { stringify } from "./hl7v2/stringify";

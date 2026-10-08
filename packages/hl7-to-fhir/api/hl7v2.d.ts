@@ -332,6 +332,80 @@ interface ParseFailure {
  */
 export declare function parse(input: string): Result<ParsedMessage, ParseFailure>;
 //#endregion
+//#region src/hl7v2/path.d.ts
+/**
+ * A path split into its parts. Numbers are 1-based, as written in HL7 notation (`PID.5.1` has `field: 5` and
+ * `component: 1`); {@link get} applies the `n - 1` that ADR 0008 prescribes for the arrays.
+ *
+ * @example
+ * ```ts
+ * const result = parsePath("OBX[3].5.1");
+ * // { segment: "OBX", segmentIndex: 3, field: 5, fieldIndex: undefined, component: 1, subcomponent: undefined }
+ * ```
+ */
+interface ParsedPath {
+  /** The segment identifier, such as `PID`. */
+  readonly segment: string;
+  /** Which segment of that identifier, counted over the whole message; `undefined` selects the first (`get`) or all (`getAll`). */
+  readonly segmentIndex: number | undefined;
+  /** The field number: `5` in `PID.5`. */
+  readonly field: number;
+  /** Which repetition of the field; `undefined` selects the first (`get`) or all (`getAll`). */
+  readonly fieldIndex: number | undefined;
+  /** The component number; `undefined` selects the first component. */
+  readonly component: number | undefined;
+  /** The subcomponent number; `undefined` selects the first subcomponent. */
+  readonly subcomponent: number | undefined;
+}
+/**
+ * Why a path could not be read.
+ *
+ * - `EMPTY_PATH`: the path is the empty string.
+ * - `INVALID_SEGMENT_ID`: the segment is not three upper-case letters or digits starting with a letter.
+ * - `MISSING_FIELD`: there is no field number after the segment, as in `PID`.
+ * - `INVALID_NUMBER`: a field, component or subcomponent number is not a positive whole number without leading
+ *   zeros, or a component or subcomponent carries a repetition index.
+ * - `INVALID_INDEX`: a bracketed repetition index is not a positive whole number, or its brackets are malformed.
+ * - `TOO_MANY_PARTS`: the path has more than four parts (segment, field, component, subcomponent).
+ */
+type PathErrorCode = "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MISSING_FIELD" | "INVALID_NUMBER" | "INVALID_INDEX" | "TOO_MANY_PARTS";
+/**
+ * The reason {@link parsePath} rejected a path.
+ *
+ * @example
+ * ```ts
+ * const result = parsePath("PID.x");
+ * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
+ * ```
+ */
+interface PathError {
+  /** Discriminant: what is wrong with the path. */
+  readonly code: PathErrorCode;
+  /** A description of the problem. */
+  readonly message: string;
+  /** The offending part of the path, as offsets into the string passed to `parsePath`. */
+  readonly span: Span;
+}
+/**
+ * Parses a path such as `PID.5.1`, `PID.3[2].1` or `OBX[3].5` into its parts.
+ *
+ * The grammar is `SEG[.F[.C[.S]]]` with an optional 1-based repetition index in brackets after the segment and after
+ * the field: `SEG[n].F[r].C.S`. A path must name at least a field. `get`, `getAll` and `isNull` use this function and
+ * treat a path that fails here as matching nothing; call it to find out why.
+ *
+ * @param path - The path to parse.
+ * @returns The parts of the path, or the first problem found.
+ *
+ * @example
+ * ```ts
+ * import { parsePath } from "hl7-to-fhir/hl7v2";
+ *
+ * const result = parsePath("PID.3[2].1");
+ * if (result.ok) console.log(result.value.field, result.value.fieldIndex); // 3 2
+ * ```
+ */
+export declare function parsePath(path: string): Result<ParsedPath, PathError>;
+//#endregion
 //#region src/hl7v2/stringify.d.ts
 /**
  * Writes a message as HL7 v2 text: the inverse of `parse`.
@@ -366,4 +440,4 @@ export declare function parse(input: string): Result<ParsedMessage, ParseFailure
  */
 export declare function stringify(message: Hl7Message): string;
 //#endregion
-export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, Repetition, Segment, Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, ParsedPath, PathError, PathErrorCode, Repetition, Segment, Subcomponent, ValueSubcomponent };
