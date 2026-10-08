@@ -1,0 +1,9 @@
+{
+  // The benchmarks import the built library (dist/), which does not exist before `pnpm build`, so this project is
+  // checked by `pnpm bench` and not by `pnpm typecheck`.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["."]
+}

@@ -8,7 +8,9 @@
       "ignore": ["tooling/fixtures/**"]
     },
     "packages/hl7-to-fhir": {
-      "project": ["src/**/*.ts", "test/**/*.ts"]
+      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "entry": ["test/**/*.test.ts", "test/**/*.test-d.ts"],
+      "vitest": false
     }
   }
 }
