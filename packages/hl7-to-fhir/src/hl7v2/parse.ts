@@ -1,5 +1,5 @@
 import {
-  inInputOrder,
+  finishIssues,
   type Issue,
   issue,
   type IssueOf,
@@ -101,15 +101,20 @@ export function parse(input: string): Result<ParsedMessage, ParseFailure> {
   const msh = lines[0];
   if (msh === undefined) {
     return fail(
+      input,
       issues,
       issue("EMPTY_INPUT", { span: { start: 0, end: input.length } }),
     );
   }
   if (!input.startsWith("MSH", msh.start)) {
-    return fail(issues, issue("MISSING_MSH", { span: msh, segmentIndex: 0 }));
+    return fail(
+      input,
+      issues,
+      issue("MISSING_MSH", { span: msh, segmentIndex: 0 }),
+    );
   }
   const reading = readDelimiters(input, msh, issues);
-  if (!reading.ok) return fail(issues, reading.error);
+  if (!reading.ok) return fail(input, issues, reading.error);
 
   const { delimiters } = reading.value;
   const headerValue = (field: number) => {
@@ -130,16 +135,17 @@ export function parse(input: string): Result<ParsedMessage, ParseFailure> {
     ...(version === undefined ? {} : { version }),
     segments,
   };
-  return ok({ message, issues: inInputOrder(issues) });
+  return ok({ message, issues: finishIssues(issues, input.length) });
 }
 
 function fail(
+  input: string,
   issues: readonly LocatedIssue[],
   cause: IssueOf<ParseFailureCode>,
 ): Result<never, ParseFailure> {
   return err({
     code: cause.code,
     message: cause.message,
-    issues: inInputOrder(issues).concat(cause),
+    issues: finishIssues(issues, input.length).concat(cause),
   });
 }

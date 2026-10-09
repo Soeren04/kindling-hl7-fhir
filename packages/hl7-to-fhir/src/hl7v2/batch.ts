@@ -2,7 +2,7 @@
 // messages: it only needs to recognize where a message starts (MSH), where it stops (the next MSH, an envelope
 // segment, an MLLP end block or the end of the input) and which lines belong to no message.
 import {
-  inInputOrder,
+  finishIssues,
   type Issue,
   type LocatedIssue,
   report,
@@ -102,7 +102,10 @@ export function splitBatch(input: string): BatchSplit {
   }
   closeSection(scan);
   if (scan.frameStart !== undefined) reportUnterminated(scan, scan.frameStart);
-  return { messages: scan.messages, issues: inInputOrder(scan.issues) };
+  return {
+    messages: scan.messages,
+    issues: finishIssues(scan.issues, input.length),
+  };
 }
 
 /** The state of one pass over the input; the fields without `readonly` change as lines are read. */

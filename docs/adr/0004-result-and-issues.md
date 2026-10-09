@@ -24,6 +24,13 @@ error messages end up in logs, monitoring systems and bug reports.
   not a valid DTM"). The offending raw value is only available in the separate `value` property, documented as
   potential PHI, so callers can log messages safely and decide deliberately whether to log values. The same rule
   applies to CLI output on stderr.
+- **One table defines every code.** Each `IssueCode` has exactly one severity and one message
+  (`src/shared/issue.ts`); call sites name only the code, the location and the raw value, so a code never changes its
+  severity with the place that reports it.
+- **At most 10,000 issues per call.** Hostile input can produce an issue every few characters. After 10,000 issues a
+  function stops collecting and ends its list with one `TOO_MANY_ISSUES` warning, located at the end of the input so
+  that the list stays in input order. Issues are collected with `push`, never by spreading arrays into a call, which
+  throws a `RangeError` once an array has more than about 100,000 elements.
 
 ## Alternatives considered
 
