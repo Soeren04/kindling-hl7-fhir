@@ -1,4 +1,9 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
+
+// The scaling tests take about 15 seconds. They run in their own project, which
+// `pnpm test` (and so `verify:fast`, once per commit in CI) leaves out; `pnpm test:scaling` and `pnpm test:coverage`
+// (and so `verify:ci`) run it.
+const scalingTests = "test/property/scaling.test.ts";
 
 // Type tests (`*.test-d.ts`) are checked by `tsc` in `pnpm typecheck`, not by Vitest's experimental typecheck mode.
 export default defineConfig({
@@ -9,6 +14,14 @@ export default defineConfig({
           name: "hl7-to-fhir",
           root: "packages/hl7-to-fhir",
           include: ["test/**/*.test.ts"],
+          exclude: [...configDefaults.exclude, scalingTests],
+        },
+      },
+      {
+        test: {
+          name: "scaling",
+          root: "packages/hl7-to-fhir",
+          include: [scalingTests],
         },
       },
       {
