@@ -1,13 +1,19 @@
 import type { LocatedIssue, Location, Span } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
-import { readHeaderValue } from "./header";
-import { indexOfOrEnd } from "./input";
+import {
+  encodingCharactersSpan,
+  fieldSeparatorOffset,
+  findHeaderValue,
+  versionField,
+} from "./header";
 import type { Delimiters } from "./model";
 
 /** The delimiters of a message and the remarks made while reading them. */
 export interface DelimiterReading {
   /** The delimiters, with standard values for those MSH-2 omits. */
   readonly delimiters: Delimiters;
+  /** The span of MSH-2, the encoding characters. */
+  readonly encoding: Span;
   /** Remarks about MSH-1 and MSH-2, such as defaulted delimiters. */
   readonly issues: readonly LocatedIssue[];
 }
@@ -24,9 +30,6 @@ const standard = {
   escape: "\\",
   subcomponent: "&",
 } as const;
-
-/** Offset of MSH-1 in the segment: right after "MSH". */
-const fieldSeparatorOffset = 3;
 
 /** MSH-2 holds component, repetition, escape and subcomponent delimiters, and from version 2.7 a truncation marker. */
 const maxEncodingCharacters = 5;
@@ -55,10 +58,7 @@ export function readDelimiters(
     return err(invalidFieldSeparator(field, separatorStart, msh.end));
   }
 
-  const encodingSpan = {
-    start: separatorStart + 1,
-    end: indexOfOrEnd(input, field, separatorStart + 1, msh.end),
-  };
+  const encodingSpan = encodingCharactersSpan(input, msh, field);
   const encoding = input.slice(encodingSpan.start, encodingSpan.end);
   const problem = findEncodingProblem(encoding);
   if (problem !== undefined) {
@@ -103,11 +103,16 @@ export function readDelimiters(
     });
   }
   if (encoding.length < maxEncodingCharacters)
-    return ok({ delimiters, issues });
+    return ok({ delimiters, encoding: encodingSpan, issues });
 
   const truncation = encoding.charAt(4);
-  if (declaresTruncation(readHeaderValue(input, msh, delimiters, 12))) {
-    return ok({ delimiters: { ...delimiters, truncation }, issues });
+  const version = findHeaderValue(input, msh, delimiters, versionField);
+  if (declaresTruncation(version && input.slice(version.start, version.end))) {
+    return ok({
+      delimiters: { ...delimiters, truncation },
+      encoding: encodingSpan,
+      issues,
+    });
   }
   issues.push({
     code: "TRUNCATION_CHARACTER_IGNORED",
@@ -120,7 +125,7 @@ export function readDelimiters(
     }),
     value: truncation,
   });
-  return ok({ delimiters, issues });
+  return ok({ delimiters, encoding: encodingSpan, issues });
 }
 
 /**

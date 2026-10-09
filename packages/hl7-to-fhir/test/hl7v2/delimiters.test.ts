@@ -53,7 +53,7 @@ describe("readDelimiters", () => {
   ])("reads %s", (_description, msh, delimiters) => {
     expect(read(msh)).toStrictEqual({
       ok: true,
-      value: { delimiters, issues: [] },
+      value: { delimiters, encoding: { start: 4, end: 8 }, issues: [] },
     });
   });
 
@@ -70,7 +70,11 @@ describe("readDelimiters", () => {
         const result = read(withVersion(String.raw`^~\&#`, version));
         expect(result).toStrictEqual({
           ok: true,
-          value: { delimiters: { ...standard, truncation: "#" }, issues: [] },
+          value: {
+            delimiters: { ...standard, truncation: "#" },
+            encoding: { start: 4, end: 9 },
+            issues: [],
+          },
         });
       },
     );
@@ -87,6 +91,7 @@ describe("readDelimiters", () => {
         ok: true,
         value: {
           delimiters: standard,
+          encoding: { start: 4, end: 9 },
           issues: [
             {
               code: "TRUNCATION_CHARACTER_IGNORED",
@@ -129,6 +134,7 @@ describe("readDelimiters", () => {
         ok: true,
         value: {
           delimiters: { ...standard, ...declared },
+          encoding: { start: 4, end: 4 + encoding.length },
           issues: [
             {
               code: "ENCODING_CHARACTERS_DEFAULTED",
@@ -227,7 +233,7 @@ describe("readDelimiters", () => {
       const msh = `MSH${field}${component}${repetition}${escape}${subcomponent}${field}LAB`;
       expect(read(msh)).toStrictEqual({
         ok: true,
-        value: { delimiters, issues: [] },
+        value: { delimiters, encoding: { start: 4, end: 8 }, issues: [] },
       });
     },
   );
