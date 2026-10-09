@@ -382,7 +382,8 @@ export declare function splitBatch(input: string): BatchSplit;
 //#endregion
 //#region src/hl7v2/parse.d.ts
 /**
- * A successfully parsed message and everything the parser tolerated or could not interpret.
+ * What {@link parse} returns when it succeeds, the counterpart of {@link ParseFailure}: the message and everything the
+ * parser tolerated or could not interpret.
  *
  * @example
  * ```ts
@@ -393,7 +394,7 @@ export declare function splitBatch(input: string): BatchSplit;
  * }
  * ```
  */
-interface ParsedMessage {
+interface ParseSuccess {
   /** The message tree. */
   readonly message: Hl7Message;
   /** The issues in input order; parsing succeeded regardless of their severity. */
@@ -438,26 +439,29 @@ interface ParseFailure {
  * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
  * declares unusable delimiters; it never throws.
  *
- * Every node carries a span into `input`, the string passed in, even when framing was removed.
+ * Every node carries a span into `input`, the string passed in, even when framing was removed. Read values with
+ * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n` (ADR 0008).
+ * The types of the issues are exported from the main entry point, `hl7-to-fhir`.
  *
  * @param input - One message as text. Use `splitBatch` for batch files or streams with several messages.
  * @returns The message and its issues, or why it could not be parsed.
  *
  * @example
  * ```ts
- * import { parse } from "hl7-to-fhir/hl7v2";
+ * import type { Issue } from "hl7-to-fhir";
+ * import { get, parse } from "hl7-to-fhir/hl7v2";
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam");
  * if (result.ok) {
- *   const pid = result.value.message.segments[1];
- *   const family = pid?.fields[4]?.repetitions[0]?.components[0]?.subcomponents[0];
- *   if (family?.kind === "value") console.log(family.value); // "Everyman"
+ *   console.log(get(result.value.message, "PID.5.1")); // "Everyman"
+ *   const problems: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
+ *   for (const { code, message } of problems) console.warn(code, message);
  * } else {
- *   console.error(result.error.code);
+ *   console.error(result.error.code, result.error.message);
  * }
  * ```
  */
-export declare function parse(input: string): Result<ParsedMessage, ParseFailure>;
+export declare function parse(input: string): Result<ParseSuccess, ParseFailure>;
 //#endregion
 //#region src/hl7v2/path.d.ts
 /**
@@ -568,4 +572,4 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  */
 export declare function stringify(message: Hl7Message): string;
 //#endregion
-export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParsedMessage, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, Subcomponent$1 as Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, Subcomponent$1 as Subcomponent, ValueSubcomponent };
