@@ -274,6 +274,36 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       'An explicit null "" was left out: a transaction bundle cannot express that the receiver should delete the value.',
   },
+  DATE_TIME_PRECISION_ADJUSTED: {
+    severity: "info",
+    message:
+      "The time stops at the hour or minute, which FHIR cannot write; zeros were added for the missing minutes and seconds.",
+  },
+  DATE_TIME_OFFSET_ASSUMED: {
+    severity: "info",
+    message:
+      "The time has no offset from UTC; the offset of the message time (MSH-7) or of the timezone option was used, which daylight saving time can make differ from the one in effect at the time.",
+  },
+  DATE_TIME_OFFSET_MISSING: {
+    severity: "warning",
+    message:
+      "The time has no offset from UTC, and neither MSH-7 nor the timezone option gives one, which FHIR requires: the date and time was cut to its date or, for an instant, left out. Set the timezone option.",
+  },
+  DATE_TIME_TRUNCATED: {
+    severity: "info",
+    message:
+      "The date and time was cut to its date, because the FHIR element holds a date only.",
+  },
+  DATE_TIME_OMITTED: {
+    severity: "warning",
+    message:
+      "The date and time was left out: the FHIR element is an instant, which needs a time of day, and the value is a date only.",
+  },
+  TIME_OFFSET_DROPPED: {
+    severity: "warning",
+    message:
+      "The time carries an offset from UTC, which a FHIR time cannot hold; only the time of day was kept.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

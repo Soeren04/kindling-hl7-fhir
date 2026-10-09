@@ -154,6 +154,18 @@ type Severity = "error" | "warning" | "info";
  *
  * - `HL7_NULL_IGNORED` (info): an explicit null `""` was left out of a transaction bundle, which has no way to say
  *   "delete this value"; reported only for transaction bundles. No `value`.
+ * - `DATE_TIME_PRECISION_ADJUSTED` (info): a date and time or a time stops at the hour or minute, which FHIR cannot
+ *   write; zeros were added for the missing minutes and seconds.
+ * - `DATE_TIME_OFFSET_ASSUMED` (info): a date and time has a time of day but no offset from UTC, so the offset of the
+ *   message time (MSH-7) or of the `timezone` option was used. Daylight saving time can make it differ from the offset
+ *   in effect at the time of the value.
+ * - `DATE_TIME_OFFSET_MISSING` (warning): a date and time has a time of day but no offset can be found, neither in the
+ *   value nor in MSH-7 nor in the `timezone` option, and FHIR requires one: a date and time was cut to its date, an
+ *   instant was left out. Setting the `timezone` option avoids it.
+ * - `DATE_TIME_TRUNCATED` (info): a date and time was cut to its date, because the FHIR element holds a date only.
+ * - `DATE_TIME_OMITTED` (warning): a date and time was left out, because the FHIR element is an instant, which needs a
+ *   time of day, and the value is a date only.
+ * - `TIME_OFFSET_DROPPED` (warning): a time carries an offset, which a FHIR time cannot hold; the time of day is kept.
  *
  * Limits:
  *
@@ -217,6 +229,12 @@ type IssueCode =
   | "UNKNOWN_CODE"
   | "UNKNOWN_USER_DEFINED_CODE"
   | "HL7_NULL_IGNORED"
+  | "DATE_TIME_PRECISION_ADJUSTED"
+  | "DATE_TIME_OFFSET_ASSUMED"
+  | "DATE_TIME_OFFSET_MISSING"
+  | "DATE_TIME_TRUNCATED"
+  | "DATE_TIME_OMITTED"
+  | "TIME_OFFSET_DROPPED"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
