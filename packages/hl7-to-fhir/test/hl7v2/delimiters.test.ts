@@ -188,6 +188,17 @@ describe("readDelimiters", () => {
     });
   });
 
+  it("does not read a field separator past the end of the segment", () => {
+    const input = "MSH\rPID|1";
+    const result = readDelimiters(input, { start: 0, end: 3 }, []);
+    expectError(result);
+    expect(result.error).toMatchObject({
+      code: "INVALID_FIELD_SEPARATOR",
+      location: { span: { start: 3, end: 3 } },
+    });
+    expect(result.error).not.toHaveProperty("value");
+  });
+
   it.each([
     ["a letter", "MSHA^~\\&"],
     ["a digit", "MSH1^~\\&"],
