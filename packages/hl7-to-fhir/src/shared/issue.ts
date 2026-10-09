@@ -148,5 +148,161 @@ export interface Issue {
   readonly value?: string;
 }
 
-/** An issue that has a location. Every issue the parser reports has one; the type lets it sort them by position. */
+/**
+ * An issue whose `location` is present. Every issue the library creates has one; the type lets the parser and the
+ * batch splitter sort issues by position without checking for an absent location.
+ */
 export type LocatedIssue = Issue & { readonly location: Location };
+
+/** What every issue of one code has in common. */
+interface IssueDefinition {
+  readonly severity: Severity;
+  /** Describes the problem in terms of the standard; never contains message content. */
+  readonly message: string;
+}
+
+// One entry per code: a code always has the same severity and message, so callers state only what happened and where.
+const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
+  EMPTY_INPUT: {
+    severity: "error",
+    message: "The input contains no segments.",
+  },
+  MISSING_MSH: {
+    severity: "error",
+    message:
+      "The first segment is not MSH. Batch files (FHS, BHS) must be split into messages first.",
+  },
+  BYTE_ORDER_MARK_REMOVED: {
+    severity: "info",
+    message: "A byte order mark before the message was removed.",
+  },
+  MLLP_FRAMING_REMOVED: {
+    severity: "info",
+    message: "MLLP framing characters around the message were removed.",
+  },
+  MLLP_FRAME_UNTERMINATED: {
+    severity: "warning",
+    message:
+      "An MLLP frame has no end block; the message may be cut off, for example by a closed connection.",
+  },
+  CONTENT_OUTSIDE_MESSAGE: {
+    severity: "warning",
+    message:
+      "Text outside any message was dropped: segments before the first MSH, after a batch trailer or between MLLP frames.",
+  },
+  BATCH_COUNT_MISMATCH: {
+    severity: "warning",
+    message:
+      "The count in the batch or file trailer differs from the number of messages or batches in the input.",
+  },
+  TRAILING_WHITESPACE_REMOVED: {
+    severity: "info",
+    message: "Whitespace after the last segment was removed.",
+  },
+  NON_STANDARD_SEGMENT_TERMINATOR: {
+    severity: "info",
+    message:
+      "Segments end with a line feed or a carriage return and line feed; HL7 v2 uses a carriage return alone.",
+  },
+  BLANK_LINE_REMOVED: {
+    severity: "info",
+    message: "An empty line between segments was removed.",
+  },
+  INVALID_SEGMENT_ID: {
+    severity: "error",
+    message:
+      "A segment identifier must be three upper-case letters or digits, starting with a letter.",
+  },
+  INVALID_FIELD_SEPARATOR: {
+    severity: "error",
+    message:
+      "MSH-1, the field separator, is missing or is not a printable ASCII character that is neither a letter nor a digit.",
+  },
+  INVALID_ENCODING_CHARACTERS: {
+    severity: "error",
+    message:
+      "MSH-2 must hold one to five printable ASCII characters that are neither letters nor digits, all different from each other, from the field separator and from the standard values of omitted ones.",
+  },
+  ENCODING_CHARACTERS_DEFAULTED: {
+    severity: "warning",
+    message:
+      "MSH-2 declares fewer than four encoding characters; the omitted ones take their standard values.",
+  },
+  TRUNCATION_CHARACTER_IGNORED: {
+    severity: "warning",
+    message:
+      "MSH-2 declares a truncation character, which only versions 2.7 and later define; it has no special meaning in this message.",
+  },
+  UNKNOWN_ESCAPE: {
+    severity: "warning",
+    message: "Unknown escape sequence; it is kept as written.",
+  },
+  UNTERMINATED_ESCAPE: {
+    severity: "warning",
+    message:
+      "An escape sequence has no closing escape character; the rest of the value is kept as written.",
+  },
+  FORMATTING_REMOVED: {
+    severity: "info",
+    message:
+      "A text formatting escape sequence was removed; only line breaks have a plain-text equivalent.",
+  },
+  CHARACTER_SET_ESCAPE_KEPT: {
+    severity: "warning",
+    message:
+      "Character set switching escape sequences are not supported; the sequence is kept as written.",
+  },
+  LOCAL_ESCAPE_KEPT: {
+    severity: "warning",
+    message:
+      "A locally defined escape sequence cannot be interpreted; it is kept as written.",
+  },
+  INVALID_HEX_ESCAPE: {
+    severity: "warning",
+    message:
+      "A hexadecimal escape sequence is malformed or encodes bytes that are not valid in the message character set (MSH-18); it is kept as written.",
+  },
+  UNSUPPORTED_CHARACTER_SET: {
+    severity: "warning",
+    message:
+      "The character set in MSH-18 is not supported for hexadecimal escape sequences; the sequence is kept as written.",
+  },
+};
+
+/** An issue of a known code, so that a function returning a subset of codes can say so in its type. */
+export type IssueOf<Code extends IssueCode> = LocatedIssue & {
+  readonly code: Code;
+};
+
+/**
+ * Creates the issue of `code` at `location`, with the severity and message of its definition.
+ *
+ * @param value - The raw input text the issue is about, if any; see {@link Issue.value}.
+ */
+export function issue<Code extends IssueCode>(
+  code: Code,
+  location: Location,
+  value?: string,
+): IssueOf<Code> {
+  const { severity, message } = definitions[code];
+  return value === undefined
+    ? { code, severity, message, location }
+    : { code, severity, message, location, value };
+}
+
+/** Creates the issue of `code` (see {@link issue}) and adds it to `issues`. */
+export function report(
+  issues: LocatedIssue[],
+  code: IssueCode,
+  location: Location,
+  value?: string,
+): void {
+  issues.push(issue(code, location, value));
+}
+
+/** Sorts issues by their position in the input; issues at the same position keep the order they were found in. */
+export function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
+  return [...issues].sort(
+    (a, b) => a.location.span.start - b.location.span.start,
+  );
+}

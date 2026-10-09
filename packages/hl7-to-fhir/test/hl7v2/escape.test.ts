@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 import type { Charset } from "../../src/hl7v2/charset";
 import {
   decodeText,
-  type DecodedText,
   encodeText,
+  type EscapeIssueCode,
 } from "../../src/hl7v2/escape";
 import type { Delimiters } from "../../src/hl7v2/model";
-import type { IssueCode } from "../../src/shared/issue";
+import type { Span } from "../../src/shared/issue";
 import { delimiterSets } from "./arbitraries";
 
 const standard: Delimiters = {
@@ -29,21 +29,30 @@ const custom: Delimiters = {
   truncation: "?",
 };
 
+/** The decoded text and the issues reported while decoding it. */
+interface Decoded {
+  readonly value: string;
+  readonly issues: readonly { code: EscapeIssueCode; span: Span }[];
+}
+
 function decode(
   raw: string,
   charset: Charset = "ascii",
   delimiters: Delimiters = standard,
-): DecodedText {
-  return decodeText(
+): Decoded {
+  const issues: { code: EscapeIssueCode; span: Span }[] = [];
+  const value = decodeText(
     raw,
     { start: 0, end: raw.length },
     { delimiters, charset },
+    (code, span) => issues.push({ code, span }),
   );
+  return { value, issues };
 }
 
-/** The decoded value and the codes of the problems, for compact table rows. */
-function summary(decoded: DecodedText): [string, IssueCode[]] {
-  return [decoded.value, decoded.problems.map(({ code }) => code)];
+/** The decoded value and the codes of the issues, for compact table rows. */
+function summary(decoded: Decoded): [string, EscapeIssueCode[]] {
+  return [decoded.value, decoded.issues.map(({ code }) => code)];
 }
 
 describe("decodeText", () => {
@@ -170,7 +179,6 @@ describe("decodeText", () => {
     ])("removes %s with an info", (raw) => {
       const decoded = decode(`a${raw}b`);
       expect(summary(decoded)).toStrictEqual(["ab", ["FORMATTING_REMOVED"]]);
-      expect(decoded.problems[0]?.severity).toBe("info");
     });
 
     it.each([
@@ -186,7 +194,7 @@ describe("decodeText", () => {
     });
   });
 
-  it.each<[string, string, IssueCode]>([
+  it.each<[string, string, EscapeIssueCode]>([
     [
       "a character set switch to a single-byte set",
       "\\C2842\\",
@@ -206,54 +214,37 @@ describe("decodeText", () => {
       "UNKNOWN_ESCAPE",
     ],
   ])("keeps %s as written", (_description, raw, code) => {
-    const decoded = decode(`a${raw}b`);
-    expect(summary(decoded)).toStrictEqual([`a${raw}b`, [code]]);
-    expect(decoded.problems[0]?.severity).toBe("warning");
+    expect(summary(decode(`a${raw}b`))).toStrictEqual([`a${raw}b`, [code]]);
   });
 
   it("keeps an unterminated sequence and the rest of the value", () => {
     expect(decode("a\\F\\b\\F")).toStrictEqual({
       value: "a|b\\F",
-      problems: [
-        {
-          code: "UNTERMINATED_ESCAPE",
-          severity: "warning",
-          message: expect.any(String) as string,
-          span: { start: 5, end: 7 },
-        },
-      ],
+      issues: [{ code: "UNTERMINATED_ESCAPE", span: { start: 5, end: 7 } }],
     });
   });
 
-  it("locates problems in the input, not in the decoded value", () => {
+  it("locates issues in the input, not in the decoded value", () => {
     const input = "PID|a\\F\\b\\Zx\\c|d";
-    const decoded = decodeText(
+    const spans: Span[] = [];
+    const value = decodeText(
       input,
       { start: 4, end: 14 },
       { delimiters: standard, charset: "ascii" },
+      (_code, span) => spans.push(span),
     );
-    expect(decoded.value).toBe("a|b\\Zx\\c");
+    expect(value).toBe("a|b\\Zx\\c");
     expect(
-      decoded.problems.map(({ span }) => input.slice(span.start, span.end)),
+      spans.map(({ start, end }) => input.slice(start, end)),
     ).toStrictEqual(["\\Zx\\"]);
   });
 
   it("returns text without escape sequences unchanged", () => {
     expect(decode("Everyman")).toStrictEqual({
       value: "Everyman",
-      problems: [],
+      issues: [],
     });
   });
-
-  propertyTest.prop([fc.string()])(
-    "never puts the decoded text into problem messages",
-    (text) => {
-      for (const problem of decode(`\\Z${text}\\\\X${text}\\\\.${text}\\`)
-        .problems) {
-        expect(problem.message).not.toContain(`Z${text}`);
-      }
-    },
-  );
 });
 
 describe("encodeText", () => {
@@ -312,7 +303,7 @@ describe("encodeText", () => {
       const encoded = encodeText(value, declared);
       expect(decode(encoded, charset, declared)).toStrictEqual({
         value,
-        problems: [],
+        issues: [],
       });
     },
   );

@@ -1,4 +1,9 @@
-import type { LocatedIssue, Location, Span } from "../shared/issue";
+import {
+  type LocatedIssue,
+  type Location,
+  report,
+  type Span,
+} from "../shared/issue";
 import { type DecodeContext, decodeText } from "./escape";
 import { encodingCharactersSpan } from "./header";
 import { indexOfOrEnd } from "./input";
@@ -10,14 +15,6 @@ import type {
   Subcomponent,
 } from "./model";
 
-/** A parsed segment and the remarks about it. */
-export interface SegmentReading {
-  /** The segment. */
-  readonly segment: Segment;
-  /** Remarks about the segment identifier and escape sequences in its values. */
-  readonly issues: readonly LocatedIssue[];
-}
-
 /**
  * Parses one segment (without its terminator) in a single pass over its characters.
  *
@@ -28,39 +25,36 @@ export interface SegmentReading {
  * @param span - The segment text, without its terminator.
  * @param segmentIndex - The position of the segment in the message, for issue locations.
  * @param context - The delimiters and the character set of the message.
+ * @param issues - Receives the issues about the segment identifier and the escape sequences in its values.
  */
 export function parseSegment(
   input: string,
   span: Span,
   segmentIndex: number,
   context: DecodeContext,
-): SegmentReading {
-  const { field } = context.delimiters;
-  const idEnd = indexOfOrEnd(input, field, span.start, span.end);
+  issues: LocatedIssue[],
+): Segment {
+  const idEnd = indexOfOrEnd(
+    input,
+    context.delimiters.field,
+    span.start,
+    span.end,
+  );
   const id = input.slice(span.start, idEnd);
   const validId = isValidSegmentId(id);
-  const issues: LocatedIssue[] = [];
   if (!validId) {
-    issues.push({
-      code: "INVALID_SEGMENT_ID",
-      severity: "error",
-      message:
-        "A segment identifier must be three upper-case letters or digits, starting with a letter.",
-      location: { span: { start: span.start, end: idEnd }, segmentIndex },
-      value: id,
-    });
+    const location = { span: { start: span.start, end: idEnd }, segmentIndex };
+    report(issues, "INVALID_SEGMENT_ID", location, id);
   }
-  const location = validId ? { segmentIndex, segmentId: id } : { segmentIndex };
-  if (idEnd === span.end) {
-    return { segment: { id, fields: [], span }, issues };
-  }
+  if (idEnd === span.end) return { id, fields: [], span };
 
+  const location = validId ? { segmentIndex, segmentId: id } : { segmentIndex };
   const parser = { input, context, location, issues };
   const fields =
     id === "MSH"
       ? parseHeaderFields(parser, span)
       : parseFields(parser, idEnd + 1, span.end, 1);
-  return { segment: { id, fields, span }, issues };
+  return { id, fields, span };
 }
 
 /**
@@ -119,16 +113,22 @@ function verbatimField(input: string, span: Span): Field {
   };
 }
 
-/** Delimiter levels, ordered so that a delimiter also closes every lower level. */
-const Level = {
-  None: 0,
-  Subcomponent: 1,
-  Component: 2,
-  Repetition: 3,
-  Field: 4,
-} as const;
+/** The delimiter levels, from the lowest to the highest. A delimiter closes the open node of its level and below. */
+type Level = "subcomponent" | "component" | "repetition" | "field";
 
-type Level = (typeof Level)[keyof typeof Level];
+/** The nodes that are open while fields are parsed: the children collected so far and where each node started. */
+interface OpenNodes {
+  readonly fields: Field[];
+  repetitions: Repetition[];
+  components: Component[];
+  subcomponents: Subcomponent[];
+  fieldStart: number;
+  repetitionStart: number;
+  componentStart: number;
+  subcomponentStart: number;
+  /** Whether the open subcomponent contains an escape character. */
+  escaped: boolean;
+}
 
 /**
  * Parses the fields between `from` and `end` in one pass. Each delimiter closes the open node of its level and of
@@ -146,77 +146,90 @@ function parseFields(
   const { input } = parser;
   const levelOf = createLevelLookup(parser.context);
   const escapeCode = parser.context.delimiters.escape.charCodeAt(0);
-
-  const fields: Field[] = [];
-  let repetitions: Repetition[] = [];
-  let components: Component[] = [];
-  let subcomponents: Subcomponent[] = [];
-  let fieldStart = from;
-  let repetitionStart = from;
-  let componentStart = from;
-  let subcomponentStart = from;
-  let escaped = false;
-
-  for (let index = from; index <= end; index++) {
-    const code = index < end ? input.charCodeAt(index) : undefined;
+  const open: OpenNodes = {
+    fields: [],
+    repetitions: [],
+    components: [],
+    subcomponents: [],
+    fieldStart: from,
+    repetitionStart: from,
+    componentStart: from,
+    subcomponentStart: from,
+    escaped: false,
+  };
+  for (let index = from; index < end; index++) {
+    const code = input.charCodeAt(index);
     if (code === escapeCode) {
-      escaped = true;
+      open.escaped = true;
       continue;
     }
-    const level = code === undefined ? Level.Field : levelOf(code);
-    if (level === Level.None) continue;
-
-    const span = { start: subcomponentStart, end: index };
-    subcomponents.push(
-      escaped
-        ? decodedValue(parser, span, {
-            field: firstFieldNumber + fields.length,
-            repetition: repetitions.length + 1,
-            component: components.length + 1,
-            subcomponent: subcomponents.length + 1,
-          })
-        : plainSubcomponent(input, span),
-    );
-    subcomponentStart = index + 1;
-    escaped = false;
-    if (level === Level.Subcomponent) continue;
-
-    components.push({
-      subcomponents: withoutTrailing(
-        subcomponents,
-        (node) => node.kind === "empty",
-      ),
-      span: { start: componentStart, end: index },
-    });
-    subcomponents = [];
-    componentStart = index + 1;
-    if (level === Level.Component) continue;
-
-    repetitions.push({
-      components: withoutTrailing(
-        components,
-        (node) => node.subcomponents.length === 0,
-      ),
-      span: { start: repetitionStart, end: index },
-    });
-    components = [];
-    repetitionStart = index + 1;
-    if (level === Level.Repetition) continue;
-
-    fields.push({
-      repetitions: withoutTrailing(
-        repetitions,
-        (node) => node.components.length === 0,
-      ),
-      span: { start: fieldStart, end: index },
-    });
-    repetitions = [];
-    fieldStart = index + 1;
+    const level = levelOf(code);
+    if (level !== undefined)
+      close(parser, open, level, index, firstFieldNumber);
   }
-  return withoutTrailing(fields, (node) => node.repetitions.length === 0);
+  if (from <= end) close(parser, open, "field", end, firstFieldNumber);
+  return withoutTrailing(open.fields, (node) => node.repetitions.length === 0);
 }
 
-function createLevelLookup(context: DecodeContext): (code: number) => Level {
+/** Closes the open nodes up to `level` at the delimiter at `index`. */
+function close(
+  parser: FieldParser,
+  open: OpenNodes,
+  level: Level,
+  index: number,
+  firstFieldNumber: number,
+): void {
+  const span = { start: open.subcomponentStart, end: index };
+  open.subcomponents.push(
+    open.escaped
+      ? decodedValue(parser, span, {
+          field: firstFieldNumber + open.fields.length,
+          repetition: open.repetitions.length + 1,
+          component: open.components.length + 1,
+          subcomponent: open.subcomponents.length + 1,
+        })
+      : plainSubcomponent(parser.input, span),
+  );
+  open.subcomponentStart = index + 1;
+  open.escaped = false;
+  if (level === "subcomponent") return;
+
+  open.components.push({
+    subcomponents: withoutTrailing(
+      open.subcomponents,
+      (node) => node.kind === "empty",
+    ),
+    span: { start: open.componentStart, end: index },
+  });
+  open.subcomponents = [];
+  open.componentStart = index + 1;
+  if (level === "component") return;
+
+  open.repetitions.push({
+    components: withoutTrailing(
+      open.components,
+      (node) => node.subcomponents.length === 0,
+    ),
+    span: { start: open.repetitionStart, end: index },
+  });
+  open.components = [];
+  open.repetitionStart = index + 1;
+  if (level === "repetition") return;
+
+  open.fields.push({
+    repetitions: withoutTrailing(
+      open.repetitions,
+      (node) => node.components.length === 0,
+    ),
+    span: { start: open.fieldStart, end: index },
+  });
+  open.repetitions = [];
+  open.fieldStart = index + 1;
+}
+
+function createLevelLookup(
+  context: DecodeContext,
+): (code: number) => Level | undefined {
   const { field, repetition, component, subcomponent } = context.delimiters;
   const fieldCode = field.charCodeAt(0);
   const repetitionCode = repetition.charCodeAt(0);
@@ -225,15 +238,15 @@ function createLevelLookup(context: DecodeContext): (code: number) => Level {
   return (code) => {
     switch (code) {
       case fieldCode:
-        return Level.Field;
+        return "field";
       case repetitionCode:
-        return Level.Repetition;
+        return "repetition";
       case componentCode:
-        return Level.Component;
+        return "component";
       case subcomponentCode:
-        return Level.Subcomponent;
+        return "subcomponent";
       default:
-        return Level.None;
+        return undefined;
     }
   };
 }
@@ -264,22 +277,16 @@ function plainSubcomponent(input: string, span: Span): Subcomponent {
   return { kind: "value", value: input.slice(span.start, span.end), span };
 }
 
-/** A subcomponent with escape sequences, decoded; problems are reported at their position. */
+/** A subcomponent with escape sequences, decoded; issues are reported at the position of their sequence. */
 function decodedValue(
   parser: FieldParser,
   span: Span,
   position: Position,
 ): Subcomponent {
   const { input } = parser;
-  const decoded = decodeText(input, span, parser.context);
-  for (const problem of decoded.problems) {
-    parser.issues.push({
-      code: problem.code,
-      severity: problem.severity,
-      message: problem.message,
-      location: { span: problem.span, ...parser.location, ...position },
-      value: input.slice(problem.span.start, problem.span.end),
-    });
-  }
-  return { kind: "value", value: decoded.value, span };
+  const value = decodeText(input, span, parser.context, (code, at) => {
+    const location = { span: at, ...parser.location, ...position };
+    report(parser.issues, code, location, input.slice(at.start, at.end));
+  });
+  return { kind: "value", value, span };
 }

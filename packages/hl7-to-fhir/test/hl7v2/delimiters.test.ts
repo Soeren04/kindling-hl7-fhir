@@ -7,8 +7,8 @@ import {
   readDelimiters,
 } from "../../src/hl7v2/delimiters";
 import type { Delimiters } from "../../src/hl7v2/model";
-import type { Issue } from "../../src/shared/issue";
-import type { Result } from "../../src/shared/result";
+import type { Issue, LocatedIssue } from "../../src/shared/issue";
+import { ok, type Result } from "../../src/shared/result";
 import { delimiterSets, punctuation } from "./arbitraries";
 
 const standard: Delimiters = {
@@ -19,9 +19,14 @@ const standard: Delimiters = {
   subcomponent: "&",
 };
 
-/** Reads the delimiters of an MSH segment that spans the whole input. */
+/**
+ * Reads the delimiters of an MSH segment that spans the whole input. A successful reading carries the issues reported
+ * on the way, so that one assertion covers both.
+ */
 function read(msh: string) {
-  return readDelimiters(msh, { start: 0, end: msh.length });
+  const issues: LocatedIssue[] = [];
+  const result = readDelimiters(msh, { start: 0, end: msh.length }, issues);
+  return result.ok ? ok({ ...result.value, issues }) : result;
 }
 
 /** An MSH segment with the given MSH-2 and MSH-12 and empty fields in between. */
@@ -59,7 +64,7 @@ describe("readDelimiters", () => {
 
   it("finds MSH-1 and MSH-2 relative to the start of the segment", () => {
     const input = String.raw`ignored MSH#$*!%#LAB`;
-    const result = readDelimiters(input, { start: 8, end: input.length });
+    const result = readDelimiters(input, { start: 8, end: input.length }, []);
     expect(result.ok && result.value.delimiters.field).toBe("#");
   });
 

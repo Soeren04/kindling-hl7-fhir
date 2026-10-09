@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isValidSegmentId, parseSegment } from "../../src/hl7v2/segment";
+import type { LocatedIssue } from "../../src/shared/issue";
 import { fieldShape, segmentShape } from "./helpers";
 
 const context = {
@@ -18,11 +19,13 @@ describe("parseSegment", () => {
   it("parses only the given range of the input", () => {
     const input = "MSH|^~\\&\rPID|1|a^b\rPV1|1";
     const start = input.indexOf("PID");
-    const { segment, issues } = parseSegment(
+    const issues: LocatedIssue[] = [];
+    const segment = parseSegment(
       input,
       { start, end: input.indexOf("\rPV1") },
       1,
       context,
+      issues,
     );
     expect(segment.id).toBe("PID");
     expect(segmentShape(segment)).toStrictEqual([[[["1"]]], [[["a"], ["b"]]]]);
@@ -35,11 +38,12 @@ describe("parseSegment", () => {
 
   it("does not split or unescape MSH-2", () => {
     const input = "MSH|^~\\&|\\F\\";
-    const { segment } = parseSegment(
+    const segment = parseSegment(
       input,
       { start: 0, end: input.length },
       0,
       context,
+      [],
     );
     expect(fieldShape(segment.fields[1])).toStrictEqual([[["^~\\&"]]]);
     expect(fieldShape(segment.fields[2])).toStrictEqual([[["|"]]]);

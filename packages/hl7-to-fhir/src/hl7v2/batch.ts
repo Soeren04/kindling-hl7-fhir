@@ -1,14 +1,18 @@
 // Batch files and MLLP streams carry many messages in one text. This module cuts them apart without interpreting the
 // messages: it only needs to recognize where a message starts (MSH), where it stops (the next MSH, an envelope
 // segment, an MLLP end block or the end of the input) and which lines belong to no message.
-import type { Issue, LocatedIssue, Span } from "../shared/issue";
+import {
+  inInputOrder,
+  type Issue,
+  type LocatedIssue,
+  report,
+  type Span,
+} from "../shared/issue";
 import {
   byteOrderMark,
   indexOfOrEnd,
-  inInputOrder,
   mllpEndBlock,
   mllpStartBlock,
-  removalIssue,
   terminatorLength,
 } from "./input";
 
@@ -24,7 +28,7 @@ import {
 export interface BatchSplit {
   /** The messages in input order. Each starts with `MSH` and keeps its own segment terminators. */
   readonly messages: readonly string[];
-  /** Remarks in input order, located in the string passed to {@link splitBatch}. */
+  /** The issues in input order, located in the string passed to {@link splitBatch}. */
   readonly issues: readonly Issue[];
 }
 
@@ -40,7 +44,7 @@ export interface BatchSplit {
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
  * frame without end block, text that belongs to no message and is dropped, and a `BTS-1` or `FTS-1` count that
- * differs from the number of messages or batches (warnings). Envelope segments are dropped without a remark,
+ * differs from the number of messages or batches (warnings). Envelope segments are dropped without an issue,
  * because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
  * messages, which are independent strings; the position of a message in the result tells which message a later
  * `parse` issue belongs to.
@@ -86,9 +90,9 @@ export function splitBatch(input: string): BatchSplit {
   };
   let index = 0;
   if (input.startsWith(byteOrderMark)) {
-    scan.issues.push(
-      removalIssue("BYTE_ORDER_MARK_REMOVED", { start: 0, end: 1 }),
-    );
+    report(scan.issues, "BYTE_ORDER_MARK_REMOVED", {
+      span: { start: 0, end: 1 },
+    });
     index = 1;
   }
   while (index < input.length) {
@@ -123,19 +127,15 @@ function startFrame(scan: Scan, index: number): number {
   closeSection(scan);
   if (scan.frameStart !== undefined) reportUnterminated(scan, scan.frameStart);
   scan.frameStart = index;
-  scan.issues.push(
-    removalIssue("MLLP_FRAMING_REMOVED", { start: index, end: index + 1 }),
-  );
+  report(scan.issues, "MLLP_FRAMING_REMOVED", {
+    span: { start: index, end: index + 1 },
+  });
   return index + 1;
 }
 
 function reportUnterminated(scan: Scan, frameStart: number): void {
-  scan.issues.push({
-    code: "MLLP_FRAME_UNTERMINATED",
-    severity: "warning",
-    message:
-      "An MLLP frame has no end block; the message may be cut off, for example by a closed connection.",
-    location: { span: { start: frameStart, end: frameStart + 1 } },
+  report(scan.issues, "MLLP_FRAME_UNTERMINATED", {
+    span: { start: frameStart, end: frameStart + 1 },
   });
 }
 
@@ -184,9 +184,9 @@ function isBlank(input: string, start: number, end: number): boolean {
 
 function endFrame(scan: Scan, end: number, next: number): void {
   closeSection(scan);
-  scan.issues.push(
-    removalIssue("MLLP_FRAMING_REMOVED", { start: end, end: next }),
-  );
+  report(scan.issues, "MLLP_FRAMING_REMOVED", {
+    span: { start: end, end: next },
+  });
   scan.frameStart = undefined;
 }
 
@@ -258,14 +258,12 @@ function closeSection(scan: Scan): void {
     scan.message = undefined;
   }
   if (scan.outside !== undefined) {
-    scan.issues.push({
-      code: "CONTENT_OUTSIDE_MESSAGE",
-      severity: "warning",
-      message:
-        "Text outside any message was dropped: segments before the first MSH, after a batch trailer or between MLLP frames.",
-      location: { span: scan.outside },
-      value: scan.input.slice(scan.outside.start, scan.outside.end),
-    });
+    report(
+      scan.issues,
+      "CONTENT_OUTSIDE_MESSAGE",
+      { span: scan.outside },
+      scan.input.slice(scan.outside.start, scan.outside.end),
+    );
     scan.outside = undefined;
   }
 }
@@ -278,16 +276,10 @@ function checkCount(scan: Scan, trailer: Span, actual: number): void {
   const valueEnd = indexOfOrEnd(input, separator, valueStart, trailer.end);
   const declared = parseCount(input.slice(valueStart, valueEnd).trim());
   if (declared === undefined || declared === actual) return;
-  scan.issues.push({
-    code: "BATCH_COUNT_MISMATCH",
-    severity: "warning",
-    message:
-      "The count in the batch or file trailer differs from the number of messages or batches in the input.",
-    location: {
-      span: { start: valueStart, end: valueEnd },
-      segmentId: input.slice(trailer.start, trailer.start + 3),
-      field: 1,
-    },
+  report(scan.issues, "BATCH_COUNT_MISMATCH", {
+    span: { start: valueStart, end: valueEnd },
+    segmentId: input.slice(trailer.start, trailer.start + 3),
+    field: 1,
   });
 }
 

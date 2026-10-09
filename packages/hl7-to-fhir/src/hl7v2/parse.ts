@@ -1,10 +1,16 @@
-import type { Issue, LocatedIssue } from "../shared/issue";
+import {
+  inInputOrder,
+  type Issue,
+  issue,
+  type IssueOf,
+  type LocatedIssue,
+} from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
-import { readDelimiters } from "./delimiters";
 import { resolveCharset } from "./charset";
+import { readDelimiters } from "./delimiters";
 import { characterSetField, findHeaderValue, versionField } from "./header";
-import { inInputOrder, locateContent, splitLines } from "./input";
-import type { Hl7Message, Segment } from "./model";
+import { locateContent, splitLines } from "./input";
+import type { Hl7Message } from "./model";
 import { parseSegment } from "./segment";
 
 /**
@@ -22,7 +28,7 @@ import { parseSegment } from "./segment";
 export interface ParsedMessage {
   /** The message tree. */
   readonly message: Hl7Message;
-  /** Remarks in input order; parsing succeeded regardless of their severity. */
+  /** The issues in input order; parsing succeeded regardless of their severity. */
   readonly issues: readonly Issue[];
 }
 
@@ -89,29 +95,20 @@ export interface ParseFailure {
  * ```
  */
 export function parse(input: string): Result<ParsedMessage, ParseFailure> {
-  const content = locateContent(input);
-  const lines = splitLines(input, content.span);
-  const issues = [...content.issues, ...lines.issues];
+  const issues: LocatedIssue[] = [];
+  const lines = splitLines(input, locateContent(input, issues), issues);
 
-  const msh = lines.spans[0];
+  const msh = lines[0];
   if (msh === undefined) {
-    return fail(issues, {
-      code: "EMPTY_INPUT",
-      severity: "error",
-      message: "The input contains no segments.",
-      location: { span: { start: 0, end: input.length } },
-    });
+    return fail(
+      issues,
+      issue("EMPTY_INPUT", { span: { start: 0, end: input.length } }),
+    );
   }
   if (!input.startsWith("MSH", msh.start)) {
-    return fail(issues, {
-      code: "MISSING_MSH",
-      severity: "error",
-      message:
-        "The first segment is not MSH. Batch files (FHS, BHS) must be split into messages first.",
-      location: { span: msh, segmentIndex: 0 },
-    });
+    return fail(issues, issue("MISSING_MSH", { span: msh, segmentIndex: 0 }));
   }
-  const reading = readDelimiters(input, msh);
+  const reading = readDelimiters(input, msh, issues);
   if (!reading.ok) return fail(issues, reading.error);
 
   const { delimiters } = reading.value;
@@ -120,28 +117,29 @@ export function parse(input: string): Result<ParsedMessage, ParseFailure> {
     return span && input.slice(span.start, span.end);
   };
   const version = headerValue(versionField);
-  const charset = resolveCharset(headerValue(characterSetField));
-  const segments: Segment[] = [];
-  issues.push(...reading.value.issues);
-  for (const [index, span] of lines.spans.entries()) {
-    const parsed = parseSegment(input, span, index, { delimiters, charset });
-    segments.push(parsed.segment);
-    issues.push(...parsed.issues);
-  }
-  const message: Hl7Message =
-    version === undefined
-      ? { delimiters, segments }
-      : { delimiters, version, segments };
+  const context = {
+    delimiters,
+    charset: resolveCharset(headerValue(characterSetField)),
+  };
+  const segments = lines.map((span, index) =>
+    parseSegment(input, span, index, context, issues),
+  );
+  // An absent version is left out instead of set to undefined, so the tree keeps its keys through JSON.
+  const message: Hl7Message = {
+    delimiters,
+    ...(version === undefined ? {} : { version }),
+    segments,
+  };
   return ok({ message, issues: inInputOrder(issues) });
 }
 
 function fail(
   issues: readonly LocatedIssue[],
-  cause: Issue & { readonly code: ParseFailureCode },
+  cause: IssueOf<ParseFailureCode>,
 ): Result<never, ParseFailure> {
   return err({
     code: cause.code,
     message: cause.message,
-    issues: [...inInputOrder(issues), cause],
+    issues: inInputOrder(issues).concat(cause),
   });
 }

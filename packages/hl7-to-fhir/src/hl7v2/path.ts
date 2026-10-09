@@ -86,10 +86,10 @@ export function parsePath(path: string): Result<ParsedPath, PathError> {
   const parts = splitParts(path);
   const [segmentPart, fieldPart, componentPart, subcomponentPart] = parts;
   if (segmentPart === undefined) {
-    return fail("EMPTY_PATH", "The path is empty.", { start: 0, end: 0 });
+    return fail("EMPTY_PATH", { start: 0, end: 0 });
   }
   if (subcomponentPart !== undefined && parts.length > 4) {
-    return fail("TOO_MANY_PARTS", "A path has at most four parts.", {
+    return fail("TOO_MANY_PARTS", {
       start: subcomponentPart.span.end + 1,
       end: path.length,
     });
@@ -98,18 +98,10 @@ export function parsePath(path: string): Result<ParsedPath, PathError> {
   const segment = readIndexed(segmentPart);
   if (!segment.ok) return segment;
   if (!isValidSegmentId(segment.value.name)) {
-    return fail(
-      "INVALID_SEGMENT_ID",
-      "A segment identifier is three upper-case letters or digits, starting with a letter.",
-      segmentPart.span,
-    );
+    return fail("INVALID_SEGMENT_ID", segmentPart.span);
   }
   if (fieldPart === undefined) {
-    return fail(
-      "MISSING_FIELD",
-      "A path names a field after the segment, as in PID.5.",
-      { start: path.length, end: path.length },
-    );
+    return fail("MISSING_FIELD", { start: path.length, end: path.length });
   }
 
   const field = readIndexed(fieldPart);
@@ -162,11 +154,7 @@ function readIndexed(part: Part): Result<Indexed, PathError> {
   const match = /^([^[\]]*)\[([^[\]]*)\]$/u.exec(part.text);
   const index = toPositiveInteger(match?.[2] ?? "");
   if (match === null || index === undefined) {
-    return fail(
-      "INVALID_INDEX",
-      "A repetition index is a positive whole number in brackets, as in OBX[3].",
-      part.span,
-    );
+    return fail("INVALID_INDEX", part.span);
   }
   return ok({ name: match[1] ?? "", index });
 }
@@ -179,13 +167,7 @@ function readOptionalNumber(
 
 function readNumber(text: string, span: Span): Result<number, PathError> {
   const number = toPositiveInteger(text);
-  return number === undefined
-    ? fail(
-        "INVALID_NUMBER",
-        "A field, component or subcomponent number is a positive whole number without leading zeros.",
-        span,
-      )
-    : ok(number);
+  return number === undefined ? fail("INVALID_NUMBER", span) : ok(number);
 }
 
 /** The number written by `text` if it is a positive whole number without leading zeros or signs. */
@@ -195,10 +177,19 @@ function toPositiveInteger(text: string): number | undefined {
   return Number.isSafeInteger(number) ? number : undefined;
 }
 
-function fail(
-  code: PathErrorCode,
-  message: string,
-  span: Span,
-): Err<PathError> {
-  return err({ code, message, span });
+// One message per code, like the issue messages; a message never repeats the path, which may come from data.
+const messages: Readonly<Record<PathErrorCode, string>> = {
+  EMPTY_PATH: "The path is empty.",
+  INVALID_SEGMENT_ID:
+    "A segment identifier is three upper-case letters or digits, starting with a letter.",
+  MISSING_FIELD: "A path names a field after the segment, as in PID.5.",
+  INVALID_NUMBER:
+    "A field, component or subcomponent number is a positive whole number without leading zeros.",
+  INVALID_INDEX:
+    "A repetition index is a positive whole number in brackets, as in OBX[3].",
+  TOO_MANY_PARTS: "A path has at most four parts.",
+};
+
+function fail(code: PathErrorCode, span: Span): Err<PathError> {
+  return err({ code, message: messages[code], span });
 }
