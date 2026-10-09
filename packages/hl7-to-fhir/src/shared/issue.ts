@@ -167,6 +167,13 @@ export type Severity = "error" | "warning" | "info";
  * - `DATE_TIME_OMITTED` (warning): a date and time was left out, because the FHIR element is an instant, which needs a
  *   time of day, and the value is a date only.
  * - `TIME_OFFSET_DROPPED` (warning): a time carries an offset, which a FHIR time cannot hold; the time of day is kept.
+ * - `NON_NUMERIC_VALUE` (warning): a value that FHIR needs as a number is not a number (NM); it was left out.
+ * - `NUMBER_PRECISION_LOST` (warning): a number has more than 15 significant digits, which a JSON number cannot hold;
+ *   the nearest number was used.
+ * - `STRUCTURED_NUMERIC_UNSUPPORTED` (warning): a structured numeric (SN) combines its comparator, numbers and separator
+ *   in a way FHIR cannot express as a quantity, range or ratio, or it is a range from a larger to a smaller number; it
+ *   was left out. `value` is the comparator or separator that cannot be expressed, absent when a number is missing or
+ *   the range is inverted.
  *
  * Limits:
  *
@@ -236,6 +243,9 @@ export type IssueCode =
   | "DATE_TIME_TRUNCATED"
   | "DATE_TIME_OMITTED"
   | "TIME_OFFSET_DROPPED"
+  | "NON_NUMERIC_VALUE"
+  | "NUMBER_PRECISION_LOST"
+  | "STRUCTURED_NUMERIC_UNSUPPORTED"
   | "TOO_MANY_ISSUES";
 
 /**

@@ -304,6 +304,21 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The time carries an offset from UTC, which a FHIR time cannot hold; only the time of day was kept.",
   },
+  NON_NUMERIC_VALUE: {
+    severity: "warning",
+    message:
+      "A value that FHIR needs as a number is not a number (NM); it was left out.",
+  },
+  NUMBER_PRECISION_LOST: {
+    severity: "warning",
+    message:
+      "The number has more than 15 significant digits, which a JSON number cannot hold; the nearest number was used.",
+  },
+  STRUCTURED_NUMERIC_UNSUPPORTED: {
+    severity: "warning",
+    message:
+      "The structured numeric (SN) combines its comparator, numbers and separator in a way FHIR cannot express as a quantity, range or ratio, or is a range from a larger to a smaller number; it was left out.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:
