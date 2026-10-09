@@ -35,6 +35,8 @@ type Severity = "error" | "warning" | "info";
  * Input and message structure:
  *
  * - `INVALID_INPUT` (error): the input is not a string, for example a `Buffer` that was not decoded or `undefined`.
+ * - `INVALID_DEFINITION` (error): a segment definition passed to `validate` or `group` was not made with
+ *   `defineSegment` and does not have its shape; it is ignored. `value` says what is wrong with it.
  * - `EMPTY_INPUT` (error): the input contains no text once framing and whitespace are removed.
  * - `MISSING_MSH` (error): the first segment is not `MSH`.
  * - `UNEXPECTED_MSH` (warning): a later segment is MSH, so the input holds more than one message and should be split
@@ -151,6 +153,7 @@ type Severity = "error" | "warning" | "info";
  */
 type IssueCode =
   | "INVALID_INPUT"
+  | "INVALID_DEFINITION"
   | "EMPTY_INPUT"
   | "MISSING_MSH"
   | "UNEXPECTED_MSH"

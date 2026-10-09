@@ -62,6 +62,14 @@ export function* walkValues(context: SegmentContext): Generator<Part> {
 }
 
 /**
+ * Whether the library knows a data type: one of the types of its segment definitions, a primitive type with a format,
+ * or `varies`.
+ */
+export function isKnownDataType(dataType: string): boolean {
+  return dataTypes.has(dataType) || valueFormats.has(dataType);
+}
+
+/**
  * The data type of a field: its definition's, or for OBX-5, the only field of the shipped segments whose type varies,
  * the one OBX-2 names in the same segment.
  */

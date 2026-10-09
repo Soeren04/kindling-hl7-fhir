@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { defineSegment } from "../../../src/hl7v2/define-segment";
+import { validate } from "../../../src/hl7v2/validate";
 import type { IssueCode } from "../../../src/shared/issue";
+import { parsed } from "../helpers";
 import { adtWith, validateSegments, validOru } from "./messages";
 
 /** The code, position and value of every issue. */
@@ -157,6 +160,17 @@ describe("validate: tables", () => {
     expect(described(segments)).toStrictEqual([
       { code: "MALFORMED_CODE", at: ["PID", 8, 1, 1, 1], value: "Q " },
     ]);
+  });
+
+  it("looks up the code of a type without a format", () => {
+    const { message } = parsed(adtWith().concat("ZPI|Q").join("\r"));
+    const zpi = defineSegment({
+      id: "ZPI",
+      fields: [{ name: "sex", dataType: "ST", table: "0001" }],
+    });
+    expect(
+      validate(message, { segments: [zpi] }).map(({ code }) => code),
+    ).toStrictEqual(["UNKNOWN_USER_DEFINED_CODE"]);
   });
 
   it("does not check tables the library does not ship", () => {

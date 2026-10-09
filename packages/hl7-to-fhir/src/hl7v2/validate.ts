@@ -1,5 +1,6 @@
 import type { Issue } from "../shared/issue";
 import { finishIssues, inMessageOrder, maxIssues } from "../shared/collect";
+import { type DefinitionOptions, definitionsOf } from "./definition-options";
 import { segmentDefinitions } from "./definitions/segment-definitions";
 import type { SegmentDefinition } from "./definitions/types";
 import { groupSegments } from "./group";
@@ -11,14 +12,21 @@ import { checkVersion } from "./validate/rules/version";
  * Checks a message against the HL7 v2.5.1 definitions of its structure and segments.
  *
  * @param message - A message from `parse`.
+ * @param options - Definitions of further segments.
  * @returns Every finding in message order; empty when the message is valid. Never throws.
  */
-export function validate(message: Hl7Message): readonly Issue[] {
+export function validate(
+  message: Hl7Message,
+  options: DefinitionOptions = {},
+): readonly Issue[] {
   const issues: Issue[] = [];
+  const callers = definitionsOf(options, issues);
   const builtIn = checkVersion(message, issues);
-  groupSegments(message, () => false, issues);
-  const fieldIssues = checkSegments(message, (id) =>
-    builtIn ? segmentDefinitions.get(id) : undefined,
+  groupSegments(message, (id) => callers.has(id), issues);
+  const fieldIssues = checkSegments(
+    message,
+    (id) =>
+      callers.get(id) ?? (builtIn ? segmentDefinitions.get(id) : undefined),
   );
   return finishIssues(
     issues.concat(fieldIssues),

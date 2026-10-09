@@ -57,7 +57,7 @@ export interface FieldDefinition {
   /** How often the field may repeat. */
   readonly maxRepetitions: MaxRepetitions;
   /** The number of the HL7 table that lists the field's codes (for example `0001`), when there is one. */
-  readonly table?: string;
+  readonly table?: string | undefined;
 }
 
 /**
@@ -93,7 +93,7 @@ export interface ComponentDefinition {
   /** The identifier of the component's data type, a key of the data type definitions. */
   readonly dataType: string;
   /** The number of the HL7 table that lists the component's codes, when there is one. */
-  readonly table?: string;
+  readonly table?: string | undefined;
 }
 
 /**

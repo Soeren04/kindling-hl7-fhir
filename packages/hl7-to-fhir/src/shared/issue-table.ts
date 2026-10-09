@@ -14,6 +14,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       'The input is not a string. Decode bytes first, for example with buffer.toString("latin1") for ASCII and ISO-8859-1 messages or buffer.toString("utf8") for UTF-8 ones.',
   },
+  INVALID_DEFINITION: {
+    severity: "error",
+    message:
+      "A segment definition passed in options does not have the shape that defineSegment returns, so it was ignored; the issue value says what is wrong with it.",
+  },
   EMPTY_INPUT: {
     severity: "error",
     message: "The input contains no segments.",
