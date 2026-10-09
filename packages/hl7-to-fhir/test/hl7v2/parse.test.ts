@@ -446,6 +446,32 @@ describe("parse", () => {
 
   describe("failures", () => {
     it.each([
+      ["undefined", undefined],
+      ["null", null],
+      ["a byte array", new TextEncoder().encode("MSH|^~\\&")],
+      ["a number", 42],
+    ])(
+      "fails with INVALID_INPUT for %s instead of throwing",
+      (_description, input) => {
+        expect(parse(input as unknown as string)).toStrictEqual({
+          ok: false,
+          error: {
+            code: "INVALID_INPUT",
+            message: expect.stringContaining("toString") as string,
+            issues: [
+              {
+                code: "INVALID_INPUT",
+                severity: "error",
+                message: expect.any(String) as string,
+                location: { span: { start: 0, end: 0 } },
+              },
+            ],
+          },
+        });
+      },
+    );
+
+    it.each([
       ["empty input", ""],
       ["whitespace only", " \r\n\t"],
       ["MLLP framing only", "\u000B\u001C\r"],

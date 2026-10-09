@@ -3,6 +3,7 @@ import {
   type Issue,
   issue,
   type IssueOf,
+  isString,
   type LocatedIssue,
 } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
@@ -35,6 +36,7 @@ export interface ParsedMessage {
 /**
  * Why the input could not be read as an HL7 v2 message at all.
  *
+ * - `INVALID_INPUT`: the input is not a string (for example an undecoded `Buffer`).
  * - `EMPTY_INPUT`: there is no text once framing and whitespace are removed.
  * - `MISSING_MSH`: the first segment is not `MSH`.
  * - `INVALID_FIELD_SEPARATOR`: MSH-1 is missing or not a printable ASCII punctuation character.
@@ -42,6 +44,7 @@ export interface ParsedMessage {
  *   characters.
  */
 export type ParseFailureCode =
+  | "INVALID_INPUT"
   | "EMPTY_INPUT"
   | "MISSING_MSH"
   | "INVALID_FIELD_SEPARATOR"
@@ -73,7 +76,8 @@ export interface ParseFailure {
  *
  * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n`; a byte order mark, MLLP framing and
  * trailing whitespace are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
- * `issues`. Parsing fails only when the input has no `MSH` segment first or its delimiters are unusable.
+ * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
+ * declares unusable delimiters; it never throws.
  *
  * Every node carries a span into `input`, the string passed in, even when framing was removed.
  *
@@ -95,6 +99,10 @@ export interface ParseFailure {
  * ```
  */
 export function parse(input: string): Result<ParsedMessage, ParseFailure> {
+  if (!isString(input)) {
+    const cause = issue("INVALID_INPUT", { span: { start: 0, end: 0 } });
+    return err({ code: cause.code, message: cause.message, issues: [cause] });
+  }
   const issues: LocatedIssue[] = [];
   const lines = splitLines(input, locateContent(input, issues), issues);
 

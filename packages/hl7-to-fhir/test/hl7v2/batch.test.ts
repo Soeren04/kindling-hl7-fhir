@@ -400,4 +400,15 @@ describe("splitBatch", () => {
     expect(issues).toHaveLength(10_001);
     expect(issues.at(-1)?.code).toBe("TOO_MANY_ISSUES");
   });
+
+  it.each([undefined, null, 42])(
+    "reports %s as INVALID_INPUT instead of throwing",
+    (input) => {
+      const { messages, issues } = splitBatch(input as unknown as string);
+      expect(messages).toStrictEqual([]);
+      expect(
+        issues.map(({ code, severity }) => [code, severity]),
+      ).toStrictEqual([["INVALID_INPUT", "error"]]);
+    },
+  );
 });

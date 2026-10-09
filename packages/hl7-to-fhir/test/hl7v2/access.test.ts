@@ -165,3 +165,12 @@ describe("isNull", () => {
     expect(isNull(message, "OBX[3].5")).toBe(false);
   });
 });
+
+describe("paths that are not strings", () => {
+  it("match nothing instead of throwing", () => {
+    const path = undefined as unknown as string;
+    expect(get(message, path)).toBeUndefined();
+    expect(getAll(message, path)).toStrictEqual([]);
+    expect(isNull(message, path)).toBe(false);
+  });
+});

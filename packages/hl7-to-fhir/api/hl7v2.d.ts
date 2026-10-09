@@ -402,13 +402,14 @@ interface ParsedMessage {
 /**
  * Why the input could not be read as an HL7 v2 message at all.
  *
+ * - `INVALID_INPUT`: the input is not a string (for example an undecoded `Buffer`).
  * - `EMPTY_INPUT`: there is no text once framing and whitespace are removed.
  * - `MISSING_MSH`: the first segment is not `MSH`.
  * - `INVALID_FIELD_SEPARATOR`: MSH-1 is missing or not a printable ASCII punctuation character.
  * - `INVALID_ENCODING_CHARACTERS`: MSH-2 is empty or too long, or the delimiters are not distinct punctuation
  *   characters.
  */
-type ParseFailureCode = "EMPTY_INPUT" | "MISSING_MSH" | "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS";
+type ParseFailureCode = "INVALID_INPUT" | "EMPTY_INPUT" | "MISSING_MSH" | "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS";
 /**
  * The reason {@link parse} failed, with the issues found up to that point.
  *
@@ -434,7 +435,8 @@ interface ParseFailure {
  *
  * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n`; a byte order mark, MLLP framing and
  * trailing whitespace are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
- * `issues`. Parsing fails only when the input has no `MSH` segment first or its delimiters are unusable.
+ * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
+ * declares unusable delimiters; it never throws.
  *
  * Every node carries a span into `input`, the string passed in, even when framing was removed.
  *
@@ -485,6 +487,7 @@ interface ParsedPath {
 /**
  * Why a path could not be read.
  *
+ * - `INVALID_INPUT`: the path is not a string.
  * - `EMPTY_PATH`: the path is the empty string.
  * - `INVALID_SEGMENT_ID`: the segment is not three upper-case letters or digits starting with a letter.
  * - `MISSING_FIELD`: there is no field number after the segment, as in `PID`.
@@ -493,7 +496,7 @@ interface ParsedPath {
  * - `INVALID_INDEX`: a bracketed repetition index is not a positive whole number, or its brackets are malformed.
  * - `TOO_MANY_PARTS`: the path has more than four parts (segment, field, component, subcomponent).
  */
-type PathErrorCode = "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MISSING_FIELD" | "INVALID_NUMBER" | "INVALID_INDEX" | "TOO_MANY_PARTS";
+type PathErrorCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MISSING_FIELD" | "INVALID_NUMBER" | "INVALID_INDEX" | "TOO_MANY_PARTS";
 /**
  * The reason {@link parsePath} rejected a path.
  *

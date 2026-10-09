@@ -4,6 +4,8 @@
 import {
   finishIssues,
   type Issue,
+  issue,
+  isString,
   type LocatedIssue,
   report,
   type Span,
@@ -78,6 +80,12 @@ export interface BatchSplit {
  * ```
  */
 export function splitBatch(input: string): BatchSplit {
+  if (!isString(input)) {
+    return {
+      messages: [],
+      issues: [issue("INVALID_INPUT", { span: { start: 0, end: 0 } })],
+    };
+  }
   const scan: Scan = {
     input,
     messages: [],
