@@ -176,6 +176,15 @@ describe("parsePath", () => {
         error: { code: "INVALID_NUMBER" },
       });
     });
+
+    it("rejects the number after the largest safe integer, which has as many digits", () => {
+      expect(
+        parsePath(`PID.${String(Number.MAX_SAFE_INTEGER + 1)}`),
+      ).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_NUMBER" },
+      });
+    });
   });
 
   it("does not echo the path in its messages", () => {

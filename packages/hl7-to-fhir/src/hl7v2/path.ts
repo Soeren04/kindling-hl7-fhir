@@ -173,14 +173,22 @@ interface Indexed {
 
 /** Splits `name[3]` into the name and the index; a part without brackets has no index. */
 function readIndexed(part: Part): Result<Indexed, PathFailure> {
-  if (!/[[\]]/u.test(part.text))
-    return ok({ name: part.text, index: undefined });
-  const match = /^([^[\]]*)\[([^[\]]*)\]$/u.exec(part.text);
-  const index = toPositiveInteger(match?.[2] ?? "");
-  if (match === null || index === undefined) {
+  const { text } = part;
+  const open = text.indexOf("[");
+  const close = text.indexOf("]");
+  if (open === -1 && close === -1) return ok({ name: text, index: undefined });
+  // Exactly one pair of brackets, the closing one last: the first `]` ends the text and no `[` follows the first.
+  const digits = text.slice(open + 1, close);
+  const index = toPositiveInteger(digits);
+  const bracketed =
+    open !== -1 &&
+    open < close &&
+    close === text.length - 1 &&
+    !digits.includes("[");
+  if (!bracketed || index === undefined) {
     return pathFailure("INVALID_INDEX", part.span);
   }
-  return ok({ name: match[1] ?? "", index });
+  return ok({ name: text.slice(0, open), index });
 }
 
 function readOptionalNumber(
