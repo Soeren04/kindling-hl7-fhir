@@ -73,7 +73,7 @@ describe("readDelimiters", () => {
   });
 
   describe("truncation character", () => {
-    it.each([["2.7"], ["2.7.1"], ["2.8.2"], ["2.10"], ["3"], ["2.9^DEU"]])(
+    it.each([["2.7"], ["2.7.1"], ["2.8.2"], ["2.10"], ["3.0"], ["2.9^DEU"]])(
       "is the fifth character of MSH-2 in version %s",
       (version) => {
         const result = read(withVersion(String.raw`^~\&#`, version));
@@ -92,6 +92,11 @@ describe("readDelimiters", () => {
       ["version 2.5.1", "2.5.1"],
       ["version 2.6", "2.6"],
       ["version 1.9", "1.9"],
+      ["a major version without minor", "3"],
+      ["a hexadecimal-looking minor", "2.0x7"],
+      ["an exponent", "2.1e1"],
+      ["Infinity", "Infinity"],
+      ["a leading space", " 2.7"],
       ["an unreadable version", "two.seven"],
       ["an empty version", ""],
     ])("is ignored with a warning in %s", (_description, version) => {

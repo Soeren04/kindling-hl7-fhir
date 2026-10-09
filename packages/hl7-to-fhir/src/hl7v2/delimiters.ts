@@ -150,14 +150,19 @@ function allDistinct(text: string): boolean {
   return true;
 }
 
+// A version starts with a major and a minor number of decimal digits ("2.7", "2.8.2", "2.10"). Anchored and free of
+// backtracking, so "2.0x7", "2.1e1" or "Infinity" are not read as numbers the way Number() would.
+const versionNumbers = /^(\d+)\.(\d+)/u;
+
 /**
  * Whether a message of this version (MSH-12.1) may declare a truncation character, which version 2.7 introduced.
  * An absent or unreadable version is treated as older.
  */
 function declaresTruncation(version: string | undefined): boolean {
-  const [major = Number.NaN, minor = Number.NaN] = (version ?? "")
-    .split(".", 2)
-    .map(Number);
+  const match = versionNumbers.exec(version ?? "");
+  if (match === null) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
   return major > 2 || (major === 2 && minor >= 7);
 }
 
