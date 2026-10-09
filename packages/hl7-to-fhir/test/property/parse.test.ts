@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { encodeText } from "../../src/hl7v2/escape";
 import type { Delimiters, Hl7Message, Segment } from "../../src/hl7v2/model";
 import { parse, type ParseFailureCode } from "../../src/hl7v2/parse";
+import { isValidSegmentId } from "../../src/hl7v2/segment";
 import { stringify } from "../../src/hl7v2/stringify";
 import type { Span } from "../../src/shared/issue";
 import {
@@ -61,10 +62,33 @@ describe("parse properties", () => {
         expect(result.value.message.segments[0]?.id).toBe("MSH");
         // Every tree parse returns can be written.
         expect(stringify(result.value.message).ok).toBe(true);
+        const { segments } = result.value.message;
+        const { issues } = result.value;
+        // Segments come in input order and do not overlap.
+        for (const [index, segment] of segments.entries()) {
+          const next = segments[index + 1];
+          expect(segment.span.start).toBeLessThanOrEqual(segment.span.end);
+          if (next) expect(next.span.start).toBeGreaterThan(segment.span.end);
+        }
+        // A segment has an invalid identifier exactly when an INVALID_SEGMENT_ID issue names its index.
+        const invalid = new Set(
+          issues
+            .filter(({ code }) => code === "INVALID_SEGMENT_ID")
+            .map(({ location }) => location?.segmentIndex),
+        );
+        for (const [index, segment] of segments.entries()) {
+          expect(invalid.has(index)).toBe(!isValidSegmentId(segment.id));
+        }
       } else {
         expect(failureCodes).toContain(result.error.code);
         expect(result.error.issues.at(-1)?.code).toBe(result.error.code);
       }
+      // Issues come in input order, apart from the failure that ends the list.
+      const issues = result.ok
+        ? result.value.issues
+        : result.error.issues.slice(0, -1);
+      const starts = issues.map(({ location }) => location?.span.start ?? 0);
+      expect(starts).toStrictEqual([...starts].sort((a, b) => a - b));
     },
   );
 
