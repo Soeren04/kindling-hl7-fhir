@@ -5,11 +5,11 @@ import {
   locateContent,
   terminatorLength,
 } from "../../src/hl7v2/input";
-import type { IssueCode, LocatedIssue, Span } from "../../src/shared/issue";
+import type { IssueCode, Issue, Span } from "../../src/shared/issue";
 
 /** The located content as text, and the removed parts as [code, removed text] pairs. */
 function located(input: string): [string, [IssueCode, string][]] {
-  const issues: LocatedIssue[] = [];
+  const issues: Issue[] = [];
   const span = locateContent(input, issues);
   const slice = ({ start, end }: Span) => input.slice(start, end);
   return [

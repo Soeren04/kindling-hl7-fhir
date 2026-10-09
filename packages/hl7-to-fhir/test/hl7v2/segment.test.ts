@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isValidSegmentId, parseSegment } from "../../src/hl7v2/segment";
-import type { LocatedIssue } from "../../src/shared/issue";
+import type { Issue } from "../../src/shared/issue";
 import { fieldShape, segmentShape } from "./helpers";
 
 const context = {
@@ -19,7 +19,7 @@ describe("parseSegment", () => {
   it("parses only the given range of the input", () => {
     const input = "MSH|^~\\&\rPID|1|a^b\rPV1|1";
     const start = input.indexOf("PID");
-    const issues: LocatedIssue[] = [];
+    const issues: Issue[] = [];
     const segment = parseSegment(
       input,
       { start, end: input.indexOf("\rPV1") },

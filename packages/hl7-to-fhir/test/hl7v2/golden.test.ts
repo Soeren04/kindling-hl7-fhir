@@ -50,9 +50,9 @@ function compact(message: Hl7Message, issues: readonly Issue[]): string {
     }
   }
   for (const { severity, code, location } of issues) {
-    const span = location?.span;
+    const span = location.span;
     lines.push(
-      `${severity} ${code} at ${String(span?.start)}-${String(span?.end)}`,
+      `${severity} ${code} at ${String(span.start)}-${String(span.end)}`,
     );
   }
   return `${lines.join("\n")}\n`;

@@ -1,9 +1,5 @@
-import {
-  type LocatedIssue,
-  type Location,
-  report,
-  type Span,
-} from "../shared/issue";
+import { type Issue, type Location, type Span } from "../shared/issue";
+import { report } from "../shared/collect";
 import { type DecodeContext, decodeText } from "./escape";
 import { encodingCharactersSpan } from "./header";
 import { indexOfOrEnd } from "./input";
@@ -32,7 +28,7 @@ export function parseSegment(
   span: Span,
   segmentIndex: number,
   context: DecodeContext,
-  issues: LocatedIssue[],
+  issues: Issue[],
 ): Segment {
   const idEnd = indexOfOrEnd(
     input,
@@ -85,7 +81,7 @@ interface FieldParser {
   /** The segment part of every issue location. */
   readonly location: Pick<Location, "segmentIndex" | "segmentId">;
   /** Receives the issues found in values. */
-  readonly issues: LocatedIssue[];
+  readonly issues: Issue[];
 }
 
 /** Parses the fields of an MSH segment, starting at MSH-1, the field separator. */

@@ -1,15 +1,10 @@
 // Batch files and MLLP streams carry many messages in one text. This module cuts them apart without interpreting the
 // messages: it only needs to recognize where a message starts (MSH), where it stops (the next MSH, an envelope
 // segment, an MLLP end block or the end of the input) and which lines belong to no message.
-import {
-  finishIssues,
-  type Issue,
-  issue,
-  isString,
-  type LocatedIssue,
-  report,
-  type Span,
-} from "../shared/issue";
+import { type Issue, type Span } from "../shared/issue";
+import { issue } from "../shared/issue-table";
+import { finishIssues, report } from "../shared/collect";
+import { isString } from "../shared/guards";
 import { isDelimiterCharacter } from "./delimiters";
 import { fieldSeparatorOffset } from "./header";
 import {
@@ -143,7 +138,7 @@ export function splitBatch(input: string): BatchSplit {
 interface Scan {
   readonly input: string;
   readonly messages: string[];
-  readonly issues: LocatedIssue[];
+  readonly issues: Issue[];
   /** The message being read: from its MSH to the end of its last segment. */
   message: Span | undefined;
   /** Lines since the last message or envelope segment that belong to no message. */

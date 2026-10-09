@@ -115,11 +115,9 @@ describe("splitBatch properties", () => {
         searchFrom = found + message.length;
       }
       for (const { location } of issues) {
-        expect(location?.span.start).toBeGreaterThanOrEqual(0);
-        expect(location?.span.start).toBeLessThanOrEqual(
-          location?.span.end ?? -1,
-        );
-        expect(location?.span.end).toBeLessThanOrEqual(input.length);
+        expect(location.span.start).toBeGreaterThanOrEqual(0);
+        expect(location.span.start).toBeLessThanOrEqual(location.span.end);
+        expect(location.span.end).toBeLessThanOrEqual(input.length);
       }
     },
   );

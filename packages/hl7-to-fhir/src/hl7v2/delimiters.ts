@@ -1,11 +1,6 @@
-import {
-  issue,
-  type IssueOf,
-  type LocatedIssue,
-  type Location,
-  report,
-  type Span,
-} from "../shared/issue";
+import { type Issue, type Location, type Span } from "../shared/issue";
+import { issue, type IssueOf } from "../shared/issue-table";
+import { report } from "../shared/collect";
 import { err, ok, type Result } from "../shared/result";
 import {
   encodingCharactersSpan,
@@ -50,7 +45,7 @@ const maxEncodingCharacters = 5;
 export function readDelimiters(
   input: string,
   msh: Span,
-  issues: LocatedIssue[],
+  issues: Issue[],
 ): Result<DelimiterReading, DelimiterFailure> {
   const separatorStart = msh.start + fieldSeparatorOffset;
   // Bounded by the segment: "MSH" alone has no field separator, whatever character follows it in the input.

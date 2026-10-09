@@ -1,13 +1,7 @@
-import {
-  finishIssues,
-  type Issue,
-  issue,
-  type IssueOf,
-  isString,
-  type LocatedIssue,
-  report,
-  type Span,
-} from "../shared/issue";
+import { type Issue, type Span } from "../shared/issue";
+import { issue, type IssueOf } from "../shared/issue-table";
+import { finishIssues, report } from "../shared/collect";
+import { isString } from "../shared/guards";
 import { err, ok, type Result } from "../shared/result";
 import { type Charset, resolveCharset } from "./charset";
 import { isDelimiterCharacter, readDelimiters } from "./delimiters";
@@ -126,7 +120,7 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     const cause = issue("INVALID_INPUT", { span: { start: 0, end: 0 } });
     return err({ code: cause.code, message: cause.message, issues: [cause] });
   }
-  const issues: LocatedIssue[] = [];
+  const issues: Issue[] = [];
   const lines = splitLines(input, locateContent(input, issues), issues);
 
   const msh = lines[0];
@@ -173,7 +167,7 @@ function readCharset(
   input: string,
   msh: Span,
   delimiters: Delimiters,
-  issues: LocatedIssue[],
+  issues: Issue[],
 ): Charset {
   const span = findHeaderValue(input, msh, delimiters, characterSetField);
   const name = span && input.slice(span.start, span.end);
@@ -202,7 +196,7 @@ function checkLaterHeader(
   span: Span,
   segmentIndex: number,
   declaration: Span,
-  issues: LocatedIssue[],
+  issues: Issue[],
 ): void {
   const startsHeader =
     input.startsWith("MSH", span.start) &&
@@ -228,7 +222,7 @@ function checkLaterHeader(
 
 function fail(
   input: string,
-  issues: readonly LocatedIssue[],
+  issues: readonly Issue[],
   cause: IssueOf<ParseFailureCode>,
 ): Result<never, ParseFailure> {
   return err({

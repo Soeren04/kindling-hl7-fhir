@@ -2,7 +2,8 @@
 // a trailing newline from an editor. They are removed here, so the parser sees only segments, and every removal is
 // reported (ADR 0003). Offsets stay those of the original input. The module also cuts the content into lines and
 // holds the bounded scans the other modules use, so that no search runs past the segment it belongs to.
-import { type LocatedIssue, report, type Span } from "../shared/issue";
+import { type Issue, type Span } from "../shared/issue";
+import { report } from "../shared/collect";
 
 export const byteOrderMark = "\uFEFF";
 export const mllpStartBlock = "\u000B";
@@ -17,7 +18,7 @@ export const mllpEndBlock = "\u001C";
  * @param issues - Receives one info issue per removed artifact.
  * @returns The span of the segments, including the terminator of the last one when present.
  */
-export function locateContent(input: string, issues: LocatedIssue[]): Span {
+export function locateContent(input: string, issues: Issue[]): Span {
   let start = 0;
   if (input.startsWith(byteOrderMark)) {
     report(issues, "BYTE_ORDER_MARK_REMOVED", {
@@ -66,7 +67,7 @@ export function locateContent(input: string, issues: LocatedIssue[]): Span {
 export function splitLines(
   input: string,
   content: Span,
-  issues: LocatedIssue[],
+  issues: Issue[],
 ): Span[] {
   const lineFeedIsTerminator = lineFeedEnds(input, content.start, content.end);
   const spans: Span[] = [];
@@ -185,7 +186,7 @@ function isWhitespace(character: string): boolean {
 }
 
 function reportTrailingWhitespace(
-  issues: LocatedIssue[],
+  issues: Issue[],
   start: number,
   end: number,
 ): void {

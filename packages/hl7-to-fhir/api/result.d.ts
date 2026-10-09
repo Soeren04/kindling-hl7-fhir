@@ -30,17 +30,87 @@ interface Span {
  */
 type Severity = "error" | "warning" | "info";
 /**
- * Stable identifiers of every issue the library reports.
+ * Stable identifiers of every issue the library reports. Each code always has the severity listed here.
+ *
+ * Input and message structure:
+ *
+ * - `INVALID_INPUT` (error): the input is not a string, for example a `Buffer` that was not decoded or `undefined`.
+ * - `EMPTY_INPUT` (error): the input contains no text once framing and whitespace are removed.
+ * - `MISSING_MSH` (error): the first segment is not `MSH`.
+ * - `UNEXPECTED_MSH` (warning): a later segment is MSH, so the input holds more than one message and should be split
+ *   with `splitBatch` first.
+ * - `UNEXPECTED_MSH_DELIMITERS` (error): like `UNEXPECTED_MSH`, but the later MSH declares other delimiters while its
+ *   fields are read with the first's.
+ * - `INVALID_SEGMENT_ID` (error): a segment identifier is not three upper-case letters or digits starting with a
+ *   letter; the segment is kept.
+ * - `INVALID_FIELD_SEPARATOR` (error): MSH-1 is missing, or it is not a printable ASCII punctuation character.
+ * - `INVALID_ENCODING_CHARACTERS` (error): MSH-2 has fewer than two or more than five characters, or its delimiters
+ *   are not distinct punctuation characters.
+ * - `ENCODING_CHARACTERS_OMITTED` (info): MSH-2 omits the subcomponent separator and possibly the escape character;
+ *   the message does not use them.
+ * - `TRUNCATION_CHARACTER_IGNORED` (warning): MSH-2 has a fifth character, but the message version is older than 2.7,
+ *   which introduced it.
+ * - `VALUE_TRUNCATED` (info): a value ends with the truncation character (version 2.7 and later): the sender cut it
+ *   off.
+ *
+ * Framing and whitespace:
+ *
+ * - `BYTE_ORDER_MARK_REMOVED` (info): a byte order mark at the start of the input was removed.
+ * - `MLLP_FRAMING_REMOVED` (info): an MLLP start block (`0x0B`) or end block (`0x1C`, optionally followed by a
+ *   carriage return) was removed.
+ * - `MLLP_FRAME_UNTERMINATED` (warning): an MLLP start block has no matching end block; the message runs to the next
+ *   start block or the end of the input.
+ * - `MLLP_FRAME_MALFORMED` (warning): MLLP framing that does not follow the protocol: an end block without start
+ *   block or not followed by a carriage return, text between frames, or several messages in one frame. The messages
+ *   are split anyway.
+ * - `CONTENT_OUTSIDE_MESSAGE` (warning): text outside any message (before the first `MSH`, between batches or between
+ *   MLLP frames) was dropped.
+ * - `BATCH_COUNT_MISMATCH` (warning): a trailer count differs from what the input contains: `BTS-1` counts messages,
+ *   `FTS-1` counts batches.
+ * - `UNEXPECTED_ENVELOPE_SEGMENT` (warning): an `FHS` inside a file without `FTS`, or a `BHS` inside a batch without
+ *   `BTS`; counting starts again from it.
+ * - `TRAILING_WHITESPACE_REMOVED` (info): whitespace and blank lines after the terminator of the last segment were
+ *   removed. Spaces and tabs at the end of the last segment itself are part of its last value and stay.
+ * - `NON_STANDARD_SEGMENT_TERMINATOR` (info): segments end with a line feed or a carriage return plus line feed
+ *   instead of a carriage return.
+ * - `BLANK_LINE_REMOVED` (info): an empty line between segments was removed.
+ * - `LINE_FEED_IN_SEGMENT` (info): a line feed inside a message whose MSH segment ends with a carriage return is data,
+ *   not a segment terminator; it stays in its value.
+ *
+ * Escape sequences and character sets:
+ *
+ * - `UNKNOWN_ESCAPE` (warning): an escape sequence the standard does not define; it is kept as written.
+ * - `UNTERMINATED_ESCAPE` (warning): an escape sequence without its closing escape character; the rest of the value
+ *   is kept as written.
+ * - `FORMATTING_REMOVED` (info): a text formatting escape sequence (highlighting, indentation, centering, ...) was
+ *   removed.
+ * - `CHARACTER_SET_ESCAPE_KEPT` (warning): a character set switching escape sequence (`\C...\`, `\M...\`); it is kept
+ *   as written.
+ * - `LOCAL_ESCAPE_KEPT` (warning): a locally defined escape sequence (`\Z...\`); it is kept as written.
+ * - `INVALID_HEX_ESCAPE` (warning): a hexadecimal escape sequence that is malformed or not valid in the message
+ *   character set; it is kept as written.
+ * - `UNSUPPORTED_CHARACTER_SET` (warning): a hexadecimal escape sequence in a character set (MSH-18) the library
+ *   cannot decode; it is kept as written.
+ * - `NON_STANDARD_CHARACTER_SET` (info): MSH-18 names a character set with a spelling HL7 table 0211 does not use,
+ *   such as `UTF-8`; it is recognized.
+ *
+ * Limits:
+ *
+ * - `TOO_MANY_ISSUES` (warning): more issues were found than are reported (10,000); this issue, at the end of the
+ *   input, replaces the rest.
  *
  * Codes are public API: adding a code is a minor release, renaming or removing one is a major release.
  */
 type IssueCode = "INVALID_INPUT" | "EMPTY_INPUT" | "MISSING_MSH" | "UNEXPECTED_MSH" | "UNEXPECTED_MSH_DELIMITERS" | "BYTE_ORDER_MARK_REMOVED" | "MLLP_FRAMING_REMOVED" | "MLLP_FRAME_UNTERMINATED" | "MLLP_FRAME_MALFORMED" | "CONTENT_OUTSIDE_MESSAGE" | "BATCH_COUNT_MISMATCH" | "UNEXPECTED_ENVELOPE_SEGMENT" | "TRAILING_WHITESPACE_REMOVED" | "NON_STANDARD_SEGMENT_TERMINATOR" | "BLANK_LINE_REMOVED" | "LINE_FEED_IN_SEGMENT" | "INVALID_SEGMENT_ID" | "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS" | "ENCODING_CHARACTERS_OMITTED" | "TRUNCATION_CHARACTER_IGNORED" | "VALUE_TRUNCATED" | "UNKNOWN_ESCAPE" | "UNTERMINATED_ESCAPE" | "FORMATTING_REMOVED" | "CHARACTER_SET_ESCAPE_KEPT" | "LOCAL_ESCAPE_KEPT" | "INVALID_HEX_ESCAPE" | "UNSUPPORTED_CHARACTER_SET" | "NON_STANDARD_CHARACTER_SET" | "TOO_MANY_ISSUES";
 /**
- * Where in the input an {@link Issue} was found.
+ * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
  *
  * `span` is always present. The structural address is present as far as it applies: an issue about the input as a
- * whole (such as removed MLLP framing) has no segment, an issue about a segment has no field, and so on. Field,
- * repetition, component and subcomponent numbers are 1-based, as in HL7 notation (`PID-5[2].1.1`).
+ * whole (such as removed MLLP framing) has no segment, an issue about a segment has no field, and so on.
+ *
+ * Numbering follows one rule across the library: a `*Index` is a 0-based index into an array (`segmentIndex` is the
+ * position in `message.segments`), and every other position is the 1-based number that HL7 notation uses
+ * (`PID-5[2].1.1` is `field: 5`, `repetition: 2`, `component: 1`, `subcomponent: 1`). `MSH-1` is the field separator.
  *
  * A location never contains message content: `segmentId` is only set when the segment identifier is valid
  * (three upper-case letters or digits, starting with a letter).
@@ -77,10 +147,10 @@ interface Location {
   readonly subcomponent?: number | undefined;
 }
 /**
- * A remark about the input: something the library tolerated, normalized or could not interpret.
+ * Something the library noticed in the input and tolerated, normalized or could not interpret.
  *
- * `message` describes the problem in terms of the standard and never contains message content, so issues can be
- * logged safely. The offending raw text is only available in `value`.
+ * `message` describes what happened in terms of the standard and never contains message content, so issues can be
+ * logged safely. The raw text the issue is about is only available in `value`.
  *
  * @example
  * ```ts
@@ -90,7 +160,7 @@ interface Location {
  *
  * for (const issue of issues) {
  *   // Safe to log: code, severity, message and location never contain message content.
- *   console.warn(issue.severity, issue.code, issue.message, issue.location?.span);
+ *   console.warn(issue.severity, issue.code, issue.message, issue.location.span);
  * }
  * ```
  */
@@ -99,10 +169,10 @@ interface Issue {
   readonly code: IssueCode;
   /** How serious the issue is. */
   readonly severity: Severity;
-  /** A description of the problem that never contains message content. */
+  /** A description of what happened that never contains message content. */
   readonly message: string;
-  /** Where the issue was found. */
-  readonly location?: Location | undefined;
+  /** Where the issue was found; an issue about the input as a whole has only a span. */
+  readonly location: Location;
   /**
    * The raw input text the issue is about.
    *

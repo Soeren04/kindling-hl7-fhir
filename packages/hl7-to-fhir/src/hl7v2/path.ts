@@ -1,4 +1,5 @@
-import { isString, type Span } from "../shared/issue";
+import { type Span } from "../shared/issue";
+import { isString } from "../shared/guards";
 import { type Err, err, ok, type Result } from "../shared/result";
 import { isValidSegmentId } from "./segment";
 

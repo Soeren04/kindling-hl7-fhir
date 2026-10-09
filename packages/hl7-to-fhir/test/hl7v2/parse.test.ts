@@ -521,9 +521,9 @@ describe("parse", () => {
         "PV1",
         "ZPI",
       ]);
-      expect(result.issues.map(({ location }) => location?.span)).toStrictEqual(
-        [{ start: msh.length, end: msh.length + 1 }],
-      );
+      expect(result.issues.map(({ location }) => location.span)).toStrictEqual([
+        { start: msh.length, end: msh.length + 1 },
+      ]);
     });
 
     describe("line feeds in messages whose segments end with carriage returns", () => {
@@ -606,7 +606,7 @@ describe("parse", () => {
       const pid = result.message.segments[1];
       expect(pid && input.slice(pid.span.start, pid.span.end)).toBe("PID|1");
       expect(
-        result.issues.map(({ code, location }) => [code, location?.span]),
+        result.issues.map(({ code, location }) => [code, location.span]),
       ).toStrictEqual([
         ["BYTE_ORDER_MARK_REMOVED", { start: 0, end: 1 }],
         ["MLLP_FRAMING_REMOVED", { start: 1, end: 2 }],
@@ -634,7 +634,7 @@ describe("parse", () => {
       expect(result.message.segments).toHaveLength(1);
       expect(
         result.issues.find(({ code }) => code === "TRAILING_WHITESPACE_REMOVED")
-          ?.location?.span.start,
+          ?.location.span.start,
       ).toBe(start);
     });
 
@@ -651,7 +651,7 @@ describe("parse", () => {
     it("lists issues in input order", () => {
       const input = `\uFEFF${msh}\nZPI|\\Q\\\n\nPID|\\H\\`;
       const starts = parsed(input).issues.map(
-        ({ location }) => location?.span.start ?? -1,
+        ({ location }) => location.span.start,
       );
       expect(starts).toStrictEqual([...starts].sort((a, b) => a - b));
       expect(starts).toHaveLength(5);

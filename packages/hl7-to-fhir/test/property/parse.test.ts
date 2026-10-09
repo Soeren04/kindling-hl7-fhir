@@ -89,7 +89,7 @@ describe("parse properties", () => {
         const invalid = new Set(
           issues
             .filter(({ code }) => code === "INVALID_SEGMENT_ID")
-            .map(({ location }) => location?.segmentIndex),
+            .map(({ location }) => location.segmentIndex),
         );
         for (const [index, segment] of segments.entries()) {
           expect(invalid.has(index)).toBe(!isValidSegmentId(segment.id));
@@ -102,7 +102,7 @@ describe("parse properties", () => {
       const issues = result.ok
         ? result.value.issues
         : result.error.issues.slice(0, -1);
-      const starts = issues.map(({ location }) => location?.span.start ?? 0);
+      const starts = issues.map(({ location }) => location.span.start);
       expect(starts).toStrictEqual([...starts].sort((a, b) => a - b));
     },
   );
@@ -140,8 +140,8 @@ describe("parse properties", () => {
       const result = parse(input);
       const issues = result.ok ? result.value.issues : result.error.issues;
       for (const { location } of issues) {
-        expect(location?.span.start).toBeGreaterThanOrEqual(0);
-        expect(location?.span.end).toBeLessThanOrEqual(input.length);
+        expect(location.span.start).toBeGreaterThanOrEqual(0);
+        expect(location.span.end).toBeLessThanOrEqual(input.length);
       }
     },
   );

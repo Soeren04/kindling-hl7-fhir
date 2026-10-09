@@ -8,7 +8,6 @@ import type { Issue, Location } from "../../src/shared/issue";
 
 declare const maybeNumber: number | undefined;
 declare const maybeString: string | undefined;
-declare const maybeLocation: Location | undefined;
 
 describe("optional properties", () => {
   it("accept undefined explicitly", () => {
@@ -25,7 +24,7 @@ describe("optional properties", () => {
       code: "UNKNOWN_ESCAPE",
       severity: "warning",
       message: "",
-      location: maybeLocation,
+      location,
       value: maybeString,
     };
     const delimiters: Delimiters = {

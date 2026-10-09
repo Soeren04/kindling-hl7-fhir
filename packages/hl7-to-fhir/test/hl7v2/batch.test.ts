@@ -21,7 +21,7 @@ function split(input: string): [string[], [IssueCode, Severity, string][]] {
     issues.map(({ code, severity, location }) => [
       code,
       severity,
-      input.slice(location?.span.start, location?.span.end),
+      input.slice(location.span.start, location.span.end),
     ]),
   ];
 }
@@ -313,7 +313,7 @@ describe("splitBatch", () => {
 
     it("tells the trailer in the location", () => {
       const { issues } = splitBatch(`${adt}\rBTS|5\rFTS|9`);
-      expect(issues.map(({ location }) => location?.segmentId)).toStrictEqual([
+      expect(issues.map(({ location }) => location.segmentId)).toStrictEqual([
         "BTS",
         "FTS",
       ]);
@@ -544,7 +544,7 @@ describe("splitBatch", () => {
     it("are listed in input order", () => {
       const input = `${bom}${start}${adt}\rBTS|9\r${start}${oru}\r${end}`;
       const { issues } = splitBatch(input);
-      const starts = issues.map(({ location }) => location?.span.start ?? -1);
+      const starts = issues.map(({ location }) => location.span.start);
       expect(starts).toStrictEqual([...starts].sort((a, b) => a - b));
       expect(issues.map(({ code }) => code)).toStrictEqual([
         "BYTE_ORDER_MARK_REMOVED",

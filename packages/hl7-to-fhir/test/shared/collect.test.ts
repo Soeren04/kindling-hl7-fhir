@@ -1,48 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { finishIssues, issue, maxIssues, report } from "../../src/shared/issue";
-import type { IssueCode, LocatedIssue } from "../../src/shared/issue";
-
-describe("issue", () => {
-  it("takes severity and message from the definition of the code", () => {
-    expect(
-      issue("BLANK_LINE_REMOVED", { span: { start: 3, end: 4 } }),
-    ).toStrictEqual({
-      code: "BLANK_LINE_REMOVED",
-      severity: "info",
-      message: "An empty line between segments was removed.",
-      location: { span: { start: 3, end: 4 } },
-    });
-  });
-
-  it("adds the raw value only when there is one", () => {
-    const location = { span: { start: 0, end: 3 } };
-    expect(issue("INVALID_SEGMENT_ID", location, "pid")).toMatchObject({
-      severity: "error",
-      value: "pid",
-    });
-    expect(issue("INVALID_SEGMENT_ID", location)).not.toHaveProperty("value");
-  });
-
-  it.each<IssueCode>(["UNKNOWN_ESCAPE", "MLLP_FRAME_UNTERMINATED"])(
-    "reports %s as a warning",
-    (code) => {
-      expect(issue(code, { span: { start: 0, end: 0 } }).severity).toBe(
-        "warning",
-      );
-    },
-  );
-});
+import { finishIssues, maxIssues, report } from "../../src/shared/collect";
+import type { Issue, IssueCode } from "../../src/shared/issue";
+import { issue } from "../../src/shared/issue-table";
 
 describe("report", () => {
   it("adds the issue to the list", () => {
-    const issues: LocatedIssue[] = [];
+    const issues: Issue[] = [];
     report(issues, "EMPTY_INPUT", { span: { start: 0, end: 0 } });
     expect(issues.map(({ code }) => code)).toStrictEqual(["EMPTY_INPUT"]);
   });
 
   it("stops adding one issue past the limit", () => {
-    const issues: LocatedIssue[] = [];
+    const issues: Issue[] = [];
     for (let index = 0; index < maxIssues + 5; index++) {
       report(issues, "UNKNOWN_ESCAPE", { span: { start: index, end: index } });
     }
@@ -52,7 +22,7 @@ describe("report", () => {
 
 describe("finishIssues", () => {
   it("replaces the issues past the limit with one warning at the end of the input", () => {
-    const issues: LocatedIssue[] = [];
+    const issues: Issue[] = [];
     for (let index = maxIssues; index >= 0; index--) {
       report(issues, "UNKNOWN_ESCAPE", { span: { start: index, end: index } });
     }

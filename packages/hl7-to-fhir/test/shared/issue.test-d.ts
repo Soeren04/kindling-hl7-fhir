@@ -9,14 +9,22 @@ import type {
 } from "../../src/shared/issue";
 
 describe("Issue", () => {
-  it("requires code, severity and message, and makes location and value optional", () => {
+  it("requires code, severity, message and location, and makes value optional", () => {
     const minimal: Issue = {
       code: "EMPTY_INPUT",
       severity: "error",
       message: "The input is empty.",
+      location: { span: { start: 0, end: 0 } },
     };
-    expectTypeOf(minimal.location).toEqualTypeOf<Location | undefined>();
+    expectTypeOf(minimal.location).toEqualTypeOf<Location>();
     expectTypeOf(minimal.value).toEqualTypeOf<string | undefined>();
+    // @ts-expect-error -- every issue has a location
+    const nowhere: Issue = {
+      code: "EMPTY_INPUT",
+      severity: "error",
+      message: "",
+    };
+    expectTypeOf(nowhere).toEqualTypeOf<Issue>();
   });
 
   it("accepts only known codes and severities", () => {

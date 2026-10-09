@@ -7,7 +7,7 @@ import {
   readDelimiters,
 } from "../../src/hl7v2/delimiters";
 import type { Delimiters } from "../../src/hl7v2/model";
-import type { Issue, LocatedIssue } from "../../src/shared/issue";
+import type { Issue } from "../../src/shared/issue";
 import { ok, type Result } from "../../src/shared/result";
 import {
   delimiterSets,
@@ -28,7 +28,7 @@ const standard: Delimiters = {
  * on the way, so that one assertion covers both.
  */
 function read(msh: string) {
-  const issues: LocatedIssue[] = [];
+  const issues: Issue[] = [];
   const result = readDelimiters(msh, { start: 0, end: msh.length }, issues);
   return result.ok ? ok({ ...result.value, issues }) : result;
 }
