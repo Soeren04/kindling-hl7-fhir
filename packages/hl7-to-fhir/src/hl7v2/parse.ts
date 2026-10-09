@@ -2,7 +2,7 @@ import type { Issue, LocatedIssue } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { readDelimiters } from "./delimiters";
 import { resolveCharset } from "./escape";
-import { readHeaderValue } from "./header";
+import { characterSetField, findHeaderValue, versionField } from "./header";
 import { inInputOrder, locateContent, splitLines } from "./input";
 import type { Hl7Message, Segment } from "./model";
 import { parseSegment } from "./segment";
@@ -115,8 +115,12 @@ export function parse(input: string): Result<ParsedMessage, ParseFailure> {
   if (!reading.ok) return fail(issues, reading.error);
 
   const { delimiters } = reading.value;
-  const version = readHeaderValue(input, msh, delimiters, 12);
-  const charset = resolveCharset(readHeaderValue(input, msh, delimiters, 18));
+  const headerValue = (field: number) => {
+    const span = findHeaderValue(input, msh, delimiters, field);
+    return span && input.slice(span.start, span.end);
+  };
+  const version = headerValue(versionField);
+  const charset = resolveCharset(headerValue(characterSetField));
   const segments: Segment[] = [];
   issues.push(...reading.value.issues);
   for (const [index, span] of lines.spans.entries()) {

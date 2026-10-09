@@ -1,5 +1,6 @@
 import type { LocatedIssue, Location, Span } from "../shared/issue";
 import { type DecodeContext, decodeText } from "./escape";
+import { encodingCharactersSpan } from "./header";
 import { indexOfOrEnd } from "./input";
 import type {
   Component,
@@ -57,7 +58,7 @@ export function parseSegment(
   const parser = { input, context, location, issues };
   const fields =
     id === "MSH"
-      ? parseHeaderFields(parser, idEnd, span.end)
+      ? parseHeaderFields(parser, span)
       : parseFields(parser, idEnd + 1, span.end, 1);
   return { segment: { id, fields, span }, issues };
 }
@@ -93,31 +94,15 @@ interface FieldParser {
   readonly issues: LocatedIssue[];
 }
 
-/**
- * Parses the fields of an MSH segment, starting at MSH-1 (the field separator at `separator`).
- */
-function parseHeaderFields(
-  parser: FieldParser,
-  separator: number,
-  end: number,
-): Field[] {
-  const encodingEnd = indexOfOrEnd(
-    parser.input,
-    parser.context.delimiters.field,
-    separator + 1,
-    end,
-  );
-  const msh1 = verbatimField(parser.input, {
-    start: separator,
-    end: separator + 1,
-  });
-  const msh2 = verbatimField(parser.input, {
-    start: separator + 1,
-    end: encodingEnd,
-  });
-  const rest =
-    encodingEnd < end ? parseFields(parser, encodingEnd + 1, end, 3) : [];
-  return [msh1, msh2, ...rest];
+/** Parses the fields of an MSH segment, starting at MSH-1, the field separator. */
+function parseHeaderFields(parser: FieldParser, segment: Span): Field[] {
+  const { field } = parser.context.delimiters;
+  const encoding = encodingCharactersSpan(parser.input, segment, field);
+  const separator = { start: encoding.start - 1, end: encoding.start };
+  return [
+    verbatimField(parser.input, separator),
+    verbatimField(parser.input, encoding),
+  ].concat(parseFields(parser, encoding.end + 1, segment.end, 3));
 }
 
 /** A field holding its raw text as a single value, for MSH-1 and MSH-2. */
