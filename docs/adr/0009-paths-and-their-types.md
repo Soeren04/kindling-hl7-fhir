@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partial (`parsePath`, `get`, `getAll`, `isNull` and the shallow literal check are implemented; the
-  `KnownPath` autocompletion needs the segment definitions of phase 2)
+- Implementation: implemented (`parsePath`, `get`, `getAll`, `isNull`, the shallow literal check and the `KnownPath`
+  autocompletion)
 
 ## Context
 
@@ -39,22 +39,39 @@ checker, and the set of segments and fields is only known once phase 2 adds the 
 - **Malformed runtime paths** make `get` return `undefined`, `getAll` return `[]` and `isNull` return `false`.
   `parsePath` is the place to ask why. The path is never echoed in a message, because a caller may have built it from
   data.
-- **Types:** the three accessors are generic, `get<P extends string>(message, path: Hl7Path<P>)`. `Hl7Path` is `string`
-  when used bare. With the inferred literal it is the literal itself when the shape is valid and a string literal
-  type describing the problem otherwise, so the compiler reports `Argument of type '"PID..5"' is not assignable to
-parameter of type '"Invalid HL7 path: a field is a positive number"'`. The check validates the segment (three
-  characters, upper case), the numbers and the position of the indices, by splitting the literal at dots and
-  brackets. It accepts every string that is not a literal.
+- **Types:** the three accessors are generic, `get<P extends string>(message, path: Hl7Path<P> | KnownPath)`.
+  `Hl7Path` is `string` when used bare. With the inferred literal it is the literal itself when the shape is valid and
+  `string & { readonly invalidHl7Path: Reason }` otherwise, so the compiler reports, for `"PID..5"`:
+
+  ```text
+  Argument of type '"PID..5"' is not assignable to parameter of type
+  'KnownPath | (string & { readonly invalidHl7Path: "a field is a positive number"; })'.
+  ```
+
+  The check validates the segment (three characters, upper case), the numbers and the position of the indices, by
+  splitting the literal at dots and brackets. It accepts every string that is not a literal.
+
+- **Autocompletion:** `KnownPath` is the union of every field and every component of a composite field of the ten
+  defined segments (`PID.5`, `PID.5.1`; 1615 members), without repetition indexes and subcomponents. Editors offer
+  the members of a union that is a parameter type, so it sits beside `Hl7Path<P>` in the signature; every other
+  well-formed literal is still accepted through `Hl7Path<P>`, and strings that are not literals through `P`. The
+  problem is a type, not a string literal, because a string literal in the parameter type would be offered as a
+  completion too. `known-paths.ts` is generated from the definitions by `pnpm update:known-paths`, and a test fails
+  when the file and the definitions differ, so the two cannot drift.
 - **Cost is a gated number.** `pnpm check:type-performance` compiles a fixture of about sixty path calls and fails when
   the instantiations exceed a budget (about 50 instantiations per checked literal; the budget is set slightly above the
   measurement and ratcheted down when the types get cheaper).
 
 ## Alternatives considered
 
-- **A union of all known paths** (`KnownPath | (string & {})`). It autocompletes, but it needs the segment
-  definitions, which arrive in phase 2, and a union of every field of every segment, with components, has thousands of
-  members. The shallow check does not depend on them, and `Hl7Path<P>` can take the union later as the constraint of
-  `P` without changing any call.
+- **Computing the union from the definitions with types.** The definitions are built with helper functions and typed
+  as `SegmentDefinition`, so the field numbers and data types are not literal types. Making them `as const` would
+  mean rewriting the data and the builders, and the type checker would then evaluate the nesting of segments,
+  fields and data types in every project that imports the package. A generated flat union of string literals costs
+  a lookup per literal (6268 to 6330 type instantiations in the budget fixture) and needs no data changes.
+- **`KnownPath | (string & Record<never, never>)` as the constraint of `P`.** It keeps every string assignable, but the
+  suggestions only appear when the parameter type is the constraint itself, and `Hl7Path<P>` is a conditional type
+  that the editor evaluates for the text typed so far.
 - **A template-literal type such as `` `${string}.${number}` ``.** Cheap, but `PID..5` matches it (the segment is
   `PID.`), and `${number}` accepts `1e3`, `-1` and `1.5`. A recursive check on the literal is just as cheap for the
   short strings paths are.
@@ -70,6 +87,8 @@ parameter of type '"Invalid HL7 path: a field is a positive number"'`. The check
 - Reading a value is one call with the notation of the specification; typos in literals fail at compile time with a
   readable message, and dynamic strings keep working.
 - A path that does not parse silently reads nothing at runtime. Callers who want certainty validate with `parsePath`.
-- The compile-time check is shallow: it cannot tell that `PID.99` does not exist. Phase 2 can narrow it.
+- The compile-time check is shallow: it cannot tell that `PID.99` does not exist, and `ZPI.3` is accepted, because
+  custom segments are legal. `KnownPath` only suggests.
+- The generated file has about 1600 lines and adds a few thousand types to a project that imports the package.
 - Every literal costs the type checker a few dozen instantiations, which the budget keeps from growing unnoticed.
 - `getAll` skips empty positions, so the position of a value in the result does not give its repetition number.
