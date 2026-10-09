@@ -1,0 +1,10 @@
+structure ADT_A01
+MSH
+EVN
+PID
+NK1
+PV1
+ZPI
+
+issues
+info UNDEFINED_Z_SEGMENT ZPI[5] at 563-615

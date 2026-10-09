@@ -1,0 +1,24 @@
+structure ORU_R01
+MSH
+PATIENT_RESULT
+  PATIENT
+    PID
+    VISIT
+      PV1
+  ORDER_OBSERVATION
+    ORC
+    OBR
+    OBSERVATION
+      OBX
+    OBSERVATION
+      OBX
+      NTE
+  ORDER_OBSERVATION
+    OBR
+    OBSERVATION
+      OBX
+    OBSERVATION
+      OBX
+      NTE
+
+issues

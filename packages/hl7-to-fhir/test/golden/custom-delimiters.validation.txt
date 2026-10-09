@@ -1,0 +1,8 @@
+structure ADT_A01
+MSH
+EVN
+PID
+NTE
+
+issues
+info UNSUPPORTED_VERSION MSH[0]-12 at 108-113 = "2.8.2"
