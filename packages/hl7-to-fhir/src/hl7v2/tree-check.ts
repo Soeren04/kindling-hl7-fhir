@@ -1,7 +1,7 @@
 // Plain JavaScript callers and hand-built trees can hand `stringify` anything. This module checks that a tree has
 // the shape of `Hl7Message` before anything is written, so that writing never meets a missing node and never throws.
 import type { Location, Span } from "../shared/issue";
-import { isDelimiterCharacter } from "./delimiters";
+import { isDelimiterCharacter } from "./header";
 import { isValidSegmentId } from "./segment";
 import { type StringifyFailure, stringifyFailure } from "./stringify-failure";
 

@@ -1,7 +1,13 @@
 import { type Issue, type Location, type Span } from "../shared/issue";
 import { report } from "../shared/collect";
 import { type DecodeContext, decodeText } from "./escape";
-import { encodingCharactersSpan } from "./header";
+import {
+  encodingCharactersSpan,
+  firstFieldNumber,
+  firstSplitHeaderField,
+  headerSegmentId,
+  segmentIdLength,
+} from "./header";
 import { indexOfOrEnd } from "./input";
 import type {
   Component,
@@ -22,6 +28,7 @@ import type {
  * @param segmentIndex - The position of the segment in the message, for issue locations.
  * @param context - The delimiters and the character set of the message.
  * @param issues - Receives the issues about the segment identifier and the escape sequences in its values.
+ * @param encoding - The span of MSH-2 when the caller has it already; looked up when absent. Only used for MSH.
  */
 export function parseSegment(
   input: string,
@@ -29,6 +36,7 @@ export function parseSegment(
   segmentIndex: number,
   context: DecodeContext,
   issues: Issue[],
+  encoding?: Span,
 ): Segment {
   const idEnd = indexOfOrEnd(
     input,
@@ -47,9 +55,14 @@ export function parseSegment(
   const location = validId ? { segmentIndex, segmentId: id } : { segmentIndex };
   const parser = { input, context, location, issues };
   const fields =
-    id === "MSH"
-      ? parseHeaderFields(parser, span)
-      : parseFields(parser, idEnd + 1, span.end, 1);
+    id === headerSegmentId
+      ? parseHeaderFields(
+          parser,
+          span,
+          encoding ??
+            encodingCharactersSpan(input, span, context.delimiters.field),
+        )
+      : parseFields(parser, idEnd + 1, span.end, firstFieldNumber);
   return { id, fields, span };
 }
 
@@ -59,7 +72,7 @@ export function parseSegment(
  */
 export function isValidSegmentId(id: string): boolean {
   return (
-    id.length === 3 &&
+    id.length === segmentIdLength &&
     isUpperCase(id.charCodeAt(0)) &&
     isUpperCaseOrDigit(id.charCodeAt(1)) &&
     isUpperCaseOrDigit(id.charCodeAt(2))
@@ -84,15 +97,23 @@ interface FieldParser {
   readonly issues: Issue[];
 }
 
-/** Parses the fields of an MSH segment, starting at MSH-1, the field separator. */
-function parseHeaderFields(parser: FieldParser, segment: Span): Field[] {
-  const { field } = parser.context.delimiters;
-  const encoding = encodingCharactersSpan(parser.input, segment, field);
+/**
+ * Parses the fields of an MSH segment, starting at MSH-1, the field separator.
+ *
+ * @param encoding - The span of MSH-2.
+ */
+function parseHeaderFields(
+  parser: FieldParser,
+  segment: Span,
+  encoding: Span,
+): Field[] {
   const separator = { start: encoding.start - 1, end: encoding.start };
   return [
     verbatimField(parser.input, separator),
     verbatimField(parser.input, encoding),
-  ].concat(parseFields(parser, encoding.end + 1, segment.end, 3));
+  ].concat(
+    parseFields(parser, encoding.end + 1, segment.end, firstSplitHeaderField),
+  );
 }
 
 /** A field holding its raw text as a single value, for MSH-1 and MSH-2. */

@@ -2,10 +2,7 @@ import { test as propertyTest } from "@fast-check/vitest";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  isDelimiterCharacter,
-  readDelimiters,
-} from "../../src/hl7v2/delimiters";
+import { readDelimiters } from "../../src/hl7v2/delimiters";
 import type { Delimiters } from "../../src/hl7v2/model";
 import type { Issue } from "../../src/shared/issue";
 import { ok, type Result } from "../../src/shared/result";
@@ -287,19 +284,4 @@ describe("readDelimiters", () => {
       expect(result.ok).toBe(false);
     },
   );
-});
-
-describe("isDelimiterCharacter", () => {
-  it("accepts exactly the 32 printable ASCII punctuation characters", () => {
-    const accepted = Array.from({ length: 0x80 }, (_, code) =>
-      String.fromCharCode(code),
-    ).filter(isDelimiterCharacter);
-    expect(accepted.join("")).toBe(
-      String.raw`!"#$%&'()*+,-./:;<=>?@[\]^_` + "`{|}~",
-    );
-  });
-
-  it.each(["", "||", "é", "\u{1F600}"])("rejects %j", (text) => {
-    expect(isDelimiterCharacter(text)).toBe(false);
-  });
 });

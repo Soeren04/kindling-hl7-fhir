@@ -1,13 +1,12 @@
-import { type Issue, type Span } from "../shared/issue";
+import { type Issue } from "../shared/issue";
 import { issue, type IssueOf } from "../shared/issue-table";
-import { finishIssues, report } from "../shared/collect";
+import { finishIssues } from "../shared/collect";
 import { isString } from "../shared/guards";
 import { err, ok, type Result } from "../shared/result";
-import { type Charset, resolveCharset } from "./charset";
-import { isDelimiterCharacter, readDelimiters } from "./delimiters";
-import { characterSetField, findHeaderValue } from "./header";
+import { readDelimiters } from "./delimiters";
+import { checkLaterHeader, headerSegmentId, readCharset } from "./header";
 import { locateContent, splitLines } from "./input";
-import type { Delimiters, Hl7Message } from "./model";
+import type { Hl7Message } from "./model";
 import { parseSegment } from "./segment";
 import { versionOf } from "./version";
 
@@ -131,7 +130,7 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
       issue("EMPTY_INPUT", { span: { start: 0, end: input.length } }),
     );
   }
-  if (!input.startsWith("MSH", msh.start)) {
+  if (!input.startsWith(headerSegmentId, msh.start)) {
     return fail(
       input,
       issues,
@@ -150,7 +149,9 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
   const declaration = { start: msh.start, end: reading.value.encoding.end };
   const segments = lines.map((span, index) => {
     if (index > 0) checkLaterHeader(input, span, index, declaration, issues);
-    return parseSegment(input, span, index, context, issues);
+    // The first segment is the one whose MSH-2 the delimiters were read from.
+    const encoding = index === 0 ? reading.value.encoding : undefined;
+    return parseSegment(input, span, index, context, issues, encoding);
   });
   const version = versionOf(segments[0]);
   // An absent version is left out instead of set to undefined, so the tree keeps its keys through JSON.
@@ -160,64 +161,6 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     segments,
   };
   return ok({ message, issues: finishIssues(issues, input.length) });
-}
-
-/** Reads MSH-18 and reports a character set named in a spelling HL7 table 0211 does not use. */
-function readCharset(
-  input: string,
-  msh: Span,
-  delimiters: Delimiters,
-  issues: Issue[],
-): Charset {
-  const span = findHeaderValue(input, msh, delimiters, characterSetField);
-  const name = span && input.slice(span.start, span.end);
-  const { charset, nonStandard } = resolveCharset(name);
-  if (span !== undefined && nonStandard) {
-    const location = {
-      span,
-      segmentIndex: 0,
-      segmentId: "MSH",
-      field: characterSetField,
-    };
-    report(issues, "NON_STANDARD_CHARACTER_SET", location, name);
-  }
-  return charset;
-}
-
-/**
- * Reports a segment after the first that starts like an MSH segment: a second message that `splitBatch` should have
- * split off. It is kept as a segment of this message, read with the delimiters of the first MSH, which is an error
- * when it declares other ones.
- *
- * @param declaration - The span of `MSH`, MSH-1 and MSH-2 of the first segment.
- */
-function checkLaterHeader(
-  input: string,
-  span: Span,
-  segmentIndex: number,
-  declaration: Span,
-  issues: Issue[],
-): void {
-  const startsHeader =
-    input.startsWith("MSH", span.start) &&
-    (span.end - span.start === 3 ||
-      isDelimiterCharacter(input.charAt(span.start + 3)));
-  if (!startsHeader) return;
-  const declared = input.slice(declaration.start, declaration.end);
-  const afterDeclaration = span.start + declared.length;
-  const sameDelimiters =
-    input.startsWith(declared, span.start) &&
-    (afterDeclaration === span.end ||
-      input.charAt(afterDeclaration) === declared.charAt(3));
-  report(
-    issues,
-    sameDelimiters ? "UNEXPECTED_MSH" : "UNEXPECTED_MSH_DELIMITERS",
-    {
-      span: { start: span.start, end: span.start + 3 },
-      segmentIndex,
-      segmentId: "MSH",
-    },
-  );
 }
 
 function fail(

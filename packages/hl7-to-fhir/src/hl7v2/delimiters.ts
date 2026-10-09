@@ -3,9 +3,13 @@ import { issue, type IssueOf } from "../shared/issue-table";
 import { report } from "../shared/collect";
 import { err, ok, type Result } from "../shared/result";
 import {
+  encodingCharactersField,
   encodingCharactersSpan,
-  fieldSeparatorOffset,
+  fieldSeparatorField,
   findHeaderValue,
+  headerSegmentId,
+  isDelimiterCharacter,
+  segmentIdLength,
   versionField,
 } from "./header";
 import type { Delimiters } from "./model";
@@ -26,8 +30,15 @@ export type DelimiterFailure = IssueOf<
 // MSH-2 lists, by position, the component, repetition, escape and subcomponent delimiters and, from version 2.7, the
 // truncation character. The first two are required; the escape character "may be omitted if no escape characters
 // are used", the subcomponent separator "if not used, may be omitted" (HL7 v2.5.1 section 2.5.4).
-const minEncodingCharacters = 2;
-const maxEncodingCharacters = 5;
+const encodingPosition = {
+  component: 0,
+  repetition: 1,
+  escape: 2,
+  subcomponent: 3,
+  truncation: 4,
+} as const;
+const minEncodingCharacters = encodingPosition.repetition + 1;
+const maxEncodingCharacters = encodingPosition.truncation + 1;
 
 /**
  * Reads the delimiters from MSH-1 and MSH-2.
@@ -47,7 +58,7 @@ export function readDelimiters(
   msh: Span,
   issues: Issue[],
 ): Result<DelimiterReading, DelimiterFailure> {
-  const separatorStart = msh.start + fieldSeparatorOffset;
+  const separatorStart = msh.start + segmentIdLength;
   // Bounded by the segment: "MSH" alone has no field separator, whatever character follows it in the input.
   const separatorSpan = {
     start: separatorStart,
@@ -58,7 +69,7 @@ export function readDelimiters(
     return err(
       issue(
         "INVALID_FIELD_SEPARATOR",
-        mshLocation(1, separatorSpan),
+        mshLocation(fieldSeparatorField, separatorSpan),
         field || undefined,
       ),
     );
@@ -75,18 +86,18 @@ export function readDelimiters(
     return err(
       issue(
         "INVALID_ENCODING_CHARACTERS",
-        mshLocation(2, encodingSpan),
+        mshLocation(encodingCharactersField, encodingSpan),
         encoding,
       ),
     );
   }
 
-  const escape = encoding.charAt(2);
-  const subcomponent = encoding.charAt(3);
+  const escape = encoding.charAt(encodingPosition.escape);
+  const subcomponent = encoding.charAt(encodingPosition.subcomponent);
   const delimiters: Delimiters = {
     field,
-    component: encoding.charAt(0),
-    repetition: encoding.charAt(1),
+    component: encoding.charAt(encodingPosition.component),
+    repetition: encoding.charAt(encodingPosition.repetition),
     ...(escape === "" ? {} : { escape }),
     ...(subcomponent === "" ? {} : { subcomponent }),
   };
@@ -94,14 +105,14 @@ export function readDelimiters(
     report(
       issues,
       "ENCODING_CHARACTERS_OMITTED",
-      mshLocation(2, encodingSpan),
+      mshLocation(encodingCharactersField, encodingSpan),
       encoding,
     );
   }
   const reading = { delimiters, encoding: encodingSpan };
   if (encoding.length < maxEncodingCharacters) return ok(reading);
 
-  const truncation = encoding.charAt(4);
+  const truncation = encoding.charAt(encodingPosition.truncation);
   const version = findHeaderValue(input, msh, delimiters, versionField);
   if (declaresTruncation(version && input.slice(version.start, version.end))) {
     return ok({ ...reading, delimiters: { ...delimiters, truncation } });
@@ -110,25 +121,10 @@ export function readDelimiters(
   report(
     issues,
     "TRUNCATION_CHARACTER_IGNORED",
-    mshLocation(2, truncationSpan),
+    mshLocation(encodingCharactersField, truncationSpan),
     truncation,
   );
   return ok(reading);
-}
-
-/**
- * Whether `character` may serve as a delimiter: a single printable ASCII character that is neither a letter nor a
- * digit. Letters and digits would be ambiguous with content, and whitespace or control characters would collide with
- * segment terminators and the whitespace the parser trims.
- */
-export function isDelimiterCharacter(character: string): boolean {
-  if (character.length !== 1) return false;
-  const code = character.charCodeAt(0);
-  const printable = code >= 0x21 && code <= 0x7e;
-  const digit = code >= 0x30 && code <= 0x39;
-  const letter =
-    (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a);
-  return printable && !digit && !letter;
 }
 
 function allDelimiterCharacters(text: string): boolean {
@@ -162,5 +158,5 @@ function declaresTruncation(version: string | undefined): boolean {
 }
 
 function mshLocation(field: number, span: Span): Location {
-  return { span, segmentIndex: 0, segmentId: "MSH", field };
+  return { span, segmentIndex: 0, segmentId: headerSegmentId, field };
 }
