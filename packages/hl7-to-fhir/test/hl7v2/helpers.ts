@@ -2,6 +2,7 @@ import { expect } from "vitest";
 
 import type { Field, Hl7Message, Segment } from "../../src/hl7v2/model";
 import { parse, type ParseSuccess } from "../../src/hl7v2/parse";
+import { stringify } from "../../src/hl7v2/stringify";
 
 /** Parses `input` and fails the test when parsing fails. */
 export function parsed(input: string): ParseSuccess {
@@ -11,6 +12,14 @@ export function parsed(input: string): ParseSuccess {
       `expected ${JSON.stringify(input)} to parse, got ${result.error.code}`,
     );
   }
+  return result.value;
+}
+
+/** Writes `message` and fails the test when writing fails. */
+export function stringified(message: Hl7Message): string {
+  const result = stringify(message);
+  if (!result.ok)
+    expect.fail(`expected the message to be written, got ${result.error.code}`);
   return result.value;
 }
 

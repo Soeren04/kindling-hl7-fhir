@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { stringify } from "../../src/hl7v2/stringify";
-import { parsed, withoutSpans } from "./helpers";
+import { parsed, stringified, withoutSpans } from "./helpers";
 
 const samples = ["adt-a01", "oru-r01", "custom-delimiters"];
 
@@ -21,7 +20,7 @@ describe("golden canonical text", () => {
   it.each(samples)(
     "writes samples/%s.hl7 in its canonical form",
     async (name) => {
-      const canonical = stringify(parsed(readSample(name)).message);
+      const canonical = stringified(parsed(readSample(name)).message);
       await expect(canonical).toMatchFileSnapshot(
         `../golden/${name}.canonical.hl7`,
       );
@@ -32,10 +31,10 @@ describe("golden canonical text", () => {
     "reads the canonical form of %s back as the same message",
     (name) => {
       const original = parsed(readSample(name)).message;
-      const canonical = stringify(original);
+      const canonical = stringified(original);
       const again = parsed(canonical).message;
       expect(withoutSpans(again)).toStrictEqual(withoutSpans(original));
-      expect(stringify(again)).toBe(canonical);
+      expect(stringified(again)).toBe(canonical);
     },
   );
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Delimiters, Hl7Message, Segment } from "../../src/hl7v2/model";
 import { stringify } from "../../src/hl7v2/stringify";
-import { parsed } from "./helpers";
+import { parsed, stringified } from "./helpers";
 
 const standard: Delimiters = {
   field: "|",
@@ -16,7 +16,7 @@ const header = "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1";
 
 /** Parses `input` and writes it again. */
 function roundTrip(input: string): string {
-  return stringify(parsed(input).message);
+  return stringified(parsed(input).message);
 }
 
 // Written as an escape so that editors and formatters cannot drop the invisible character.
@@ -61,7 +61,7 @@ describe("stringify", () => {
   });
 
   it("writes a message without segments as an empty string", () => {
-    expect(stringify({ delimiters: standard, segments: [] })).toBe("");
+    expect(stringified({ delimiters: standard, segments: [] })).toBe("");
   });
 
   it.each([
@@ -115,7 +115,7 @@ describe("stringify", () => {
         delimiters: standard,
         segments: [segment("MSH", "|", "^~\\&"), segment("NTE", '""')],
       };
-      const text = stringify(message);
+      const text = stringified(message);
       expect(text).toBe(`MSH|^~\\&\rNTE|\\X22\\"\r`);
       expect(roundTrip(text)).toBe(text);
     });
@@ -135,7 +135,7 @@ describe("stringify", () => {
         delimiters: standard,
         segments: [segment("MSH", "|", "^~\\&"), segment("NTE", "1", value)],
       };
-      expect(stringify(message)).toBe(`MSH|^~\\&\rNTE|1|${written}\r`);
+      expect(stringified(message)).toBe(`MSH|^~\\&\rNTE|1|${written}\r`);
     });
 
     it("writes decoded escape sequences in their delimiter form", () => {
@@ -167,7 +167,7 @@ describe("stringify", () => {
       const rewritten = roundTrip(`${header}\rNTE|1|\\Zxyz\\ kept\r`);
       expect(rewritten).toBe(`${header}\rNTE|1|\\E\\Zxyz\\E\\ kept\r`);
       // Reading it again gives the same value, so nothing is lost.
-      expect(stringify(parsed(rewritten).message)).toBe(rewritten);
+      expect(stringified(parsed(rewritten).message)).toBe(rewritten);
     });
   });
 
@@ -196,7 +196,7 @@ describe("stringify", () => {
         delimiters: { ...standard, truncation: "#" },
         segments: [segment("MSH"), segment("PID", "a|b")],
       };
-      expect(stringify(message)).toBe("MSH|^~\\&#\rPID|a\\F\\b\r");
+      expect(stringified(message)).toBe("MSH|^~\\&#\rPID|a\\F\\b\r");
     });
 
     it("writes the delimiters of the message when MSH-1 and MSH-2 are empty", () => {
@@ -204,7 +204,7 @@ describe("stringify", () => {
         delimiters: standard,
         segments: [segment("MSH", "", ""), segment("PID", "1")],
       };
-      expect(stringify(message)).toBe("MSH|^~\\&\rPID|1\r");
+      expect(stringified(message)).toBe("MSH|^~\\&\rPID|1\r");
     });
   });
 
@@ -223,6 +223,125 @@ describe("stringify", () => {
     it("writes the truncation character as an escape sequence", () => {
       const input = "MSH#$*!%?#LAB#########2.8.2\rPID#1#a!P!b\r";
       expect(roundTrip(input)).toBe(input);
+    });
+  });
+
+  describe("omitted encoding characters", () => {
+    it.each([
+      ["no escape character", "MSH|^~|LAB\rPID|a&b\\c^d\r"],
+      ["no subcomponent separator", "MSH|^~\\|LAB\rPID|a&b\\F\\c^d\r"],
+    ])("writes a message with %s as it reads it", (_description, input) => {
+      expect(roundTrip(input)).toBe(input);
+    });
+  });
+
+  describe("trees the delimiters cannot express", () => {
+    const withoutEscape: Delimiters = {
+      field: "|",
+      component: "^",
+      repetition: "~",
+    };
+    const header = segment("MSH", "|", "^~");
+
+    it.each(["a|b", "a^b", "a~b", "two\nlines", '""'])(
+      "fails for the value %j without an escape character",
+      (value) => {
+        const message: Hl7Message = {
+          delimiters: withoutEscape,
+          segments: [header, segment("NTE", "1", value)],
+        };
+        expect(stringify(message)).toStrictEqual({
+          ok: false,
+          error: {
+            code: "ESCAPE_CHARACTER_REQUIRED",
+            message: expect.any(String) as string,
+            location: {
+              span: noSpan,
+              segmentIndex: 1,
+              segmentId: "NTE",
+              field: 2,
+              repetition: 1,
+              component: 1,
+              subcomponent: 1,
+            },
+          },
+        });
+      },
+    );
+
+    it("fails for several subcomponents without a subcomponent separator", () => {
+      const value = { kind: "value", value: "a", span: noSpan } as const;
+      const message: Hl7Message = {
+        delimiters: withoutEscape,
+        segments: [
+          header,
+          {
+            id: "pid",
+            span: noSpan,
+            fields: [
+              {
+                span: noSpan,
+                repetitions: [
+                  {
+                    span: noSpan,
+                    components: [
+                      {
+                        span: { start: 7, end: 9 },
+                        subcomponents: [value, value],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      expect(stringify(message)).toMatchObject({
+        ok: false,
+        error: {
+          code: "SUBCOMPONENT_SEPARATOR_REQUIRED",
+          // The identifier is invalid, so the location leaves it out.
+          location: {
+            span: { start: 7, end: 9 },
+            segmentIndex: 1,
+            field: 1,
+            repetition: 1,
+            component: 1,
+          },
+        },
+      });
+    });
+
+    it("fails for the HL7 null when the quote is a delimiter", () => {
+      const message: Hl7Message = {
+        delimiters: { ...standard, repetition: '"' },
+        segments: [segment("MSH", "|", '^"\\&'), segment("PID", "1", null)],
+      };
+      expect(stringify(message)).toMatchObject({
+        ok: false,
+        error: { code: "NULL_NOT_REPRESENTABLE", location: { field: 2 } },
+      });
+    });
+
+    it("reports the first node that cannot be written", () => {
+      const message: Hl7Message = {
+        delimiters: withoutEscape,
+        segments: [header, segment("NTE", "a|b", "c^d"), segment("ZZZ", "~")],
+      };
+      const result = stringify(message);
+      expect(result.ok || result.error.location).toMatchObject({
+        segmentIndex: 1,
+        field: 1,
+      });
+    });
+
+    it("never escapes MSH-1 and MSH-2, so they need no escape character", () => {
+      const message: Hl7Message = {
+        delimiters: withoutEscape,
+        segments: [header],
+      };
+      expect(stringify(message)).toStrictEqual({ ok: true, value: "MSH|^~\r" });
     });
   });
 });

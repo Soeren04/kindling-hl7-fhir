@@ -239,6 +239,30 @@ describe("decodeText", () => {
     ).toStrictEqual(["\\Zx\\"]);
   });
 
+  it("keeps \\T\\ when the message declares no subcomponent separator", () => {
+    const withoutSubcomponent: Delimiters = {
+      field: "|",
+      component: "^",
+      repetition: "~",
+      escape: "\\",
+    };
+    expect(
+      summary(decode("\\T\\", "ascii", withoutSubcomponent)),
+    ).toStrictEqual(["\\T\\", ["UNKNOWN_ESCAPE"]]);
+  });
+
+  it("returns the text as written when the message declares no escape character", () => {
+    const withoutEscape: Delimiters = {
+      field: "|",
+      component: "^",
+      repetition: "~",
+    };
+    expect(decode("a\\F\\b", "ascii", withoutEscape)).toStrictEqual({
+      value: "a\\F\\b",
+      issues: [],
+    });
+  });
+
   it("returns text without escape sequences unchanged", () => {
     expect(decode("Everyman")).toStrictEqual({
       value: "Everyman",
@@ -262,7 +286,7 @@ describe("encodeText", () => {
 
   it("keeps a quoted null distinct when the quote is the escape character", () => {
     const quoteEscape = { ...standard, escape: '"' };
-    const encoded = encodeText('""', quoteEscape);
+    const encoded = encodeText('""', quoteEscape) ?? "";
     expect(encoded).toBe('"X22""E"');
     expect(decode(encoded, "ascii", quoteEscape).value).toBe('""');
   });
@@ -280,6 +304,25 @@ describe("encodeText", () => {
 
   it("uses the delimiters of the message", () => {
     expect(encodeText("#$%*!?\\", custom)).toBe("!F!!S!!T!!R!!E!!P!\\");
+  });
+
+  describe("without an escape character", () => {
+    const withoutEscape: Delimiters = {
+      field: "|",
+      component: "^",
+      repetition: "~",
+    };
+
+    it("writes values that need no escape sequence as they are", () => {
+      expect(encodeText("a&b\\c", withoutEscape)).toBe("a&b\\c");
+    });
+
+    it.each(["a|b", "a^b", "a~b", "line\nbreak", "a\rb", '""'])(
+      "cannot write %j",
+      (value) => {
+        expect(encodeText(value, withoutEscape)).toBeUndefined();
+      },
+    );
   });
 
   const charsets = fc.constantFrom<Charset>("ascii", "iso-8859-1", "utf-8");
@@ -301,22 +344,28 @@ describe("encodeText", () => {
           ? delimiters
           : { ...delimiters, truncation };
       const encoded = encodeText(value, declared);
-      expect(decode(encoded, charset, declared)).toStrictEqual({
-        value,
-        issues: [],
-      });
+      if (encoded === undefined) {
+        // Only a message without escape character refuses a value.
+        expect(declared.escape).toBeUndefined();
+      } else {
+        expect(decode(encoded, charset, declared)).toStrictEqual({
+          value,
+          issues: [],
+        });
+      }
     },
   );
 
   propertyTest.prop([fc.string(), delimiterSets])(
     "never writes a delimiter or a line terminator",
     (value, delimiters) => {
-      const encoded = encodeText(value, delimiters);
+      const encoded = encodeText(value, delimiters) ?? "";
+      const { field, component, repetition, subcomponent = "\r" } = delimiters;
       for (const forbidden of [
-        delimiters.field,
-        delimiters.component,
-        delimiters.repetition,
-        delimiters.subcomponent,
+        field,
+        component,
+        repetition,
+        subcomponent,
         "\r",
         "\n",
       ]) {

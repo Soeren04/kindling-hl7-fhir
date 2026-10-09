@@ -145,7 +145,8 @@ function parseFields(
 ): Field[] {
   const { input } = parser;
   const levelOf = createLevelLookup(parser.context);
-  const escapeCode = parser.context.delimiters.escape.charCodeAt(0);
+  // Without an escape character (MSH-2 may omit it), no character starts an escape sequence.
+  const escapeCode = parser.context.delimiters.escape?.charCodeAt(0);
   const open: OpenNodes = {
     fields: [],
     repetitions: [],
@@ -234,7 +235,7 @@ function createLevelLookup(
   const fieldCode = field.charCodeAt(0);
   const repetitionCode = repetition.charCodeAt(0);
   const componentCode = component.charCodeAt(0);
-  const subcomponentCode = subcomponent.charCodeAt(0);
+  const subcomponentCode = subcomponent?.charCodeAt(0);
   return (code) => {
     switch (code) {
       case fieldCode:

@@ -15,24 +15,56 @@ export const punctuation: readonly string[] = Array.from(
   String.raw`!"#$%&'()*+,-./:;<=>?@[\]^_` + "`{|}~",
 );
 
+/** Which trailing encoding characters a message omits: none, the subcomponent separator, or it and the escape. */
+type Omission = "none" | "subcomponent" | "escape and subcomponent";
+
+const omissions = fc.constantFrom<Omission>(
+  "none",
+  "subcomponent",
+  "escape and subcomponent",
+);
+
+/**
+ * Delimiters from the given distinct characters, leaving out the omitted ones as `parse` does: absent, not
+ * `undefined`.
+ */
+function delimitersOf(
+  [
+    field = "",
+    component = "",
+    repetition = "",
+    escape = "",
+    subcomponent = "",
+  ]: readonly string[],
+  omission: Omission,
+): Delimiters {
+  return {
+    field,
+    component,
+    repetition,
+    ...(omission === "escape and subcomponent" ? {} : { escape }),
+    ...(omission === "none" ? { subcomponent } : {}),
+  };
+}
+
+/** The MSH-2 that declares `delimiters`, without a truncation character. */
+export function encodingCharactersOf(delimiters: Delimiters): string {
+  const { component, repetition, escape = "", subcomponent = "" } = delimiters;
+  return component + repetition + escape + subcomponent;
+}
+
 /** Random sets of five distinct delimiters, without a truncation character. */
-export const delimiterSets: fc.Arbitrary<Delimiters> = fc
+export const completeDelimiterSets: fc.Arbitrary<Delimiters> = fc
   .shuffledSubarray([...punctuation], { minLength: 5, maxLength: 5 })
-  .map(
-    ([
-      field = "",
-      component = "",
-      repetition = "",
-      escape = "",
-      subcomponent = "",
-    ]) => ({
-      field,
-      component,
-      repetition,
-      escape,
-      subcomponent,
-    }),
-  );
+  .map((characters) => delimitersOf(characters, "none"));
+
+/** Random sets of distinct delimiters that may omit the subcomponent separator, or it and the escape character. */
+export const delimiterSets: fc.Arbitrary<Delimiters> = fc
+  .tuple(
+    fc.shuffledSubarray([...punctuation], { minLength: 5, maxLength: 5 }),
+    omissions,
+  )
+  .map(([characters, omission]) => delimitersOf(characters, omission));
 
 const noSpan = { start: 0, end: 0 };
 
@@ -56,23 +88,29 @@ function subcomponents(delimiters: Delimiters): {
   readonly any: fc.Arbitrary<Subcomponent>;
   readonly filled: fc.Arbitrary<Subcomponent>;
 } {
-  // Values may contain every delimiter, quotes, line breaks and a period (never a delimiter here). They are never
-  // empty: an empty value only arises from removed formatting commands, which `stringify` cannot reproduce.
-  const text = fc.string({
-    unit: fc.constantFrom(
-      ...Array.from(`ab .,"\n\ré`),
-      ...[
-        delimiters.field,
-        delimiters.component,
-        delimiters.repetition,
-        delimiters.escape,
-        delimiters.subcomponent,
-        ...(delimiters.truncation === undefined ? [] : [delimiters.truncation]),
-      ],
-    ),
-    minLength: 1,
-    maxLength: 6,
-  });
+  // With an escape character, values may contain every delimiter, quotes, line breaks and a period (never a
+  // delimiter here). Without one, they hold only what needs no escape sequence. They are never empty: an empty value
+  // only arises from removed formatting commands, which `stringify` cannot reproduce.
+  const { field, component, repetition, escape, subcomponent, truncation } =
+    delimiters;
+  const declared = [
+    field,
+    component,
+    repetition,
+    escape,
+    subcomponent,
+    truncation,
+  ].filter((character) => character !== undefined);
+  const text = fc
+    .string({
+      unit: fc.constantFrom(
+        ...Array.from(`ab .,"é`).filter((c) => !declared.includes(c)),
+        ...(escape === undefined ? [] : ["\n", "\r", ...declared]),
+      ),
+      minLength: 1,
+      maxLength: 6,
+    })
+    .filter((value) => escape !== undefined || value !== '""');
   const filled = fc.oneof(
     text.map((value): Subcomponent => ({ kind: "value", value, span: noSpan })),
     fc.constant<Subcomponent>({ kind: "null", span: noSpan }),
@@ -89,9 +127,18 @@ function subcomponents(delimiters: Delimiters): {
 
 function fields(delimiters: Delimiters): fc.Arbitrary<Field> {
   const subcomponent = subcomponents(delimiters);
-  const component = trimmedList(subcomponent.any, subcomponent.filled).map(
-    (children): Component => ({ subcomponents: children, span: noSpan }),
-  );
+  // Without a subcomponent separator, a component holds at most one subcomponent.
+  const children =
+    delimiters.subcomponent === undefined
+      ? fc.oneof(
+          fc.constant<readonly Subcomponent[]>([]),
+          subcomponent.filled.map((child) => [child]),
+        )
+      : trimmedList(subcomponent.any, subcomponent.filled);
+  const component = children.map((list): Component => ({
+    subcomponents: list,
+    span: noSpan,
+  }));
   const filledComponent = component.filter(
     (node) => node.subcomponents.length > 0,
   );
@@ -130,7 +177,8 @@ const delimiterCharacters = punctuation.filter(
 /**
  * Random messages in the shape `parse` returns: an MSH segment with its version, then segments with arbitrary
  * fields, repetitions, components and subcomponents (values, nulls and empty ones in the middle), under random sets
- * of distinct delimiters. Some messages declare a truncation character, which needs version 2.7 or later.
+ * of distinct delimiters, some of which omit the subcomponent separator or it and the escape character. Some
+ * messages declare a truncation character, which needs version 2.7 or later.
  *
  * The last segment is a fixed Z segment: `parse` strips whitespace at the end of the text, which would otherwise
  * change a final value that ends in a space.
@@ -140,26 +188,20 @@ const delimiterCharacters = punctuation.filter(
 export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
   .tuple(
     fc.shuffledSubarray(delimiterCharacters, { minLength: 6, maxLength: 6 }),
+    omissions,
     fc.boolean(),
   )
-  .chain(([characters, truncating]) => {
-    const [
-      field = "",
-      component = "",
-      repetition = "",
-      escape = "",
-      subcomponent = "",
-      truncation = "",
-    ] = characters;
+  .chain(([characters, omission, wantsTruncation]) => {
+    // A truncation character follows all four other encoding characters in MSH-2.
+    const truncating = wantsTruncation && omission === "none";
+    const truncation = characters[5] ?? "";
     const delimiters: Delimiters = {
-      field,
-      component,
-      repetition,
-      escape,
-      subcomponent,
+      ...delimitersOf(characters, omission),
       ...(truncating ? { truncation } : {}),
     };
-    const encoding = `${component}${repetition}${escape}${subcomponent}${truncating ? truncation : ""}`;
+    const encoding =
+      encodingCharactersOf(delimiters) + (truncating ? truncation : "");
+    const { field } = delimiters;
     const anyField = fields(delimiters);
     const segment = fc.tuple(
       fc.constantFrom("PID", "OBX", "NTE", "ZPI"),

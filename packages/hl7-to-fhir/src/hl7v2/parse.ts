@@ -41,8 +41,8 @@ export interface ParseSuccess {
  * - `EMPTY_INPUT`: there is no text once framing and whitespace are removed.
  * - `MISSING_MSH`: the first segment is not `MSH`.
  * - `INVALID_FIELD_SEPARATOR`: MSH-1 is missing or not a printable ASCII punctuation character.
- * - `INVALID_ENCODING_CHARACTERS`: MSH-2 is empty or too long, or the delimiters are not distinct punctuation
- *   characters.
+ * - `INVALID_ENCODING_CHARACTERS`: MSH-2 has fewer than two or more than five characters, or the delimiters are not
+ *   distinct punctuation characters.
  */
 export type ParseFailureCode =
   | "INVALID_INPUT"

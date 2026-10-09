@@ -5,7 +5,11 @@ import type { Span } from "../shared/issue";
 /**
  * The delimiters a message declares in MSH-1 and MSH-2.
  *
- * Each delimiter is a single printable ASCII punctuation character, and all of them are distinct.
+ * MSH-2 lists the encoding characters by position: component, repetition, escape, subcomponent and, from version 2.7
+ * on, truncation. The standard lets a message omit the trailing ones it does not use. An omitted delimiter is
+ * `undefined` and has no effect: without a subcomponent separator values are not split into subcomponents, and without
+ * an escape character they contain no escape sequences. Each declared delimiter is a single printable ASCII character
+ * that is neither a letter nor a digit, and all of them are distinct.
  *
  * @example
  * ```ts
@@ -26,13 +30,13 @@ export interface Delimiters {
   readonly component: string;
   /** Separates repetitions (second character of MSH-2, usually `~`). */
   readonly repetition: string;
-  /** Starts and ends escape sequences (third character of MSH-2, usually `\`). */
-  readonly escape: string;
-  /** Separates subcomponents (fourth character of MSH-2, usually `&`). */
-  readonly subcomponent: string;
+  /** Starts and ends escape sequences (third character of MSH-2, usually `\`); `undefined` when MSH-2 omits it. */
+  readonly escape?: string | undefined;
+  /** Separates subcomponents (fourth character of MSH-2, usually `&`); `undefined` when MSH-2 omits it. */
+  readonly subcomponent?: string | undefined;
   /**
-   * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on.
-   * It is a marker inside values, never a separator.
+   * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on;
+   * `undefined` otherwise. It is a marker inside values, never a separator.
    */
   readonly truncation?: string | undefined;
 }
@@ -46,7 +50,7 @@ export interface Delimiters {
  * ```
  */
 export interface Hl7Message {
-  /** The delimiters declared in MSH-1 and MSH-2, with defaults for omitted ones. */
+  /** The delimiters declared in MSH-1 and MSH-2. */
   readonly delimiters: Delimiters;
   /** The version ID from MSH-12.1 (for example `2.5.1`), as written; absent when MSH-12 is empty. */
   readonly version?: string | undefined;
