@@ -71,7 +71,7 @@ export type PathFailureCode =
 export interface PathFailure {
   /** Discriminant: what is wrong with the path. */
   readonly code: PathFailureCode;
-  /** A description of the problem. */
+  /** A description of what is wrong with the path; it never repeats the path. */
   readonly message: string;
   /** The offending part of the path, as offsets into the string passed to `parsePath`. */
   readonly span: Span;
@@ -85,7 +85,7 @@ export interface PathFailure {
  * treat a path that fails here as matching nothing; call it to find out why.
  *
  * @param path - The path to parse.
- * @returns The parts of the path, or the first problem found.
+ * @returns The parts of the path, or why it was rejected.
  *
  * @example
  * ```ts
@@ -96,14 +96,15 @@ export interface PathFailure {
  * ```
  */
 export function parsePath(path: string): Result<ParsedPath, PathFailure> {
-  if (!isString(path)) return fail("INVALID_INPUT", { start: 0, end: 0 });
+  if (!isString(path))
+    return pathFailure("INVALID_INPUT", { start: 0, end: 0 });
   const parts = splitParts(path);
   const [segmentPart, fieldPart, componentPart, subcomponentPart] = parts;
   if (segmentPart === undefined) {
-    return fail("EMPTY_PATH", { start: 0, end: 0 });
+    return pathFailure("EMPTY_PATH", { start: 0, end: 0 });
   }
   if (subcomponentPart !== undefined && parts.length > 4) {
-    return fail("TOO_MANY_PARTS", {
+    return pathFailure("TOO_MANY_PARTS", {
       start: subcomponentPart.span.end + 1,
       end: path.length,
     });
@@ -112,10 +113,13 @@ export function parsePath(path: string): Result<ParsedPath, PathFailure> {
   const segment = readIndexed(segmentPart);
   if (!segment.ok) return segment;
   if (!isValidSegmentId(segment.value.name)) {
-    return fail("INVALID_SEGMENT_ID", segmentPart.span);
+    return pathFailure("INVALID_SEGMENT_ID", segmentPart.span);
   }
   if (fieldPart === undefined) {
-    return fail("MISSING_FIELD", { start: path.length, end: path.length });
+    return pathFailure("MISSING_FIELD", {
+      start: path.length,
+      end: path.length,
+    });
   }
 
   const field = readIndexed(fieldPart);
@@ -168,7 +172,7 @@ function readIndexed(part: Part): Result<Indexed, PathFailure> {
   const match = /^([^[\]]*)\[([^[\]]*)\]$/u.exec(part.text);
   const index = toPositiveInteger(match?.[2] ?? "");
   if (match === null || index === undefined) {
-    return fail("INVALID_INDEX", part.span);
+    return pathFailure("INVALID_INDEX", part.span);
   }
   return ok({ name: match[1] ?? "", index });
 }
@@ -181,7 +185,9 @@ function readOptionalNumber(
 
 function readNumber(text: string, span: Span): Result<number, PathFailure> {
   const number = toPositiveInteger(text);
-  return number === undefined ? fail("INVALID_NUMBER", span) : ok(number);
+  return number === undefined
+    ? pathFailure("INVALID_NUMBER", span)
+    : ok(number);
 }
 
 /** The number written by `text` if it is a positive whole number without leading zeros or signs. */
@@ -205,6 +211,6 @@ const messages: Readonly<Record<PathFailureCode, string>> = {
   TOO_MANY_PARTS: "A path has at most four parts.",
 };
 
-function fail(code: PathFailureCode, span: Span): Err<PathFailure> {
+function pathFailure(code: PathFailureCode, span: Span): Err<PathFailure> {
   return err({ code, message: messages[code], span });
 }

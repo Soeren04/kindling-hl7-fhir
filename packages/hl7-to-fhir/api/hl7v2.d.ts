@@ -555,8 +555,8 @@ interface ParseFailure {
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam");
  * if (result.ok) {
  *   console.log(get(result.value.message, "PID.5.1")); // "Everyman"
- *   const problems: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
- *   for (const { code, message } of problems) console.warn(code, message);
+ *   const notable: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
+ *   for (const { code, message } of notable) console.warn(code, message);
  * } else {
  *   console.error(result.error.code, result.error.message);
  * }
@@ -624,7 +624,7 @@ type PathFailureCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "
 interface PathFailure {
   /** Discriminant: what is wrong with the path. */
   readonly code: PathFailureCode;
-  /** A description of the problem. */
+  /** A description of what is wrong with the path; it never repeats the path. */
   readonly message: string;
   /** The offending part of the path, as offsets into the string passed to `parsePath`. */
   readonly span: Span;
@@ -637,7 +637,7 @@ interface PathFailure {
  * treat a path that fails here as matching nothing; call it to find out why.
  *
  * @param path - The path to parse.
- * @returns The parts of the path, or the first problem found.
+ * @returns The parts of the path, or why it was rejected.
  *
  * @example
  * ```ts

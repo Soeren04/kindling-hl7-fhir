@@ -284,7 +284,7 @@ function withoutTrailing<T>(nodes: T[], isEmpty: (node: T) => boolean): T[] {
 }
 
 /** The position of a subcomponent within its segment, as 1-based HL7 numbers. */
-type Position = Required<
+type SubcomponentPosition = Required<
   Pick<Location, "field" | "repetition" | "component" | "subcomponent">
 >;
 
@@ -301,7 +301,7 @@ function plainSubcomponent(input: string, span: Span): Subcomponent {
 function decodedValue(
   parser: FieldParser,
   span: Span,
-  position: Position,
+  position: SubcomponentPosition,
 ): Subcomponent {
   const { input } = parser;
   const { value, truncated } = decodeText(

@@ -107,8 +107,8 @@ export interface ParseFailure {
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam");
  * if (result.ok) {
  *   console.log(get(result.value.message, "PID.5.1")); // "Everyman"
- *   const problems: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
- *   for (const { code, message } of problems) console.warn(code, message);
+ *   const notable: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
+ *   for (const { code, message } of notable) console.warn(code, message);
  * } else {
  *   console.error(result.error.code, result.error.message);
  * }
@@ -124,21 +124,21 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
 
   const msh = lines[0];
   if (msh === undefined) {
-    return fail(
+    return parseFailure(
       input,
       issues,
       issue("EMPTY_INPUT", { span: { start: 0, end: input.length } }),
     );
   }
   if (!input.startsWith(headerSegmentId, msh.start)) {
-    return fail(
+    return parseFailure(
       input,
       issues,
       issue("MISSING_MSH", { span: msh, segmentIndex: 0 }),
     );
   }
   const reading = readDelimiters(input, msh, issues);
-  if (!reading.ok) return fail(input, issues, reading.error);
+  if (!reading.ok) return parseFailure(input, issues, reading.error);
 
   const { delimiters } = reading.value;
   // The character set must be known before values are decoded, so it is read from the raw header text.
@@ -163,7 +163,7 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
   return ok({ message, issues: finishIssues(issues, input.length) });
 }
 
-function fail(
+function parseFailure(
   input: string,
   issues: readonly Issue[],
   cause: IssueOf<ParseFailureCode>,
