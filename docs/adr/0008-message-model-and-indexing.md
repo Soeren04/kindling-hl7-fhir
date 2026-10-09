@@ -43,6 +43,22 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   highlighting and the other formatting commands are removed, and sequences that cannot be interpreted stay verbatim.
   Every case other than delimiter escapes and line breaks is reported as an issue. The raw text is always available
   through the span.
+- **Omitted encoding characters stay unused.** MSH-2 may stop after the repetition separator: the escape character
+  "may be omitted if no escape characters are used" and the subcomponent separator "if not used, may be omitted"
+  (HL7 v2.5.1 section 2.5.4, table 2-1). `Delimiters.escape` and `Delimiters.subcomponent` are then absent, values
+  are neither split into subcomponents nor decoded, and an info issue (`ENCODING_CHARACTERS_OMITTED`) records it.
+  Positions count, so `MSH|^~&|` declares `&` as the escape character and no subcomponent separator. Component and
+  repetition separators are required; an MSH-2 shorter than two characters is `INVALID_ENCODING_CHARACTERS`.
+  Substituting the standard characters for omitted ones, as an earlier version did, would split values on a `&` or
+  decode a `\` that the sender meant literally.
+- **`stringify` returns `Result<string, StringifyFailure>`.** A hand-built or edited tree can hold what the
+  delimiters of its message cannot express: a value with a delimiter or a line break without an escape character
+  (`ESCAPE_CHARACTER_REQUIRED`), several subcomponents without a subcomponent separator
+  (`SUBCOMPONENT_SEPARATOR_REQUIRED`), or the null `""` when the quote is a delimiter (`NULL_NOT_REPRESENTABLE`).
+  Writing such a tree anyway would produce text that parses into a different tree, silently. `stringify` fails
+  instead, naming the first such node with its position, and never fails for a tree `parse` returned (a property
+  test checks this). Throwing was rejected because the library returns expected failures (ADR 0004); returning the
+  text with issues was rejected because the text would be wrong.
 - **`parse` returns `Result<ParseSuccess, ParseFailure>`, and the success holds `{ message, issues }`.** The plan
   sketched `Result<Hl7Message, …>`, but parsing is lenient (ADR 0003): a successful parse has issues too, and they
   belong to the same call as the tree. Pairing them in the success value keeps them out of the tree, which stays plain
@@ -113,5 +129,5 @@ the public shape and is not planned.
   `stringify(parse(x)) === x` holds for canonical input only.
 - `stringify` writes the tree as it stands: every segment, the last one included, ends with `\r`; MSH-1 and MSH-2 are
   taken verbatim from the first two fields of MSH (falling back to `delimiters` for hand-built trees); nulls are
-  always `""`, so a tree with nulls cannot use the quote as a delimiter. Values are escaped by `encodeText` only, in
-  one function (`stringifySubcomponent`), so changes to escaping stay in `escape.ts`.
+  always `""`. Values are escaped by `encodeText` only, so changes to escaping stay in `escape.ts`. Callers unwrap
+  the result of `stringify`, although it only fails for trees built or changed by hand.

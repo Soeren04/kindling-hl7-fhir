@@ -57,10 +57,10 @@ export type IssueCode =
   | "INVALID_SEGMENT_ID"
   /** MSH-1 is missing, or it is not a printable ASCII punctuation character. */
   | "INVALID_FIELD_SEPARATOR"
-  /** MSH-2 is empty or longer than five characters, or its delimiters are not distinct punctuation characters. */
+  /** MSH-2 has fewer than two or more than five characters, or its delimiters are not distinct punctuation characters. */
   | "INVALID_ENCODING_CHARACTERS"
-  /** MSH-2 has fewer than four characters; the missing delimiters take their standard values. */
-  | "ENCODING_CHARACTERS_DEFAULTED"
+  /** MSH-2 omits the subcomponent separator and possibly the escape character; the message does not use them. */
+  | "ENCODING_CHARACTERS_OMITTED"
   /** MSH-2 has a fifth character, but the message version is older than 2.7, which introduced it. */
   | "TRUNCATION_CHARACTER_IGNORED"
   /** An escape sequence the standard does not define; it is kept as written. */
@@ -77,6 +77,12 @@ export type IssueCode =
   | "INVALID_HEX_ESCAPE"
   /** A hexadecimal escape sequence in a message whose character set (MSH-18) is not supported; kept as written. */
   | "UNSUPPORTED_CHARACTER_SET"
+  /** `stringify`: a value needs an escape sequence, but MSH-2 declares no escape character. */
+  | "ESCAPE_CHARACTER_REQUIRED"
+  /** `stringify`: a component has several subcomponents, but MSH-2 declares no subcomponent separator. */
+  | "SUBCOMPONENT_SEPARATOR_REQUIRED"
+  /** `stringify`: a subcomponent is the HL7 null `""`, but the quote is one of the delimiters. */
+  | "NULL_NOT_REPRESENTABLE"
   /** More issues were found than are reported (10,000); this issue, at the end of the input, replaces the rest. */
   | "TOO_MANY_ISSUES";
 
@@ -230,12 +236,12 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
   INVALID_ENCODING_CHARACTERS: {
     severity: "error",
     message:
-      "MSH-2 must hold one to five printable ASCII characters that are neither letters nor digits, all different from each other, from the field separator and from the standard values of omitted ones.",
+      "MSH-2 must hold two to five printable ASCII characters that are neither letters nor digits, all different from each other and from the field separator.",
   },
-  ENCODING_CHARACTERS_DEFAULTED: {
-    severity: "warning",
+  ENCODING_CHARACTERS_OMITTED: {
+    severity: "info",
     message:
-      "MSH-2 declares fewer than four encoding characters; the omitted ones take their standard values.",
+      "MSH-2 omits the subcomponent separator and possibly the escape character; values are not split into subcomponents and, without an escape character, contain no escape sequences.",
   },
   TRUNCATION_CHARACTER_IGNORED: {
     severity: "warning",
@@ -275,6 +281,21 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "warning",
     message:
       "The character set in MSH-18 is not supported for hexadecimal escape sequences; the sequence is kept as written.",
+  },
+  ESCAPE_CHARACTER_REQUIRED: {
+    severity: "error",
+    message:
+      'A value contains a delimiter or a line break or is the text "", which need an escape sequence, but MSH-2 declares no escape character.',
+  },
+  SUBCOMPONENT_SEPARATOR_REQUIRED: {
+    severity: "error",
+    message:
+      "A component has several subcomponents, but MSH-2 declares no subcomponent separator.",
+  },
+  NULL_NOT_REPRESENTABLE: {
+    severity: "error",
+    message:
+      'A subcomponent is the HL7 null, but the quote is one of the delimiters, so "" would not read back as the null.',
   },
   TOO_MANY_ISSUES: {
     severity: "warning",

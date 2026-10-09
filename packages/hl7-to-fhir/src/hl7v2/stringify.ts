@@ -1,3 +1,5 @@
+import { issue, type IssueCode, type Location } from "../shared/issue";
+import { err, ok, type Result } from "../shared/result";
 import { encodeText } from "./escape";
 import type {
   Component,
@@ -8,6 +10,43 @@ import type {
   Segment,
   Subcomponent,
 } from "./model";
+import { isValidSegmentId } from "./segment";
+
+/**
+ * Why a tree cannot be written with the delimiters of its message.
+ *
+ * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter, a line break or is the text `""`, which need an escape
+ *   sequence, but MSH-2 declares no escape character.
+ * - `SUBCOMPONENT_SEPARATOR_REQUIRED`: a component has more than one subcomponent, but MSH-2 declares no subcomponent
+ *   separator.
+ * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
+ *   `""` would not read back as the null.
+ */
+export type StringifyFailureCode = Extract<
+  IssueCode,
+  | "ESCAPE_CHARACTER_REQUIRED"
+  | "SUBCOMPONENT_SEPARATOR_REQUIRED"
+  | "NULL_NOT_REPRESENTABLE"
+>;
+
+/**
+ * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
+ * the message cannot express. Trees returned by `parse` never fail; only trees built or changed by hand can.
+ *
+ * @example
+ * ```ts
+ * const result = stringify(message);
+ * if (!result.ok) console.error(result.error.code, result.error.location.field); // "ESCAPE_CHARACTER_REQUIRED", 5
+ * ```
+ */
+export interface StringifyFailure {
+  /** Discriminant: why the node cannot be written. */
+  readonly code: StringifyFailureCode;
+  /** A description without message content. */
+  readonly message: string;
+  /** The node: its position in HL7 numbers (`segmentIndex`, `field`, ...) and the span the tree gives it. */
+  readonly location: Location;
+}
 
 /**
  * Writes a message as HL7 v2 text: the inverse of `parse`.
@@ -22,12 +61,15 @@ import type {
  * and framing of the input. A value that is empty because it consisted only of removed formatting commands is
  * written as an empty subcomponent.
  *
- * MSH-1 and MSH-2 are written as they stand in the first two fields of the MSH segment, never escaped. The HL7 null
- * is always written as two quote characters, so a tree with nulls needs a message whose delimiters do not include
- * the quote; `parse` never returns such a tree.
+ * MSH-1 and MSH-2 are written as they stand in the first two fields of the MSH segment, never escaped; a tree without
+ * them gets the delimiters of the message. Segment identifiers are written as they are.
+ *
+ * Writing fails, instead of producing text that reads back differently, when the tree holds something the delimiters
+ * cannot express (see {@link StringifyFailureCode}). That happens only for trees built or changed by hand, for
+ * example a value with a `|` in a message whose MSH-2 omits the escape character.
  *
  * @param message - The message to write, usually from `parse`.
- * @returns The message text, or an empty string for a message without segments.
+ * @returns The message text (empty for a message without segments), or the first node that cannot be written.
  *
  * @example
  * ```ts
@@ -35,36 +77,71 @@ import type {
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\nPID|1||12345||Everyman^Adam\n");
  * if (result.ok) {
- *   stringify(result.value.message);
+ *   const text = stringify(result.value.message);
+ *   if (text.ok) console.log(text.value);
  *   // "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
  * }
  * ```
  */
-export function stringify(message: Hl7Message): string {
-  const { delimiters } = message;
-  return message.segments
-    .map((segment) => `${stringifySegment(segment, delimiters)}\r`)
-    .join("");
+export function stringify(
+  message: Hl7Message,
+): Result<string, StringifyFailure> {
+  const writer: Writer = { delimiters: message.delimiters, failure: undefined };
+  let text = "";
+  for (const [segmentIndex, segment] of message.segments.entries()) {
+    text += `${writeSegment(writer, segment, segmentIndex)}\r`;
+  }
+  return writer.failure === undefined ? ok(text) : err(writer.failure);
 }
 
-function stringifySegment(segment: Segment, delimiters: Delimiters): string {
-  const { field } = delimiters;
-  if (segment.id !== "MSH") {
-    return [
-      segment.id,
-      ...segment.fields.map((node) => stringifyField(node, delimiters)),
-    ].join(field);
+/** The delimiters to write with and the first node that could not be written. */
+interface Writer {
+  readonly delimiters: Delimiters;
+  failure: StringifyFailure | undefined;
+}
+
+/** Where a node is, for the failure location; numbers are 1-based. */
+type Position = Omit<Location, "span">;
+
+function fail(
+  writer: Writer,
+  code: StringifyFailureCode,
+  location: Location,
+): string {
+  if (writer.failure === undefined) {
+    const { message } = issue(code, location);
+    writer.failure = { code, message, location };
   }
-  // MSH-1 and MSH-2 are the delimiters themselves, so they are neither separated nor escaped. The fallbacks only
-  // matter for trees built by hand.
-  const [separator, encoding, ...rest] = segment.fields;
-  const header =
-    segment.id +
-    (verbatim(separator) || field) +
-    (verbatim(encoding) || encodingCharacters(delimiters));
+  return "";
+}
+
+function writeSegment(
+  writer: Writer,
+  segment: Segment,
+  segmentIndex: number,
+): string {
+  const position: Position = isValidSegmentId(segment.id)
+    ? { segmentIndex, segmentId: segment.id }
+    : { segmentIndex };
+  // In MSH, fields[0] and fields[1] are MSH-1 and MSH-2: the delimiters themselves, written verbatim with the id.
+  const header = segment.id === "MSH";
+  const first = header ? 2 : 0;
+  let text = header ? mshHeader(segment, writer.delimiters) : segment.id;
+  for (const [index, field] of segment.fields.slice(first).entries()) {
+    const fieldNumber = first + index + 1;
+    text += writer.delimiters.field;
+    text += writeField(writer, field, { ...position, field: fieldNumber });
+  }
+  return text;
+}
+
+/** `MSH`, MSH-1 and MSH-2, taken from the first two fields, or from the delimiters when a hand-built tree lacks them. */
+function mshHeader(segment: Segment, delimiters: Delimiters): string {
+  const [separator, encoding] = segment.fields;
   return (
-    header +
-    rest.map((node) => field + stringifyField(node, delimiters)).join("")
+    segment.id +
+    (verbatim(separator) || delimiters.field) +
+    (verbatim(encoding) || encodingCharacters(delimiters))
   );
 }
 
@@ -72,8 +149,8 @@ function encodingCharacters(delimiters: Delimiters): string {
   const {
     component,
     repetition,
-    escape,
-    subcomponent,
+    escape = "",
+    subcomponent = "",
     truncation = "",
   } = delimiters;
   return component + repetition + escape + subcomponent + truncation;
@@ -85,40 +162,74 @@ function verbatim(field: Field | undefined): string {
   return value?.kind === "value" ? value.value : "";
 }
 
-function stringifyField(field: Field, delimiters: Delimiters): string {
+function writeField(writer: Writer, field: Field, position: Position): string {
   return field.repetitions
-    .map((repetition) => stringifyRepetition(repetition, delimiters))
-    .join(delimiters.repetition);
+    .map((repetition, index) =>
+      writeRepetition(writer, repetition, {
+        ...position,
+        repetition: index + 1,
+      }),
+    )
+    .join(writer.delimiters.repetition);
 }
 
-function stringifyRepetition(
+function writeRepetition(
+  writer: Writer,
   repetition: Repetition,
-  delimiters: Delimiters,
+  position: Position,
 ): string {
   return repetition.components
-    .map((component) => stringifyComponent(component, delimiters))
-    .join(delimiters.component);
+    .map((component, index) =>
+      writeComponent(writer, component, { ...position, component: index + 1 }),
+    )
+    .join(writer.delimiters.component);
 }
 
-function stringifyComponent(
+function writeComponent(
+  writer: Writer,
   component: Component,
-  delimiters: Delimiters,
+  position: Position,
 ): string {
-  return component.subcomponents
-    .map((subcomponent) => stringifySubcomponent(subcomponent, delimiters))
-    .join(delimiters.subcomponent);
+  const { subcomponent: separator } = writer.delimiters;
+  const { subcomponents } = component;
+  // Without a separator, only a single subcomponent can be written; the join below then needs no separator.
+  if (separator === undefined && subcomponents.length > 1) {
+    return fail(writer, "SUBCOMPONENT_SEPARATOR_REQUIRED", {
+      span: component.span,
+      ...position,
+    });
+  }
+  return subcomponents
+    .map((subcomponent, index) =>
+      writeSubcomponent(writer, subcomponent, {
+        ...position,
+        subcomponent: index + 1,
+      }),
+    )
+    .join(separator ?? "");
 }
 
-function stringifySubcomponent(
+function writeSubcomponent(
+  writer: Writer,
   subcomponent: Subcomponent,
-  delimiters: Delimiters,
+  position: Position,
 ): string {
+  const location = { span: subcomponent.span, ...position };
   switch (subcomponent.kind) {
     case "value":
-      return encodeText(subcomponent.value, delimiters);
+      return (
+        encodeText(subcomponent.value, writer.delimiters) ??
+        fail(writer, "ESCAPE_CHARACTER_REQUIRED", location)
+      );
     case "null":
-      return '""';
+      return quoteIsDelimiter(writer.delimiters)
+        ? fail(writer, "NULL_NOT_REPRESENTABLE", location)
+        : '""';
     case "empty":
       return "";
   }
+}
+
+function quoteIsDelimiter(delimiters: Delimiters): boolean {
+  return Object.values(delimiters).includes('"');
 }

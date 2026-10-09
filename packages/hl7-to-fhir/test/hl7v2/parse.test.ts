@@ -208,15 +208,21 @@ describe("parse", () => {
       ]);
     });
 
-    it("reports a shortened MSH-2 and parses with the defaults", () => {
-      const result = parsed("MSH|^~|LAB\rPID|a&b\\F\\c");
-      expect(result.issues.map(({ code }) => code)).toStrictEqual([
-        "ENCODING_CHARACTERS_DEFAULTED",
-      ]);
-      expect(fieldShape(result.message.segments[1]?.fields[0])).toStrictEqual([
-        [["a", "b|c"]],
-      ]);
-    });
+    it.each([
+      ["the escape and subcomponent delimiters", "^~", [[["a&b\\F\\c"]]]],
+      ["the subcomponent separator", "^~\\", [[["a&b|c"]]]],
+    ])(
+      "reports an MSH-2 without %s and does not use them",
+      (_description, encoding, shape) => {
+        const result = parsed(`MSH|${encoding}|LAB\rPID|a&b\\F\\c`);
+        expect(result.issues.map(({ code }) => code)).toStrictEqual([
+          "ENCODING_CHARACTERS_OMITTED",
+        ]);
+        expect(fieldShape(result.message.segments[1]?.fields[0])).toStrictEqual(
+          shape,
+        );
+      },
+    );
   });
 
   describe("escape sequences", () => {
@@ -550,7 +556,7 @@ describe("parse", () => {
 
   it("never puts message content into issue messages", () => {
     const input = [
-      "\uFEFFMSH|^~|Everyman||||||||2.5.1",
+      "\uFEFFMSH|^~\\|Everyman||||||||2.5.1",
       "PID|1||Everyman\\ZEveryman\\||Everyman\\XEveryman\\",
       "Everyman|1",
       "NTE|\\.Everyman\\|\\Everyman",

@@ -1,9 +1,13 @@
-import { c as Span, i as Issue, r as Result } from "./result.js";
+import { a as IssueCode, c as Span, i as Issue, o as Location, r as Result } from "./result.js";
 //#region src/hl7v2/model.d.ts
 /**
  * The delimiters a message declares in MSH-1 and MSH-2.
  *
- * Each delimiter is a single printable ASCII punctuation character, and all of them are distinct.
+ * MSH-2 lists the encoding characters by position: component, repetition, escape, subcomponent and, from version 2.7
+ * on, truncation. The standard lets a message omit the trailing ones it does not use. An omitted delimiter is
+ * `undefined` and has no effect: without a subcomponent separator values are not split into subcomponents, and without
+ * an escape character they contain no escape sequences. Each declared delimiter is a single printable ASCII character
+ * that is neither a letter nor a digit, and all of them are distinct.
  *
  * @example
  * ```ts
@@ -24,13 +28,13 @@ interface Delimiters {
   readonly component: string;
   /** Separates repetitions (second character of MSH-2, usually `~`). */
   readonly repetition: string;
-  /** Starts and ends escape sequences (third character of MSH-2, usually `\`). */
-  readonly escape: string;
-  /** Separates subcomponents (fourth character of MSH-2, usually `&`). */
-  readonly subcomponent: string;
+  /** Starts and ends escape sequences (third character of MSH-2, usually `\`); `undefined` when MSH-2 omits it. */
+  readonly escape?: string | undefined;
+  /** Separates subcomponents (fourth character of MSH-2, usually `&`); `undefined` when MSH-2 omits it. */
+  readonly subcomponent?: string | undefined;
   /**
-   * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on.
-   * It is a marker inside values, never a separator.
+   * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on;
+   * `undefined` otherwise. It is a marker inside values, never a separator.
    */
   readonly truncation?: string | undefined;
 }
@@ -43,7 +47,7 @@ interface Delimiters {
  * ```
  */
 interface Hl7Message {
-  /** The delimiters declared in MSH-1 and MSH-2, with defaults for omitted ones. */
+  /** The delimiters declared in MSH-1 and MSH-2. */
   readonly delimiters: Delimiters;
   /** The version ID from MSH-12.1 (for example `2.5.1`), as written; absent when MSH-12 is empty. */
   readonly version?: string | undefined;
@@ -407,8 +411,8 @@ interface ParseSuccess {
  * - `EMPTY_INPUT`: there is no text once framing and whitespace are removed.
  * - `MISSING_MSH`: the first segment is not `MSH`.
  * - `INVALID_FIELD_SEPARATOR`: MSH-1 is missing or not a printable ASCII punctuation character.
- * - `INVALID_ENCODING_CHARACTERS`: MSH-2 is empty or too long, or the delimiters are not distinct punctuation
- *   characters.
+ * - `INVALID_ENCODING_CHARACTERS`: MSH-2 has fewer than two or more than five characters, or the delimiters are not
+ *   distinct punctuation characters.
  */
 type ParseFailureCode = "INVALID_INPUT" | "EMPTY_INPUT" | "MISSING_MSH" | "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS";
 /**
@@ -540,6 +544,35 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
 //#endregion
 //#region src/hl7v2/stringify.d.ts
 /**
+ * Why a tree cannot be written with the delimiters of its message.
+ *
+ * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter, a line break or is the text `""`, which need an escape
+ *   sequence, but MSH-2 declares no escape character.
+ * - `SUBCOMPONENT_SEPARATOR_REQUIRED`: a component has more than one subcomponent, but MSH-2 declares no subcomponent
+ *   separator.
+ * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
+ *   `""` would not read back as the null.
+ */
+type StringifyFailureCode = Extract<IssueCode, "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE">;
+/**
+ * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
+ * the message cannot express. Trees returned by `parse` never fail; only trees built or changed by hand can.
+ *
+ * @example
+ * ```ts
+ * const result = stringify(message);
+ * if (!result.ok) console.error(result.error.code, result.error.location.field); // "ESCAPE_CHARACTER_REQUIRED", 5
+ * ```
+ */
+interface StringifyFailure {
+  /** Discriminant: why the node cannot be written. */
+  readonly code: StringifyFailureCode;
+  /** A description without message content. */
+  readonly message: string;
+  /** The node: its position in HL7 numbers (`segmentIndex`, `field`, ...) and the span the tree gives it. */
+  readonly location: Location;
+}
+/**
  * Writes a message as HL7 v2 text: the inverse of `parse`.
  *
  * The output is canonical. Every segment, the last one included, ends with a carriage return. Values are escaped with
@@ -552,12 +585,15 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  * and framing of the input. A value that is empty because it consisted only of removed formatting commands is
  * written as an empty subcomponent.
  *
- * MSH-1 and MSH-2 are written as they stand in the first two fields of the MSH segment, never escaped. The HL7 null
- * is always written as two quote characters, so a tree with nulls needs a message whose delimiters do not include
- * the quote; `parse` never returns such a tree.
+ * MSH-1 and MSH-2 are written as they stand in the first two fields of the MSH segment, never escaped; a tree without
+ * them gets the delimiters of the message. Segment identifiers are written as they are.
+ *
+ * Writing fails, instead of producing text that reads back differently, when the tree holds something the delimiters
+ * cannot express (see {@link StringifyFailureCode}). That happens only for trees built or changed by hand, for
+ * example a value with a `|` in a message whose MSH-2 omits the escape character.
  *
  * @param message - The message to write, usually from `parse`.
- * @returns The message text, or an empty string for a message without segments.
+ * @returns The message text (empty for a message without segments), or the first node that cannot be written.
  *
  * @example
  * ```ts
@@ -565,11 +601,12 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\nPID|1||12345||Everyman^Adam\n");
  * if (result.ok) {
- *   stringify(result.value.message);
+ *   const text = stringify(result.value.message);
+ *   if (text.ok) console.log(text.value);
  *   // "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
  * }
  * ```
  */
-export declare function stringify(message: Hl7Message): string;
+export declare function stringify(message: Hl7Message): Result<string, StringifyFailure>;
 //#endregion
-export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, Subcomponent$1 as Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, StringifyFailure, StringifyFailureCode, Subcomponent$1 as Subcomponent, ValueSubcomponent };

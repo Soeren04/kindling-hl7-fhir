@@ -9,7 +9,11 @@ import {
 import type { Delimiters } from "../../src/hl7v2/model";
 import type { Issue, LocatedIssue } from "../../src/shared/issue";
 import { ok, type Result } from "../../src/shared/result";
-import { delimiterSets, punctuation } from "./arbitraries";
+import {
+  delimiterSets,
+  encodingCharactersOf,
+  punctuation,
+} from "./arbitraries";
 
 const standard: Delimiters = {
   field: "|",
@@ -124,26 +128,30 @@ describe("readDelimiters", () => {
   });
 
   it.each<[string, string, Partial<Delimiters>]>([
-    ["only the component separator", "^", { component: "^" }],
     ["no escape and subcomponent", "$*", { component: "$", repetition: "*" }],
     [
       "no subcomponent separator",
       "^~!",
       { component: "^", repetition: "~", escape: "!" },
     ],
+    [
+      "the standard subcomponent separator as escape character",
+      "^~&",
+      { component: "^", repetition: "~", escape: "&" },
+    ],
   ])(
-    "defaults the omitted encoding characters when MSH-2 has %s",
+    "leaves out the omitted encoding characters when MSH-2 has %s",
     (_description, encoding, declared) => {
       const result = read(`MSH|${encoding}|LAB`);
       expect(result).toStrictEqual({
         ok: true,
         value: {
-          delimiters: { ...standard, ...declared },
+          delimiters: { field: "|", ...declared },
           encoding: { start: 4, end: 4 + encoding.length },
           issues: [
             {
-              code: "ENCODING_CHARACTERS_DEFAULTED",
-              severity: "warning",
+              code: "ENCODING_CHARACTERS_OMITTED",
+              severity: "info",
               message: expect.any(String) as string,
               location: {
                 span: { start: 4, end: 4 + encoding.length },
@@ -210,11 +218,7 @@ describe("readDelimiters", () => {
       String.raw`MSH|^~\&^|LAB`,
       String.raw`^~\&^`,
     ],
-    [
-      "a declared character equal to an omitted one's default",
-      "MSH|~|LAB",
-      "~",
-    ],
+    ["only the component separator in MSH-2", "MSH|^|LAB", "^"],
   ])("rejects %s", (_description, msh, encoding) => {
     const result = read(msh);
     expectError(result);
@@ -234,11 +238,24 @@ describe("readDelimiters", () => {
   propertyTest.prop([delimiterSets])(
     "reads every set of distinct punctuation delimiters",
     (delimiters) => {
-      const { field, component, repetition, escape, subcomponent } = delimiters;
-      const msh = `MSH${field}${component}${repetition}${escape}${subcomponent}${field}LAB`;
+      const encoding = encodingCharactersOf(delimiters);
+      const msh = `MSH${delimiters.field}${encoding}${delimiters.field}LAB`;
+      const span = { start: 4, end: 4 + encoding.length };
+      const omitted = delimiters.subcomponent === undefined;
       expect(read(msh)).toStrictEqual({
         ok: true,
-        value: { delimiters, encoding: { start: 4, end: 8 }, issues: [] },
+        value: {
+          delimiters,
+          encoding: span,
+          issues: omitted
+            ? [
+                expect.objectContaining({
+                  code: "ENCODING_CHARACTERS_OMITTED",
+                  location: expect.objectContaining({ span }) as unknown,
+                }),
+              ]
+            : [],
+        },
       });
     },
   );

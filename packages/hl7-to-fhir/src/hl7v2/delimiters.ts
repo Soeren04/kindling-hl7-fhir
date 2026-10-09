@@ -17,7 +17,7 @@ import type { Delimiters } from "./model";
 
 /** The delimiters of a message and where MSH-2 declares them. */
 export interface DelimiterReading {
-  /** The delimiters, with standard values for those MSH-2 omits. */
+  /** The delimiters; those MSH-2 omits are absent. */
   readonly delimiters: Delimiters;
   /** The span of MSH-2, the encoding characters. */
   readonly encoding: Span;
@@ -28,27 +28,23 @@ export type DelimiterFailure = IssueOf<
   "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS"
 >;
 
-/** The standard delimiters `|^~\&`, used for the characters a shortened MSH-2 omits. */
-const standard = {
-  component: "^",
-  repetition: "~",
-  escape: "\\",
-  subcomponent: "&",
-} as const;
-
-/** MSH-2 holds component, repetition, escape and subcomponent delimiters, and from version 2.7 a truncation marker. */
+// MSH-2 lists, by position, the component, repetition, escape and subcomponent delimiters and, from version 2.7, the
+// truncation character. The first two are required; the escape character "may be omitted if no escape characters
+// are used", the subcomponent separator "if not used, may be omitted" (HL7 v2.5.1 section 2.5.4).
+const minEncodingCharacters = 2;
 const maxEncodingCharacters = 5;
 
 /**
  * Reads the delimiters from MSH-1 and MSH-2.
  *
- * MSH-2 may have one to five characters. Omitted delimiters take their standard values (with a warning). A fifth
- * character is the truncation marker in version 2.7 and later (MSH-12); in older versions it is ignored with a
- * warning. Every delimiter must be a printable ASCII punctuation character, and all must be distinct.
+ * MSH-2 has two to five characters. Omitted escape and subcomponent delimiters are left out, with an info issue: the
+ * message does not use them. A fifth character is the truncation marker in version 2.7 and later (MSH-12); in older
+ * versions it is ignored with a warning. Every delimiter must be a printable ASCII punctuation character, and all must
+ * be distinct.
  *
  * @param input - The whole input.
  * @param msh - The span of the MSH segment without its terminator; the input must start with `MSH` there.
- * @param issues - Receives the warnings about MSH-2, such as defaulted delimiters.
+ * @param issues - Receives the issues about MSH-2 that do not stop parsing, such as omitted delimiters.
  * @returns The delimiters, or the error issue explaining why they cannot be used.
  */
 export function readDelimiters(
@@ -75,26 +71,11 @@ export function readDelimiters(
 
   const encodingSpan = encodingCharactersSpan(input, msh, field);
   const encoding = input.slice(encodingSpan.start, encodingSpan.end);
-  const delimiters: Delimiters = {
-    field,
-    component: encoding.charAt(0),
-    repetition: encoding.charAt(1) || standard.repetition,
-    escape: encoding.charAt(2) || standard.escape,
-    subcomponent: encoding.charAt(3) || standard.subcomponent,
-  };
-  const { component, repetition, escape, subcomponent } = delimiters;
   const valid =
-    encoding.length > 0 &&
+    encoding.length >= minEncodingCharacters &&
     encoding.length <= maxEncodingCharacters &&
     allDelimiterCharacters(encoding) &&
-    areDistinct([
-      field,
-      component,
-      repetition,
-      escape,
-      subcomponent,
-      encoding.charAt(4),
-    ]);
+    allDistinct(field + encoding);
   if (!valid) {
     return err(
       issue(
@@ -105,10 +86,19 @@ export function readDelimiters(
     );
   }
 
-  if (encoding.length < 4) {
+  const escape = encoding.charAt(2);
+  const subcomponent = encoding.charAt(3);
+  const delimiters: Delimiters = {
+    field,
+    component: encoding.charAt(0),
+    repetition: encoding.charAt(1),
+    ...(escape === "" ? {} : { escape }),
+    ...(subcomponent === "" ? {} : { subcomponent }),
+  };
+  if (subcomponent === "") {
     report(
       issues,
-      "ENCODING_CHARACTERS_DEFAULTED",
+      "ENCODING_CHARACTERS_OMITTED",
       mshLocation(2, encodingSpan),
       encoding,
     );
@@ -153,9 +143,11 @@ function allDelimiterCharacters(text: string): boolean {
   return true;
 }
 
-function areDistinct(characters: readonly string[]): boolean {
-  const present = characters.filter((character) => character !== "");
-  return new Set(present).size === present.length;
+function allDistinct(text: string): boolean {
+  for (let index = 1; index < text.length; index++) {
+    if (text.lastIndexOf(text.charAt(index), index - 1) !== -1) return false;
+  }
+  return true;
 }
 
 /**

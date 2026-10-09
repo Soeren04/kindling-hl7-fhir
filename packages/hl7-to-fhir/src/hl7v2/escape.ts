@@ -49,6 +49,7 @@ export function decodeText(
   report: EscapeIssueReporter,
 ): string {
   const { escape } = context.delimiters;
+  if (escape === undefined) return input.slice(span.start, span.end);
   const parts: string[] = [];
   let copied = span.start;
   let open = indexOfOrEnd(input, escape, span.start, span.end);
@@ -58,7 +59,8 @@ export function decodeText(
       report("UNTERMINATED_ESCAPE", { start: open, end: span.end });
       break;
     }
-    const { text, issue } = interpret(input.slice(open + 1, close), context);
+    const content = input.slice(open + 1, close);
+    const { text, issue } = interpret(content, escape, context);
     parts.push(input.slice(copied, open), text ?? input.slice(open, close + 1));
     if (issue !== undefined) report(issue, { start: open, end: close + 1 });
     copied = close + 1;
@@ -71,14 +73,19 @@ export function decodeText(
 /**
  * Escapes `value` so that it can be written as one subcomponent: delimiters (and the truncation character, if
  * declared) become their escape sequences, a line feed becomes `\.br\` (`\X0A\` if "." is a delimiter) and a
- * carriage return `\X0D\`, which would otherwise end the segment. The first quote of a value of exactly `""` is written as `\X22\`, so the value is
- * not read as the HL7 null.
+ * carriage return `\X0D\`, which would otherwise end the segment. The first quote of a value of exactly `""` is
+ * written as `\X22\`, so the value is not read as the HL7 null.
  *
  * `decodeText` restores the original value in every supported character set.
+ *
+ * @returns The escaped text, or `undefined` when the value needs an escape sequence but the message declares no
+ *   escape character.
  */
-export function encodeText(value: string, delimiters: Delimiters): string {
-  const escape = (sequence: string) =>
-    `${delimiters.escape}${sequence}${delimiters.escape}`;
+export function encodeText(
+  value: string,
+  delimiters: Delimiters,
+): string | undefined {
+  const { escape } = delimiters;
   // Written as is, a value of exactly `""` would read as the HL7 null; a hexadecimal escape for its first quote
   // keeps it a value. The second quote takes the normal path, which escapes it if the quote is a delimiter.
   const quotedNull = value === '""';
@@ -89,7 +96,9 @@ export function encodeText(value: string, delimiters: Delimiters): string {
       quotedNull && index === 0
         ? "X22"
         : escapeSequenceFor(character, delimiters);
-    encoded += sequence === undefined ? character : escape(sequence);
+    if (sequence === undefined) encoded += character;
+    else if (escape === undefined) return undefined;
+    else encoded += escape + sequence + escape;
   }
   return encoded;
 }
@@ -141,7 +150,12 @@ const removedFormatting: Interpretation = {
 
 const lineBreak: Interpretation = { text: "\n" };
 
-function interpret(content: string, context: DecodeContext): Interpretation {
+/** Interprets the content of one escape sequence, between the escape characters `escape`. */
+function interpret(
+  content: string,
+  escape: string,
+  context: DecodeContext,
+): Interpretation {
   const { delimiters } = context;
   switch (content) {
     case "F":
@@ -149,11 +163,13 @@ function interpret(content: string, context: DecodeContext): Interpretation {
     case "S":
       return { text: delimiters.component };
     case "T":
-      return { text: delimiters.subcomponent };
+      return delimiters.subcomponent === undefined
+        ? unknown
+        : { text: delimiters.subcomponent };
     case "R":
       return { text: delimiters.repetition };
     case "E":
-      return { text: delimiters.escape };
+      return { text: escape };
     case "P":
       return delimiters.truncation === undefined
         ? unknown

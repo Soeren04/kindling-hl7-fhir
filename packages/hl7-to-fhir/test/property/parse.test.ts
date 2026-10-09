@@ -5,8 +5,12 @@ import { describe, expect, it } from "vitest";
 import { encodeText } from "../../src/hl7v2/escape";
 import type { Delimiters, Hl7Message, Segment } from "../../src/hl7v2/model";
 import { parse, type ParseFailureCode } from "../../src/hl7v2/parse";
+import { stringify } from "../../src/hl7v2/stringify";
 import type { Span } from "../../src/shared/issue";
-import { delimiterSets } from "../hl7v2/arbitraries";
+import {
+  completeDelimiterSets,
+  encodingCharactersOf,
+} from "../hl7v2/arbitraries";
 import { parsed } from "../hl7v2/helpers";
 
 const standard: Delimiters = {
@@ -27,8 +31,11 @@ const hostileInput = fc.oneof(
   fc.string({ unit: "binary" }),
   fc.string({ unit: hostileCharacter }),
   fc
-    .string({ unit: hostileCharacter, maxLength: 200 })
-    .map((rest) => `MSH|^~\\&|${rest}`),
+    .tuple(
+      fc.constantFrom("^~\\&", "^~\\", "^~"),
+      fc.string({ unit: hostileCharacter, maxLength: 200 }),
+    )
+    .map(([encoding, rest]) => `MSH|${encoding}|${rest}`),
   fc
     .tuple(
       fc.constantFrom("", "\uFEFF", "\u000B"),
@@ -38,6 +45,7 @@ const hostileInput = fc.oneof(
 );
 
 const failureCodes: readonly ParseFailureCode[] = [
+  "INVALID_INPUT",
   "EMPTY_INPUT",
   "MISSING_MSH",
   "INVALID_FIELD_SEPARATOR",
@@ -51,6 +59,8 @@ describe("parse properties", () => {
       const result = parse(input);
       if (result.ok) {
         expect(result.value.message.segments[0]?.id).toBe("MSH");
+        // Every tree parse returns can be written.
+        expect(stringify(result.value.message).ok).toBe(true);
       } else {
         expect(failureCodes).toContain(result.error.code);
         expect(result.error.issues.at(-1)?.code).toBe(result.error.code);
@@ -78,7 +88,7 @@ describe("parse properties", () => {
     },
   );
 
-  propertyTest.prop([abstractMessages(), delimiterSets])(
+  propertyTest.prop([abstractMessages(), completeDelimiterSets])(
     "yields the same tree for any set of distinct delimiters",
     (segments, delimiters) => {
       const withStandard = parsed(serialize(segments, standard));
@@ -135,8 +145,8 @@ function serialize(
   segments: readonly AbstractSegment[],
   delimiters: Delimiters,
 ): string {
-  const { field, component, repetition, escape, subcomponent } = delimiters;
-  const header = `MSH${field}${component}${repetition}${escape}${subcomponent}${field}APP`;
+  const { field, component, repetition, subcomponent = "" } = delimiters;
+  const header = `MSH${field}${encodingCharactersOf(delimiters)}${field}APP`;
   const lines = segments.map(([id, fields]) =>
     [
       id,
@@ -146,7 +156,7 @@ function serialize(
             components
               .map((subcomponents) =>
                 subcomponents
-                  .map((text) => encodeText(text, delimiters))
+                  .map((text) => encodeText(text, delimiters) ?? "")
                   .join(subcomponent),
               )
               .join(component),
@@ -172,8 +182,13 @@ function withoutSpans(segments: readonly Segment[]): unknown {
  * delimiter, and whatever follows the last child consists only of delimiters (trimmed empty children).
  */
 function expectExactSpans(input: string, message: Hl7Message): void {
-  const { field, repetition, component, subcomponent, escape } =
-    message.delimiters;
+  const {
+    field,
+    repetition,
+    component,
+    subcomponent = "",
+    escape,
+  } = message.delimiters;
   const text = ({ start, end }: Span) => input.slice(start, end);
 
   function expectChildren(
@@ -242,7 +257,8 @@ function expectExactSpans(input: string, message: Hl7Message): void {
             const leafRaw = text(leaf.span);
             if (leaf.kind === "empty") expect(leafRaw).toBe("");
             if (leaf.kind === "null") expect(leafRaw).toBe('""');
-            if (leaf.kind === "value" && !leafRaw.includes(escape)) {
+            const escaped = escape !== undefined && leafRaw.includes(escape);
+            if (leaf.kind === "value" && !escaped) {
               expect(leaf.value).toBe(leafRaw);
             }
           }

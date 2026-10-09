@@ -34,4 +34,8 @@ export {
   type PathErrorCode,
 } from "./hl7v2/path";
 export type { Hl7Path } from "./hl7v2/path-type";
-export { stringify } from "./hl7v2/stringify";
+export {
+  stringify,
+  type StringifyFailure,
+  type StringifyFailureCode,
+} from "./hl7v2/stringify";
