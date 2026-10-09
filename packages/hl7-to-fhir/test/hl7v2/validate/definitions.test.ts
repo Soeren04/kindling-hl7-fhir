@@ -171,6 +171,39 @@ describe("validate with segment definitions", () => {
     });
     expect(described(["ZED|a^b^c^d"], { segments: [zed] })).toStrictEqual([]);
   });
+
+  it("takes the type of a varying field from OBX-2 only in an OBX segment", () => {
+    const zed = defineSegment({
+      id: "ZED",
+      fields: [
+        { name: "setId", dataType: "SI" },
+        { name: "valueType", dataType: "ID" },
+        { name: "label", dataType: "ST" },
+        { name: "note", dataType: "ST" },
+        { name: "value", dataType: "varies" },
+      ],
+    });
+    expect(
+      described(["ZED|1|NM|||not a number"], { segments: [zed] }),
+    ).toStrictEqual([]);
+  });
+
+  it("checks a coded composite field against the table of its code only", () => {
+    const zcd = defineSegment({
+      id: "ZCD",
+      fields: [
+        { name: "code", dataType: "CE", table: "0001" },
+        { name: "identifier", dataType: "CX", table: "0001" },
+      ],
+    });
+    const options = { segments: [zcd] };
+    expect(described(["ZCD|F^Q^Q|F^^^^MR"], options)).toStrictEqual([]);
+    expect(described(["ZCD|Q^F|Q^^^^QQ"], options)).toStrictEqual([
+      ["UNKNOWN_USER_DEFINED_CODE", "ZCD", 1, 1, 1, 1],
+      ["UNKNOWN_USER_DEFINED_CODE", "ZCD", 2, 1, 1, 1],
+      ["UNKNOWN_CODE", "ZCD", 2, 1, 5, 1],
+    ]);
+  });
 });
 
 /** A value of the wrong type, as plain JavaScript can pass it. */
