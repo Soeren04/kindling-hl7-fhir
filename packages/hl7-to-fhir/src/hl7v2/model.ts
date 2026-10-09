@@ -141,7 +141,7 @@ export interface Component {
  * A subcomponent with content.
  *
  * `value` is the decoded text: delimiter, truncation and hexadecimal escape sequences are decoded, the line break
- * commands `\.br\` and `\.sp\` become `"\n"`, and highlighting and other formatting commands are removed. Escape
+ * commands `\.br\`, `\.sp\` and `\.ce\` become `"\n"`, and highlighting and other formatting commands are removed. Escape
  * sequences that cannot be interpreted stay verbatim. Each of these cases except plain delimiter escapes is reported
  * as an issue. The raw text is `input.slice(span.start, span.end)`.
  *

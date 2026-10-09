@@ -43,7 +43,7 @@ export interface DecodedText {
  * - `\F\ \S\ \T\ \R\ \E\` become the field, component, subcomponent, repetition and escape delimiter, and `\P\` the
  *   truncation character when the message declares one.
  * - `\Xhh…\` becomes the characters the bytes encode in the message character set.
- * - `\.br\` and `\.sp\` become a line feed; `\H\`, `\N\` and the other formatting commands are removed.
+ * - `\.br\`, `\.sp\` and `\.ce\` become a line feed; `\H\`, `\N\` and the other formatting commands are removed.
  * - Character set switches (`\C…\`, `\M…\`), locally defined (`\Z…\`), unknown, malformed and unterminated
  *   sequences are kept as written.
  *
@@ -244,37 +244,46 @@ function interpretWithArgument(
   }
 }
 
-/** Formatting commands of the FT data type that take an optional numeric argument. */
-const commandsWithArgument: ReadonlySet<string> = new Set([
-  "sp",
-  "in",
-  "ti",
-  "sk",
+/** What a formatting command accepts after its name: nothing, a count (`.sp2`) or a signed number (`.in-4`). */
+type FormattingArgument = "none" | "count" | "signed";
+
+// The formatting commands of the FT data type (HL7 v2.5.1 section 2.7.6). `.br`, `.sp` and `.ce` end the current line,
+// so they become a line feed; `.ce` also centers the next line, which plain text cannot show, so it is reported like
+// the commands that are removed. The argument is optional for every command that takes one.
+const formattingCommands: ReadonlyMap<
+  string,
+  { readonly argument: FormattingArgument; readonly effect: Interpretation }
+> = new Map([
+  ["br", { argument: "none", effect: lineBreak }],
+  ["sp", { argument: "count", effect: lineBreak }],
+  [
+    "ce",
+    { argument: "none", effect: { text: "\n", issue: "FORMATTING_REMOVED" } },
+  ],
+  ["fi", { argument: "none", effect: removedFormatting }],
+  ["nf", { argument: "none", effect: removedFormatting }],
+  ["in", { argument: "signed", effect: removedFormatting }],
+  ["ti", { argument: "signed", effect: removedFormatting }],
+  ["sk", { argument: "count", effect: removedFormatting }],
 ]);
 
-/** Formatting commands of the FT data type that are removed. */
-const removedCommands: ReadonlySet<string> = new Set([
-  "fi",
-  "nf",
-  "ce",
-  "in",
-  "ti",
-  "sk",
-]);
-
-// Bounded by the escape sequence it is applied to and free of backtracking: an optional space, sign and digits.
-const numericArgument = /^ ?[+-]?\d*$/u;
+// Bounded by the escape sequence they are applied to and free of backtracking: an optional space, then digits, with
+// a sign only where the command allows one.
+const argumentPatterns: Readonly<Record<FormattingArgument, RegExp>> = {
+  none: /^$/u,
+  count: /^(?: ?\d+)?$/u,
+  signed: /^(?: ?[+-]?\d+)?$/u,
+};
 
 function interpretFormatting(
   command: string,
   argument: string,
 ): Interpretation {
-  const accepted =
-    argument === "" ||
-    (commandsWithArgument.has(command) && numericArgument.test(argument));
-  if (!accepted) return unknown;
-  if (command === "br" || command === "sp") return lineBreak;
-  return removedCommands.has(command) ? removedFormatting : unknown;
+  const definition = formattingCommands.get(command);
+  if (definition === undefined) return unknown;
+  return argumentPatterns[definition.argument].test(argument)
+    ? definition.effect
+    : unknown;
 }
 
 const invalidHex: Interpretation = { issue: "INVALID_HEX_ESCAPE" };
