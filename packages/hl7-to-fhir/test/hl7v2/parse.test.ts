@@ -77,6 +77,62 @@ describe("parse", () => {
       expect(segment?.fields).toHaveLength(12);
     });
 
+    it.each([
+      ["the same delimiters", msh, "UNEXPECTED_MSH", "warning"],
+      [
+        "the same delimiters and no other field",
+        "MSH|^~\\&",
+        "UNEXPECTED_MSH",
+        "warning",
+      ],
+      [
+        "other encoding characters",
+        "MSH|^~\\&#|LAB",
+        "UNEXPECTED_MSH_DELIMITERS",
+        "error",
+      ],
+      [
+        "fewer encoding characters",
+        "MSH|^~|LAB",
+        "UNEXPECTED_MSH_DELIMITERS",
+        "error",
+      ],
+      [
+        "another field separator",
+        "MSH#^~\\&#LAB",
+        "UNEXPECTED_MSH_DELIMITERS",
+        "error",
+      ],
+      ["no field separator", "MSH", "UNEXPECTED_MSH_DELIMITERS", "error"],
+    ])(
+      "reports a later MSH segment with %s",
+      (_description, later, code, severity) => {
+        const input = message("PID|1", later);
+        const start = input.lastIndexOf(later);
+        expect(
+          parsed(input).issues.find((issue) =>
+            issue.code.startsWith("UNEXPECTED_MSH"),
+          ),
+        ).toStrictEqual({
+          code,
+          severity,
+          message: expect.stringContaining("splitBatch") as string,
+          location: {
+            span: { start, end: start + 3 },
+            segmentIndex: 2,
+            segmentId: "MSH",
+          },
+        });
+      },
+    );
+
+    it("does not take a segment whose identifier only starts with MSH for a header", () => {
+      expect(codes(message("MSHX|1", "MSH1"))).toStrictEqual([
+        "INVALID_SEGMENT_ID",
+        "INVALID_SEGMENT_ID",
+      ]);
+    });
+
     it("treats MSH-1 and MSH-2 of a later MSH segment the same way", () => {
       const later = parsed(message("PID|1", msh)).message.segments[2];
       expect(segmentShape(later)?.slice(0, 3)).toStrictEqual([

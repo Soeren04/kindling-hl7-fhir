@@ -5,10 +5,12 @@ import {
   type IssueOf,
   isString,
   type LocatedIssue,
+  report,
+  type Span,
 } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { resolveCharset } from "./charset";
-import { readDelimiters } from "./delimiters";
+import { isDelimiterCharacter, readDelimiters } from "./delimiters";
 import { characterSetField, findHeaderValue, versionField } from "./header";
 import { locateContent, splitLines } from "./input";
 import type { Hl7Message } from "./model";
@@ -85,6 +87,9 @@ export interface ParseFailure {
  * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n` (ADR 0008).
  * The types of the issues are exported from the main entry point, `hl7-to-fhir`.
  *
+ * A later MSH segment starts a second message; `parse` keeps it as a segment and reports it (`UNEXPECTED_MSH`, or the
+ * error `UNEXPECTED_MSH_DELIMITERS` when it declares other delimiters than the first).
+ *
  * @param input - One message as text. Use `splitBatch` for batch files or streams with several messages.
  * @returns The message and its issues, or why it could not be parsed.
  *
@@ -139,9 +144,11 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     delimiters,
     charset: resolveCharset(headerValue(characterSetField)),
   };
-  const segments = lines.map((span, index) =>
-    parseSegment(input, span, index, context, issues),
-  );
+  const declaration = { start: msh.start, end: reading.value.encoding.end };
+  const segments = lines.map((span, index) => {
+    if (index > 0) checkLaterHeader(input, span, index, declaration, issues);
+    return parseSegment(input, span, index, context, issues);
+  });
   // An absent version is left out instead of set to undefined, so the tree keeps its keys through JSON.
   const message: Hl7Message = {
     delimiters,
@@ -149,6 +156,42 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     segments,
   };
   return ok({ message, issues: finishIssues(issues, input.length) });
+}
+
+/**
+ * Reports a segment after the first that starts like an MSH segment: a second message that `splitBatch` should have
+ * split off. It is kept as a segment of this message, read with the delimiters of the first MSH, which is an error
+ * when it declares other ones.
+ *
+ * @param declaration - The span of `MSH`, MSH-1 and MSH-2 of the first segment.
+ */
+function checkLaterHeader(
+  input: string,
+  span: Span,
+  segmentIndex: number,
+  declaration: Span,
+  issues: LocatedIssue[],
+): void {
+  const startsHeader =
+    input.startsWith("MSH", span.start) &&
+    (span.end - span.start === 3 ||
+      isDelimiterCharacter(input.charAt(span.start + 3)));
+  if (!startsHeader) return;
+  const declared = input.slice(declaration.start, declaration.end);
+  const afterDeclaration = span.start + declared.length;
+  const sameDelimiters =
+    input.startsWith(declared, span.start) &&
+    (afterDeclaration === span.end ||
+      input.charAt(afterDeclaration) === declared.charAt(3));
+  report(
+    issues,
+    sameDelimiters ? "UNEXPECTED_MSH" : "UNEXPECTED_MSH_DELIMITERS",
+    {
+      span: { start: span.start, end: span.start + 3 },
+      segmentIndex,
+      segmentId: "MSH",
+    },
+  );
 }
 
 function fail(
