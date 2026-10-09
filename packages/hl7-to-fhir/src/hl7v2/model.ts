@@ -34,7 +34,7 @@ export interface Delimiters {
    * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on.
    * It is a marker inside values, never a separator.
    */
-  readonly truncation?: string;
+  readonly truncation?: string | undefined;
 }
 
 /**
@@ -49,7 +49,7 @@ export interface Hl7Message {
   /** The delimiters declared in MSH-1 and MSH-2, with defaults for omitted ones. */
   readonly delimiters: Delimiters;
   /** The version ID from MSH-12.1 (for example `2.5.1`), as written; absent when MSH-12 is empty. */
-  readonly version?: string;
+  readonly version?: string | undefined;
   /** Every segment in input order, including Z segments and segments with unknown identifiers. */
   readonly segments: readonly Segment[];
 }

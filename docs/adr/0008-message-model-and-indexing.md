@@ -26,7 +26,9 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   segment has an `id` and `fields`, a field has `repetitions`, a repetition `components`, a component
   `subcomponents`, and a subcomponent is a union discriminated by `kind`. Every node has a `span` with offsets into
   the string passed to `parse`, so `input.slice(span.start, span.end)` is the node's raw text even when a byte order
-  mark or MLLP framing was removed. No classes, no methods, no `Map`s.
+  mark or MLLP framing was removed. No classes, no methods, no `Map`s. Optional properties are declared `?: T | undefined`, so
+  code compiled with `exactOptionalPropertyTypes` can assign a possibly undefined value; the parser itself leaves an
+  absent property out instead of setting it to `undefined`.
 - **0-based arrays, documented once: `fields[n - 1]` is field `n`.** The same rule holds for components
   (`components[n - 1]`) and subcomponents. MSH follows it too: `fields[0]` is MSH-1, a single value holding the field
   separator, and `fields[1]` is MSH-2, a single value holding the encoding characters, neither split nor unescaped.
