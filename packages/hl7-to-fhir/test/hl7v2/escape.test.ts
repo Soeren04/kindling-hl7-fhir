@@ -2,12 +2,11 @@ import { test as propertyTest } from "@fast-check/vitest";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import type { Charset } from "../../src/hl7v2/charset";
 import {
-  type Charset,
   decodeText,
   type DecodedText,
   encodeText,
-  resolveCharset,
 } from "../../src/hl7v2/escape";
 import type { Delimiters } from "../../src/hl7v2/model";
 import type { IssueCode } from "../../src/shared/issue";
@@ -334,18 +333,4 @@ describe("encodeText", () => {
       }
     },
   );
-});
-
-describe("resolveCharset", () => {
-  it.each<[string | undefined, Charset]>([
-    [undefined, "ascii"],
-    ["ASCII", "ascii"],
-    ["8859/1", "iso-8859-1"],
-    ["UNICODE UTF-8", "utf-8"],
-    ["8859/15", "unsupported"],
-    ["UNICODE", "unsupported"],
-    ["utf-8", "unsupported"],
-  ])("maps MSH-18 %j to %s", (msh18, charset) => {
-    expect(resolveCharset(msh18)).toBe(charset);
-  });
 });
