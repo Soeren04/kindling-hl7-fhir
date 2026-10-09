@@ -170,6 +170,13 @@ function fields(delimiters: Delimiters, place: Place): fc.Arbitrary<Field> {
   }));
 }
 
+/** The fields without the empty ones at the end, which `parse` trims. */
+function withoutTrailingEmpty(list: readonly Field[]): readonly Field[] {
+  let end = list.length;
+  while (end > 0 && list[end - 1]?.repetitions.length === 0) end--;
+  return list.slice(0, end);
+}
+
 /** A field holding one value, like MSH-1, MSH-2 and the version. */
 function singleValue(value: string): Field {
   const subcomponent: Subcomponent = { kind: "value", value, span: noSpan };
@@ -194,7 +201,8 @@ const delimiterCharacters = punctuation.filter(
  * Random messages in the shape `parse` returns: an MSH segment with its version, then segments with arbitrary
  * fields, repetitions, components and subcomponents (values, nulls and empty ones in the middle), under random sets
  * of distinct delimiters, some of which omit the subcomponent separator or it and the escape character. Some
- * messages declare a truncation character, which needs version 2.7 or later.
+ * messages declare a truncation character, which needs version 2.7 or later, and some values are truncated; header
+ * fields go up to MSH-18, the character set.
  *
  * All spans are empty, so compare trees with the spans removed.
  */
@@ -223,24 +231,45 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
         anyField.filter((node) => node.repetitions.length > 0),
       ),
     );
-    // MSH-3 to MSH-11, then MSH-12 with the version.
+    // MSH-3 to MSH-11, MSH-12 with the version, MSH-13 to MSH-17, and MSH-18 with a character set that may be
+    // omitted. The versions span both sides of 2.7, where the truncation character was introduced.
+    const headerFields = (count: number) =>
+      fc.array(fields(delimiters, "header"), {
+        minLength: count,
+        maxLength: count,
+      });
     return fc
       .tuple(
-        fc.array(fields(delimiters, "header"), { minLength: 9, maxLength: 9 }),
+        headerFields(9),
         truncating
-          ? fc.constant("2.8.2")
-          : fc.constantFrom("2.3", "2.5.1", "2.6"),
+          ? fc.constantFrom("2.7", "2.8.2", "2.10")
+          : fc.constantFrom("2.3", "2.5.1", "2.6", "2.8"),
+        headerFields(5),
+        // A name that holds a delimiter would be cut apart where parse reads it raw.
+        fc.option(
+          fc
+            .constantFrom("ASCII", "8859/1", "UNICODE UTF-8")
+            .filter((name) =>
+              characters.every((character) => !name.includes(character)),
+            ),
+          { nil: undefined },
+        ),
         fc.array(segment, { maxLength: 4 }),
       )
-      .map(([header, version, others]): Hl7Message => {
+      .map(([before, version, after, charset, others]): Hl7Message => {
+        const rest =
+          charset === undefined
+            ? withoutTrailingEmpty(after)
+            : [...after, singleValue(charset)];
         const msh: Segment = {
           id: "MSH",
           span: noSpan,
           fields: [
             singleValue(field),
             singleValue(encoding),
-            ...header,
+            ...before,
             singleValue(version),
+            ...rest,
           ],
         };
         const segments: Segment[] = [
