@@ -305,6 +305,10 @@ type DigitsOnly<N extends string> = N extends `${infer Head}${infer Tail}` ? Hea
  *   explicit null `""`; use {@link isNull} to tell the null from the absence.
  * - A path that does not parse (see `parsePath`) matches nothing, so the result is `undefined`.
  *
+ * Each call scans the segments from the start of the message up to the one it reads and stops there, so reading
+ * `OBX[n]` for every `n` scans the message once per segment; {@link getAll} reads every repetition or segment in
+ * one pass.
+ *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.5.1`.
@@ -331,6 +335,9 @@ export declare function get<P extends string>(message: Hl7Message, path: Hl7Path
  * {@link get} would return for it; empty positions and the explicit null `""` contribute nothing. A path that does not
  * parse selects nothing.
  *
+ * It reads the message in one pass, so it is the way to go through every repetition or every segment of an
+ * identifier; calling {@link get} with each index would scan the message again for each one.
+ *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.3.1`.
@@ -351,22 +358,32 @@ export declare function getAll<P extends string>(message: Hl7Message, path: Hl7P
  * Whether the sender stated that the value at a path is null.
  *
  * HL7 distinguishes the explicit null `""`, which asks the receiver to delete the value, from an empty field, which
- * means "not sent". The path is read like {@link get} reads it. The result is `true` only for the explicit null; it is
- * `false` for a value, an empty position, a missing position and a path that does not parse.
+ * means "not sent" (HL7 v2.5.1 section 2.5.3). A position is null only when all of it is the null, so the answer
+ * depends on how far the path reaches:
+ *
+ * - A path to a field or repetition (`PID.8`, `PID.3[2]`) is null when the repetition is exactly `""`: one component
+ *   holding one null subcomponent. `""^Adam` is not null; its first component is.
+ * - A path to a component (`PID.5.1`) is null when the component is exactly one null subcomponent.
+ * - A path to a subcomponent (`PID.5.1.2`) is null when that subcomponent is the null.
+ *
+ * Segments and repetitions are selected like {@link get} selects them. The result is `false` for a value, an empty
+ * position, a missing position and a path that does not parse.
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.8`.
- * @returns Whether the position holds the explicit null.
+ * @returns Whether the position holds the explicit null and nothing else.
  *
  * @example
  * ```ts
  * import { isNull, parse } from "hl7-to-fhir/hl7v2";
  *
- * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||||""|');
+ * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||""^Adam||""|');
  * if (result.ok) {
  *   isNull(result.value.message, "PID.7"); // true
  *   isNull(result.value.message, "PID.8"); // false: empty, not null
+ *   isNull(result.value.message, "PID.5"); // false: only the first component is null
+ *   isNull(result.value.message, "PID.5.1"); // true
  * }
  * ```
  */

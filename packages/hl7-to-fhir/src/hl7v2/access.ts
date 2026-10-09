@@ -17,6 +17,10 @@ import type { Hl7Path } from "./path-type";
  *   explicit null `""`; use {@link isNull} to tell the null from the absence.
  * - A path that does not parse (see `parsePath`) matches nothing, so the result is `undefined`.
  *
+ * Each call scans the segments from the start of the message up to the one it reads and stops there, so reading
+ * `OBX[n]` for every `n` scans the message once per segment; {@link getAll} reads every repetition or segment in
+ * one pass.
+ *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.5.1`.
@@ -51,6 +55,9 @@ export function get<P extends string>(
  * repetition (`PID.3[2].1`). The values come in message order. Each selected repetition contributes the text
  * {@link get} would return for it; empty positions and the explicit null `""` contribute nothing. A path that does not
  * parse selects nothing.
+ *
+ * It reads the message in one pass, so it is the way to go through every repetition or every segment of an
+ * identifier; calling {@link get} with each index would scan the message again for each one.
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
@@ -89,22 +96,32 @@ export function getAll<P extends string>(
  * Whether the sender stated that the value at a path is null.
  *
  * HL7 distinguishes the explicit null `""`, which asks the receiver to delete the value, from an empty field, which
- * means "not sent". The path is read like {@link get} reads it. The result is `true` only for the explicit null; it is
- * `false` for a value, an empty position, a missing position and a path that does not parse.
+ * means "not sent" (HL7 v2.5.1 section 2.5.3). A position is null only when all of it is the null, so the answer
+ * depends on how far the path reaches:
+ *
+ * - A path to a field or repetition (`PID.8`, `PID.3[2]`) is null when the repetition is exactly `""`: one component
+ *   holding one null subcomponent. `""^Adam` is not null; its first component is.
+ * - A path to a component (`PID.5.1`) is null when the component is exactly one null subcomponent.
+ * - A path to a subcomponent (`PID.5.1.2`) is null when that subcomponent is the null.
+ *
+ * Segments and repetitions are selected like {@link get} selects them. The result is `false` for a value, an empty
+ * position, a missing position and a path that does not parse.
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
  * @param path - The path, such as `PID.8`.
- * @returns Whether the position holds the explicit null.
+ * @returns Whether the position holds the explicit null and nothing else.
  *
  * @example
  * ```ts
  * import { isNull, parse } from "hl7-to-fhir/hl7v2";
  *
- * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||||""|');
+ * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||""^Adam||""|');
  * if (result.ok) {
  *   isNull(result.value.message, "PID.7"); // true
  *   isNull(result.value.message, "PID.8"); // false: empty, not null
+ *   isNull(result.value.message, "PID.5"); // false: only the first component is null
+ *   isNull(result.value.message, "PID.5.1"); // true
  * }
  * ```
  */
@@ -113,18 +130,60 @@ export function isNull<P extends string>(
   path: Hl7Path<P>,
 ): boolean {
   const parsed = parsePath(path);
-  return parsed.ok && subcomponentAt(message, parsed.value)?.kind === "null";
+  if (!parsed.ok) return false;
+  const target = parsed.value;
+  const repetition = repetitionAt(message, target);
+  if (target.component === undefined) {
+    const component = onlyChild(repetition?.components);
+    return onlyChild(component?.subcomponents)?.kind === "null";
+  }
+  const component = repetition?.components[target.component - 1];
+  if (target.subcomponent === undefined) {
+    return onlyChild(component?.subcomponents)?.kind === "null";
+  }
+  return component?.subcomponents[target.subcomponent - 1]?.kind === "null";
 }
 
-/** The subcomponent `get` reads: in the first selected segment, the first or indexed repetition. */
+/** The single element of a list, or `undefined` when it has none or several. */
+function onlyChild<T>(list: readonly T[] | undefined): T | undefined {
+  return list?.length === 1 ? list[0] : undefined;
+}
+
+/** The subcomponent `get` reads: in the first or indexed segment, the first or indexed repetition. */
 function subcomponentAt(
   message: Hl7Message,
   target: ParsedPath,
 ): Subcomponent | undefined {
-  const [segment] = selectSegments(message, target);
-  const repetitions = segment?.fields[target.field - 1]?.repetitions ?? [];
-  const [repetition] = selectRepetitions(repetitions, target);
+  const repetition = repetitionAt(message, target);
   return repetition === undefined ? undefined : leafOf(repetition, target);
+}
+
+/** The repetition a path names in the segment {@link segmentAt} finds: the indexed one, or the first. */
+function repetitionAt(
+  message: Hl7Message,
+  target: ParsedPath,
+): Repetition | undefined {
+  const field = segmentAt(message, target)?.fields[target.field - 1];
+  return field?.repetitions[(target.fieldIndex ?? 1) - 1];
+}
+
+/**
+ * The segment a path names: the indexed occurrence of its identifier, or the first. The scan stops there, so its cost
+ * grows with the position of the segment, not with the size of the message.
+ */
+function segmentAt(
+  message: Hl7Message,
+  target: ParsedPath,
+): Segment | undefined {
+  const occurrence = target.segmentIndex ?? 1;
+  let seen = 0;
+  for (const segment of message.segments) {
+    if (segment.id === target.segment) {
+      seen++;
+      if (seen === occurrence) return segment;
+    }
+  }
+  return undefined;
 }
 
 /** The segments a path selects: the indexed one, or every segment with the identifier. */
@@ -132,12 +191,12 @@ function selectSegments(
   message: Hl7Message,
   target: ParsedPath,
 ): readonly Segment[] {
-  const matching = message.segments.filter(({ id }) => id === target.segment);
-  if (target.segmentIndex === undefined) return matching;
-  const indexed = matching[target.segmentIndex - 1];
-  return indexed === undefined ? [] : [indexed];
+  if (target.segmentIndex !== undefined) {
+    const indexed = segmentAt(message, target);
+    return indexed === undefined ? [] : [indexed];
+  }
+  return message.segments.filter(({ id }) => id === target.segment);
 }
-
 /** The repetitions a path selects: the indexed one, or all of them. */
 function selectRepetitions(
   repetitions: readonly Repetition[],

@@ -158,11 +158,63 @@ describe("isNull", () => {
     expect(isNull(message, path)).toBe(false);
   });
 
+  describe("for a position that is only partly null", () => {
+    const partial = parsed(
+      'MSH|^~\\&|LAB\rPID|1||""&x~""||""^Adam\rZPI|""^\rZPJ|""&',
+    ).message;
+
+    it.each([
+      [
+        "a field whose first component is null and second is a value",
+        "PID.5",
+        false,
+      ],
+      ["the null first component of that field", "PID.5.1", true],
+      ["the value component of that field", "PID.5.2", false],
+      [
+        "a repetition whose component has a null and a value subcomponent",
+        "PID.3",
+        false,
+      ],
+      ["that component", "PID.3.1", false],
+      ["its null subcomponent", "PID.3.1.1", true],
+      ["its value subcomponent", "PID.3.1.2", false],
+      ["a later repetition that is the null", "PID.3[2]", true],
+      ["a field whose trailing empty component parse trims", "ZPI.1", true],
+      [
+        "a component whose trailing empty subcomponent parse trims",
+        "ZPJ.1.1",
+        true,
+      ],
+    ])("answers for %s (%s): %s", (_description, path, expected) => {
+      expect(isNull(partial, path)).toBe(expected);
+    });
+  });
+
   it("tells the explicit null from the absence that get reports alike", () => {
     expect(get(message, "PID.20")).toBeUndefined();
     expect(get(message, "OBX[3].5")).toBeUndefined();
     expect(isNull(message, "PID.20")).toBe(true);
     expect(isNull(message, "OBX[3].5")).toBe(false);
+  });
+});
+
+describe("segment lookup", () => {
+  /** The message with a segment after the first `PID` that throws when it is read. */
+  function withTrap(): typeof message {
+    const segments = [...message.segments];
+    Object.defineProperty(segments, 2, {
+      get() {
+        throw new Error("read past the segment that was asked for");
+      },
+    });
+    return { ...message, segments };
+  }
+
+  it("stops get and isNull at the segment they read", () => {
+    expect(get(withTrap(), "PID.5.1")).toBe("Everyman");
+    expect(isNull(withTrap(), "PID.20")).toBe(true);
+    expect(get(withTrap(), "MSH[1].9.1")).toBe("ADT");
   });
 });
 

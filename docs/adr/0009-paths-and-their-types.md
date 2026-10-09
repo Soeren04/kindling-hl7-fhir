@@ -27,8 +27,15 @@ checker, and the set of segments and fields is only known once phase 2 adds the 
   identifier, an unindexed field every repetition. Each selected repetition yields what `get` would return for it, and
   positions without text are skipped, so the result is the list of values in message order. When `get` returns text,
   `getAll(...)[0]` is the same text.
-- **`isNull`:** true only when the position `get` would read holds the explicit null `""`, which is how callers tell
-  "delete this" from "not sent".
+- **`isNull`:** true only when the whole position the path names is the explicit null `""` (HL7 v2.5.1 section
+  2.5.3), which is how callers tell "delete this" from "not sent". A path to a field or repetition is null when the
+  repetition is exactly one component holding one null subcomponent; a path to a component when that component is
+  exactly one null subcomponent; a path to a subcomponent when it is the null. So `""^Adam` is not null at `PID.5`,
+  although `PID.5.1` is. Following `get` into the first component would call a field null whose other components
+  carry values, and a receiver acting on that would delete data the sender sent.
+- **Cost:** `get` and `isNull` scan the segments from the start and stop at the one they read, so a call costs the
+  position of its segment, not the size of the message. `getAll` reads in one pass and is the way to go through
+  every repetition or segment; the accessors keep no hidden caches, as the tree is plain data (ADR 0008).
 - **Malformed runtime paths** make `get` return `undefined`, `getAll` return `[]` and `isNull` return `false`.
   `parsePath` is the place to ask why. The path is never echoed in a message, because a caller may have built it from
   data.
