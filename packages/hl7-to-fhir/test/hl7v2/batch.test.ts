@@ -166,7 +166,64 @@ describe("splitBatch", () => {
 
     it("accepts a batch without file envelope and messages directly in a file", () => {
       expect(split(`BHS|^~\\&\r${adt}\rBTS|1`)[1]).toStrictEqual([]);
-      expect(split(`FHS|^~\\&\r${adt}\r${oru}\rFTS|0`)[1]).toStrictEqual([]);
+      expect(split(`FHS|^~\\&\r${adt}\r${oru}\rFTS|1`)[1]).toStrictEqual([]);
+    });
+
+    it.each([
+      ["messages without BHS or BTS", `${adt}\r${oru}\rFTS|1`],
+      ["messages without BHS, closed by BTS", `${adt}\r${oru}\rBTS|2\rFTS|1`],
+      [
+        "a batch without BHS before one with BHS",
+        `FHS|^~\\&\r${adt}\rBHS|^~\\&\r${oru}\rBTS|1\rFTS|2`,
+      ],
+      [
+        "a batch with BHS but without BTS",
+        `FHS|^~\\&\rBHS|^~\\&\r${adt}\r${oru}\rFTS|1`,
+      ],
+      ["an empty batch of only a trailer", `FHS|^~\\&\rBTS|0\rFTS|1`],
+      [
+        "two batches without BHS, separated by BTS",
+        `${adt}\rBTS|1\r${oru}\r${adt}\rBTS|2\rFTS|2`,
+      ],
+    ])(
+      "counts the batches of %s as section 2.10.3 defines them",
+      (_name, input) => {
+        expect(split(input)[1]).toStrictEqual([]);
+      },
+    );
+
+    it.each([
+      [
+        "an FHS inside an open file",
+        `FHS|^~\\&\r${adt}\rFHS|^~\\&\r${oru}\rFTS|1`,
+        "FHS",
+      ],
+      [
+        "a BHS before the BTS of the batch before",
+        `BHS|^~\\&\r${adt}\rBHS|^~\\&\r${oru}\rBTS|1`,
+        "BHS",
+      ],
+    ])("warns about %s and counts again from it", (_name, input, id) => {
+      const { issues } = splitBatch(input);
+      expect(issues).toStrictEqual([
+        {
+          code: "UNEXPECTED_ENVELOPE_SEGMENT",
+          severity: "warning",
+          message: expect.any(String) as string,
+          location: {
+            span: {
+              start: input.lastIndexOf(id),
+              end: input.lastIndexOf(id) + 3,
+            },
+            segmentId: id,
+          },
+        },
+      ]);
+    });
+
+    it("accepts a BHS after the BTS of the batch before and an FHS after an FTS", () => {
+      const input = `FHS|^~\\&\rBHS|^~\\&\r${adt}\rBTS|1\rBHS|^~\\&\rBTS|0\rFTS|2\rFHS|^~\\&\rFTS|0`;
+      expect(split(input)[1]).toStrictEqual([]);
     });
 
     it("splits an empty batch", () => {
@@ -198,7 +255,12 @@ describe("splitBatch", () => {
         `BHS|^~\\&\r${adt}\rBTS|1\rFTS|2`,
         "2",
       ],
-      ["FTS-1 for a file without batches", `${adt}\rFTS|1`, "1"],
+      ["FTS-1 for a file without batches", "FHS|^~\\&\rFTS|1", "1"],
+      [
+        "FTS-1 that does not count the messages without BHS as a batch",
+        `FHS|^~\\&\r${adt}\r${oru}\rFTS|0`,
+        "0",
+      ],
     ])("warns about %s", (_description, input, raw) => {
       const { issues } = splitBatch(input);
       expect(issues).toHaveLength(1);
@@ -366,7 +428,7 @@ describe("splitBatch", () => {
     });
 
     it("reports separate runs separately", () => {
-      const input = `junk 1\r${adt}\rBTS|1\rjunk 2\r\rjunk 3\rFTS|0\rjunk 4`;
+      const input = `junk 1\r${adt}\rBTS|1\rjunk 2\r\rjunk 3\rFTS|1\rjunk 4`;
       expect(split(input)).toStrictEqual([
         [`${adt}\r`],
         [

@@ -422,9 +422,11 @@ interface BatchSplit {
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
- * frame without end block, text that belongs to no message and is dropped, and a `BTS-1` or `FTS-1` count that
- * differs from the number of messages or batches (warnings). Envelope segments are dropped without an issue,
- * because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
+ * frame without end block, text that belongs to no message and is dropped, an `FHS` or `BHS` inside an envelope of
+ * its kind that has no trailer yet, and a `BTS-1` or `FTS-1` count that differs from the number of messages or
+ * batches (warnings). Batches are counted as HL7 v2.5.1 section 2.10.3 defines a file,
+ * `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without `BHS` form a batch too. Envelope segments are dropped
+ * without an issue, because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
  * messages, which are independent strings; the position of a message in the result tells which message a later
  * `parse` issue belongs to.
  *

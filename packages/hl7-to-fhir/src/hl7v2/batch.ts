@@ -52,9 +52,11 @@ export interface BatchSplit {
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
- * frame without end block, text that belongs to no message and is dropped, and a `BTS-1` or `FTS-1` count that
- * differs from the number of messages or batches (warnings). Envelope segments are dropped without an issue,
- * because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
+ * frame without end block, text that belongs to no message and is dropped, an `FHS` or `BHS` inside an envelope of
+ * its kind that has no trailer yet, and a `BTS-1` or `FTS-1` count that differs from the number of messages or
+ * batches (warnings). Batches are counted as HL7 v2.5.1 section 2.10.3 defines a file,
+ * `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without `BHS` form a batch too. Envelope segments are dropped
+ * without an issue, because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
  * messages, which are independent strings; the position of a message in the result tells which message a later
  * `parse` issue belongs to.
  *
@@ -101,6 +103,8 @@ export function splitBatch(input: string): BatchSplit {
     outside: undefined,
     frameStart: undefined,
     lineFeedIsData: false,
+    fileOpen: false,
+    batch: "none",
     messagesInBatch: 0,
     batchesInFile: 0,
   };
@@ -137,9 +141,13 @@ interface Scan {
   frameStart: number | undefined;
   /** Whether the MSH of the message being read ends with `\r` or `\r\n`, which makes a line feed on its own data. */
   lineFeedIsData: boolean;
-  /** Messages since the last `BHS` or `BTS`, to check `BTS-1`. */
+  /** Whether an `FHS` opened a file that no `FTS` has closed yet. */
+  fileOpen: boolean;
+  /** The batch being read: none, one a `BHS` opened, or one that messages without `BHS` opened. */
+  batch: "none" | "explicit" | "implicit";
+  /** Messages in the batch being read, to check `BTS-1`. */
   messagesInBatch: number;
-  /** Batches since the last `FHS` or `FTS`, to check `FTS-1`. */
+  /** Batches closed since the last `FHS` or `FTS`, to check `FTS-1`. */
   batchesInFile: number;
 }
 
@@ -255,25 +263,33 @@ function readSegment(
     case "MSH":
       closeSection(scan);
       scan.message = { start, end: contentEnd };
+      if (scan.batch === "none") scan.batch = "implicit";
       scan.messagesInBatch++;
       break;
     case "FHS":
       closeSection(scan);
+      if (scan.fileOpen) reportMisplaced(scan, id, start);
+      closeBatch(scan);
+      scan.fileOpen = true;
       scan.batchesInFile = 0;
       break;
     case "BHS":
       closeSection(scan);
-      scan.messagesInBatch = 0;
-      scan.batchesInFile++;
+      if (scan.batch === "explicit") reportMisplaced(scan, id, start);
+      closeBatch(scan);
+      scan.batch = "explicit";
       break;
     case "BTS":
       closeSection(scan);
       checkCount(scan, { start, end }, scan.messagesInBatch);
-      scan.messagesInBatch = 0;
+      // A trailer closes a batch even without header or messages: [BHS] {MSH} [BTS] may be empty.
+      countBatch(scan);
       break;
     case "FTS":
       closeSection(scan);
+      closeBatch(scan);
       checkCount(scan, { start, end }, scan.batchesInFile);
+      scan.fileOpen = false;
       scan.batchesInFile = 0;
       break;
     default:
@@ -283,6 +299,33 @@ function readSegment(
         scan.outside = { start: scan.outside?.start ?? start, end };
       }
   }
+}
+
+/**
+ * Counts the batch being read, if any, as closed. HL7 v2.5.1 section 2.10.3 defines a file as
+ * `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: header and trailer of a batch are optional, so messages without `BHS`
+ * form a batch too, closed by the next `BTS`, `BHS`, `FHS` or `FTS`.
+ */
+function closeBatch(scan: Scan): void {
+  if (scan.batch !== "none") countBatch(scan);
+}
+
+/** Counts the batch being read as closed, even an empty one. */
+function countBatch(scan: Scan): void {
+  scan.batchesInFile++;
+  scan.batch = "none";
+  scan.messagesInBatch = 0;
+}
+
+/**
+ * Reports an envelope header inside an envelope of its own kind that is still open: an `FHS` before the `FTS` of the
+ * file before, or a `BHS` before the `BTS` of the batch before. The counts start again from it.
+ */
+function reportMisplaced(scan: Scan, id: string, start: number): void {
+  report(scan.issues, "UNEXPECTED_ENVELOPE_SEGMENT", {
+    span: { start, end: start + id.length },
+    segmentId: id,
+  });
 }
 
 /** Ends the message being read and reports the text outside messages that came before the current line. */

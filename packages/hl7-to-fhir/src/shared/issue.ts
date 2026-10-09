@@ -56,6 +56,8 @@ export type IssueCode =
   | "CONTENT_OUTSIDE_MESSAGE"
   /** A trailer count differs from what the input contains: `BTS-1` counts messages, `FTS-1` counts batches. */
   | "BATCH_COUNT_MISMATCH"
+  /** An `FHS` inside a file without `FTS`, or a `BHS` inside a batch without `BTS`; counting starts again from it. */
+  | "UNEXPECTED_ENVELOPE_SEGMENT"
   /**
    * Whitespace and blank lines after the terminator of the last segment were removed. Spaces and tabs at the end of
    * the last segment itself are part of its last value and stay.
@@ -240,6 +242,11 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "warning",
     message:
       "The count in the batch or file trailer differs from the number of messages or batches in the input.",
+  },
+  UNEXPECTED_ENVELOPE_SEGMENT: {
+    severity: "warning",
+    message:
+      "A file header (FHS) appears before the trailer (FTS) of the file before it, or a batch header (BHS) before the trailer (BTS) of the batch before it; messages and batches are counted again from it.",
   },
   TRAILING_WHITESPACE_REMOVED: {
     severity: "info",
