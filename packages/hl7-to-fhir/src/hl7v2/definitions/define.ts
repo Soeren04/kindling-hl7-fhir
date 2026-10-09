@@ -1,9 +1,13 @@
 import type {
+  Cardinality,
   ComponentDefinition,
   CompositeDataType,
   FieldDefinition,
+  GroupElement,
   Optionality,
   PrimitiveDataType,
+  SegmentElement,
+  StructureElement,
 } from "./types";
 
 /** The optional traits of a field. */
@@ -104,4 +108,52 @@ export function composite(
   components: readonly ComponentDefinition[],
 ): CompositeDataType {
   return { kind: "composite", id, components };
+}
+
+/** How the standard's message tables write an element: bare is required, `[ ]` optional, `{ }` repeating. */
+type Occurrence = "required" | "optional" | "repeating" | "optionalRepeating";
+
+const cardinalities: Readonly<Record<Occurrence, Cardinality>> = {
+  required: { min: 1, max: 1 },
+  optional: { min: 0, max: 1 },
+  repeating: { min: 1, max: "unbounded" },
+  optionalRepeating: { min: 0, max: "unbounded" },
+};
+
+/**
+ * Builds a segment element of a message structure.
+ *
+ * @param id - The segment identifier.
+ * @param occurrence - How often the segment occurs.
+ * @returns The element.
+ * @example
+ * ```ts
+ * const nk1 = segment("NK1", "optionalRepeating"); // [{ NK1 }]
+ * ```
+ */
+export function segment(id: string, occurrence: Occurrence): SegmentElement {
+  return { kind: "segment", id, ...cardinalities[occurrence] };
+}
+
+/**
+ * Builds a group element of a message structure.
+ *
+ * @param name - The group name.
+ * @param occurrence - How often the group occurs.
+ * @param elements - The group's segments and nested groups; at least one of them must be required.
+ * @returns The element.
+ * @example
+ * ```ts
+ * const procedure = group("PROCEDURE", "optionalRepeating", [
+ *   segment("PR1", "required"),
+ *   segment("ROL", "optionalRepeating"),
+ * ]);
+ * ```
+ */
+export function group(
+  name: string,
+  occurrence: Occurrence,
+  elements: readonly StructureElement[],
+): GroupElement {
+  return { kind: "group", name, ...cardinalities[occurrence], elements };
 }

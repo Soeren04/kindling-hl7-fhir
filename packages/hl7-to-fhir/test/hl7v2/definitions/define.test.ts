@@ -4,7 +4,9 @@ import {
   component,
   composite,
   field,
+  group,
   primitive,
+  segment,
 } from "../../../src/hl7v2/definitions/define";
 
 describe("field", () => {
@@ -61,6 +63,36 @@ describe("data type builders", () => {
       kind: "composite",
       id: "HD",
       components: [{ position: 1, name: "namespaceId", dataType: "IS" }],
+    });
+  });
+});
+
+describe("segment", () => {
+  it.each([
+    ["required", 1, 1],
+    ["optional", 0, 1],
+    ["repeating", 1, "unbounded"],
+    ["optionalRepeating", 0, "unbounded"],
+  ] as const)("reads %s as min %s and max %s", (occurrence, min, max) => {
+    expect(segment("NK1", occurrence)).toStrictEqual({
+      kind: "segment",
+      id: "NK1",
+      min,
+      max,
+    });
+  });
+});
+
+describe("group", () => {
+  it("keeps the elements in order next to the cardinality", () => {
+    const pr1 = segment("PR1", "required");
+    const rol = segment("ROL", "optionalRepeating");
+    expect(group("PROCEDURE", "optionalRepeating", [pr1, rol])).toStrictEqual({
+      kind: "group",
+      name: "PROCEDURE",
+      min: 0,
+      max: "unbounded",
+      elements: [pr1, rol],
     });
   });
 });

@@ -192,8 +192,8 @@ export interface SegmentElement extends Cardinality {
 /**
  * A group of segments that occur together in a message structure, such as `PROCEDURE` in ADT_A01.
  *
- * The first element of a group is a required segment, which is how a parser recognises that a new occurrence of
- * the group starts.
+ * A group holds at least one required element, which is how a parser recognises that a new occurrence of the group
+ * starts. The element that opens the group may itself be optional, as ORC is in ORDER_OBSERVATION.
  *
  * @example
  * ```ts
