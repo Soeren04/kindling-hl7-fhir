@@ -58,6 +58,8 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 | `pnpm check:api`              | Compares the built declarations with the API report and checks examples                     |
 | `pnpm update:api`             | Builds and rewrites the API report in `packages/hl7-to-fhir/api/`                           |
 | `pnpm check:package`          | publint, Are the Types Wrong, tarball contents and `npm publish --dry-run`                  |
+| `pnpm bench`                  | Builds, then measures the throughput of `parse` and `splitBatch` (not part of `verify`)     |
+| `pnpm bench:memory`           | Builds, then measures the heap a parsed message retains (not part of `verify`)              |
 | `pnpm lint:workflows`         | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                           |
 | `pnpm verify:fast`            | Format check, lint, typecheck and tests: run before every commit                            |
 | `pnpm verify:ci`              | Every gate except `lint:workflows`: needs neither Go nor pipx                               |
