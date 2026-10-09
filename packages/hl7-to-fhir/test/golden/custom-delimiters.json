@@ -560,7 +560,8 @@
                       "subcomponents": [
                         {
                           "kind": "value",
-                          "value": "Room #12, shared?",
+                          "value": "Room #12, shared",
+                          "truncated": true,
                           "span": { "start": 253, "end": 272 }
                         }
                       ],
@@ -592,6 +593,22 @@
         }
       ]
     },
-    "issues": []
+    "issues": [
+      {
+        "code": "VALUE_TRUNCATED",
+        "severity": "info",
+        "message": "The value ends with the truncation character from MSH-2: the sender cut it off. The character is not part of the value.",
+        "location": {
+          "span": { "start": 271, "end": 272 },
+          "segmentIndex": 3,
+          "segmentId": "NTE",
+          "field": 3,
+          "repetition": 1,
+          "component": 1,
+          "subcomponent": 1
+        },
+        "value": "?"
+      }
+    ]
   }
 }

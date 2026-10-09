@@ -15,11 +15,12 @@ describe("stringify properties", () => {
         expect(withoutSpans(result.value.message)).toStrictEqual(
           withoutSpans(message),
         );
-        // Omitted delimiters and line feeds kept as data are worth an info, nothing more.
+        // Omitted delimiters, line feeds kept as data and truncated values are worth an info, nothing more.
         for (const { code } of result.value.issues) {
           expect([
             "ENCODING_CHARACTERS_OMITTED",
             "LINE_FEED_IN_SEGMENT",
+            "VALUE_TRUNCATED",
           ]).toContain(code);
         }
       }

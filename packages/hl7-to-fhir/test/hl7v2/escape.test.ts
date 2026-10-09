@@ -6,7 +6,7 @@ import type { Charset } from "../../src/hl7v2/charset";
 import {
   decodeText,
   encodeText,
-  type EscapeIssueCode,
+  type DecodeIssueCode,
 } from "../../src/hl7v2/escape";
 import type { Delimiters } from "../../src/hl7v2/model";
 import type { Span } from "../../src/shared/issue";
@@ -32,7 +32,8 @@ const custom: Delimiters = {
 /** The decoded text and the issues reported while decoding it. */
 interface Decoded {
   readonly value: string;
-  readonly issues: readonly { code: EscapeIssueCode; span: Span }[];
+  readonly truncated: boolean;
+  readonly issues: readonly { code: DecodeIssueCode; span: Span }[];
 }
 
 function decode(
@@ -40,18 +41,18 @@ function decode(
   charset: Charset = "ascii",
   delimiters: Delimiters = standard,
 ): Decoded {
-  const issues: { code: EscapeIssueCode; span: Span }[] = [];
-  const value = decodeText(
+  const issues: { code: DecodeIssueCode; span: Span }[] = [];
+  const decoded = decodeText(
     raw,
     { start: 0, end: raw.length },
     { delimiters, charset },
     (code, span) => issues.push({ code, span }),
   );
-  return { value, issues };
+  return { ...decoded, issues };
 }
 
 /** The decoded value and the codes of the issues, for compact table rows. */
-function summary(decoded: Decoded): [string, EscapeIssueCode[]] {
+function summary(decoded: Decoded): [string, DecodeIssueCode[]] {
   return [decoded.value, decoded.issues.map(({ code }) => code)];
 }
 
@@ -89,6 +90,57 @@ describe("decodeText", () => {
         "# ",
         [],
       ]);
+    });
+
+    describe("a truncated value", () => {
+      const delimiters = { ...standard, truncation: "#" };
+
+      it.each([
+        [
+          "a value that ends with the truncation character",
+          "Long text#",
+          "Long text",
+        ],
+        ["a value of only the truncation character", "#", ""],
+        [
+          "a value that ends with an escape sequence and the character",
+          "a\\T\\#",
+          "a&",
+        ],
+        ["an escaped truncation character and the character", "\\P\\#", "#"],
+      ])(
+        "marks %s and leaves the character out",
+        (_description, raw, value) => {
+          expect(decode(raw, "ascii", delimiters)).toStrictEqual({
+            value,
+            truncated: true,
+            issues: [
+              {
+                code: "VALUE_TRUNCATED",
+                span: { start: raw.length - 1, end: raw.length },
+              },
+            ],
+          });
+        },
+      );
+
+      it.each([
+        ["the character in the middle", "a#b", "a#b"],
+        ["the escaped character at the end", "text\\P\\", "text#"],
+      ])("keeps %s as content", (_description, raw, value) => {
+        expect(summary(decode(raw, "ascii", delimiters))).toStrictEqual([
+          value,
+          [],
+        ]);
+        expect(decode(raw, "ascii", delimiters).truncated).toBe(false);
+      });
+
+      it("does not take the character inside an unterminated escape sequence for a truncation", () => {
+        expect(summary(decode("a\\Q#", "ascii", delimiters))).toStrictEqual([
+          "a\\Q#",
+          ["UNTERMINATED_ESCAPE"],
+        ]);
+      });
     });
 
     it("keeps \\P\\ when the message declares no truncation character", () => {
@@ -194,7 +246,7 @@ describe("decodeText", () => {
     });
   });
 
-  it.each<[string, string, EscapeIssueCode]>([
+  it.each<[string, string, DecodeIssueCode]>([
     [
       "a character set switch to a single-byte set",
       "\\C2842\\",
@@ -220,6 +272,7 @@ describe("decodeText", () => {
   it("keeps an unterminated sequence and the rest of the value", () => {
     expect(decode("a\\F\\b\\F")).toStrictEqual({
       value: "a|b\\F",
+      truncated: false,
       issues: [{ code: "UNTERMINATED_ESCAPE", span: { start: 5, end: 7 } }],
     });
   });
@@ -227,7 +280,7 @@ describe("decodeText", () => {
   it("locates issues in the input, not in the decoded value", () => {
     const input = "PID|a\\F\\b\\Zx\\c|d";
     const spans: Span[] = [];
-    const value = decodeText(
+    const { value } = decodeText(
       input,
       { start: 4, end: 14 },
       { delimiters: standard, charset: "ascii" },
@@ -259,6 +312,7 @@ describe("decodeText", () => {
     };
     expect(decode("a\\F\\b", "ascii", withoutEscape)).toStrictEqual({
       value: "a\\F\\b",
+      truncated: false,
       issues: [],
     });
   });
@@ -266,6 +320,7 @@ describe("decodeText", () => {
   it("returns text without escape sequences unchanged", () => {
     expect(decode("Everyman")).toStrictEqual({
       value: "Everyman",
+      truncated: false,
       issues: [],
     });
   });
@@ -350,6 +405,7 @@ describe("encodeText", () => {
       } else {
         expect(decode(encoded, charset, declared)).toStrictEqual({
           value,
+          truncated: false,
           issues: [],
         });
       }

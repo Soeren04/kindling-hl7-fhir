@@ -220,6 +220,11 @@ describe("stringify", () => {
       expect(roundTrip(input)).toBe(input);
     });
 
+    it("writes a truncated value with the truncation character after it", () => {
+      const input = "MSH#$*!%?#LAB#########2.8.2\rPID#1#a!P!b?$?\r";
+      expect(roundTrip(input)).toBe(input);
+    });
+
     it("writes the truncation character as an escape sequence", () => {
       const input = "MSH#$*!%?#LAB#########2.8.2\rPID#1#a!P!b\r";
       expect(roundTrip(input)).toBe(input);
@@ -309,6 +314,49 @@ describe("stringify", () => {
             repetition: 1,
             component: 1,
           },
+        },
+      });
+    });
+
+    it("fails for a truncated value without a truncation character", () => {
+      const message: Hl7Message = {
+        delimiters: standard,
+        segments: [
+          segment("MSH", "|", "^~\\&"),
+          {
+            id: "NTE",
+            span: noSpan,
+            fields: [
+              {
+                span: noSpan,
+                repetitions: [
+                  {
+                    span: noSpan,
+                    components: [
+                      {
+                        span: noSpan,
+                        subcomponents: [
+                          {
+                            kind: "value",
+                            value: "cut",
+                            truncated: true,
+                            span: noSpan,
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      expect(stringify(message)).toMatchObject({
+        ok: false,
+        error: {
+          code: "TRUNCATION_CHARACTER_REQUIRED",
+          location: { field: 1 },
         },
       });
     });

@@ -22,12 +22,14 @@ import { isValidSegmentId } from "./segment";
  *   separator.
  * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
  *   `""` would not read back as the null.
+ * - `TRUNCATION_CHARACTER_REQUIRED`: a value is marked as truncated, but MSH-2 declares no truncation character.
  */
 export type StringifyFailureCode = Extract<
   IssueCode,
   | "ESCAPE_CHARACTER_REQUIRED"
   | "SUBCOMPONENT_SEPARATOR_REQUIRED"
   | "NULL_NOT_REPRESENTABLE"
+  | "TRUNCATION_CHARACTER_REQUIRED"
 >;
 
 /**
@@ -227,7 +229,15 @@ function writeSubcomponent(
       const encoded = lineFeedInHeader
         ? undefined
         : encodeText(value, writer.delimiters);
-      return encoded ?? fail(writer, "ESCAPE_CHARACTER_REQUIRED", location);
+      if (encoded === undefined) {
+        return fail(writer, "ESCAPE_CHARACTER_REQUIRED", location);
+      }
+      if (subcomponent.truncated !== true) return encoded;
+      // The marker goes after the escaped value, unescaped, where parse reads it as the truncation.
+      const { truncation } = writer.delimiters;
+      return truncation === undefined
+        ? fail(writer, "TRUNCATION_CHARACTER_REQUIRED", location)
+        : encoded + truncation;
     }
     case "null":
       return quoteIsDelimiter(writer.delimiters)

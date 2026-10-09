@@ -137,7 +137,11 @@ interface Component$1 {
  * sequences that cannot be interpreted stay verbatim. Each of these cases except plain delimiter escapes is reported
  * as an issue. The raw text is `input.slice(span.start, span.end)`.
  *
- * `value` is empty only when the raw text consists of removed formatting commands.
+ * A value that ends with the truncation character MSH-2 declares (version 2.7 and later), outside an escape sequence,
+ * was cut off by the sender: `truncated` is `true`, the character is not part of `value`, and an info issue
+ * (`VALUE_TRUNCATED`) reports it. `\P\` stands for the truncation character as content.
+ *
+ * `value` is empty only when the raw text consists of removed formatting commands or of the truncation character.
  *
  * @example
  * ```ts
@@ -149,6 +153,8 @@ interface ValueSubcomponent {
   readonly kind: "value";
   /** The decoded text. */
   readonly value: string;
+  /** `true` when the sender truncated the value; absent otherwise. */
+  readonly truncated?: true | undefined;
   /** The raw text, escape sequences included. */
   readonly span: Span;
 }
@@ -557,8 +563,9 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  *   separator.
  * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
  *   `""` would not read back as the null.
+ * - `TRUNCATION_CHARACTER_REQUIRED`: a value is marked as truncated, but MSH-2 declares no truncation character.
  */
-type StringifyFailureCode = Extract<IssueCode, "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE">;
+type StringifyFailureCode = Extract<IssueCode, "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE" | "TRUNCATION_CHARACTER_REQUIRED">;
 /**
  * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
  * the message cannot express. Trees returned by `parse` never fail; only trees built or changed by hand can.

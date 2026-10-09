@@ -264,6 +264,46 @@ describe("parse", () => {
       ]);
     });
 
+    it("marks a value that ends with the truncation character and reports it", () => {
+      const header = `MSH|^~\\&#${"|".repeat(10)}2.7`;
+      const input = `${header}\rNTE|1||Long tex#^b`;
+      const result = parsed(input);
+      expect(
+        result.message.segments[1]?.fields[2]?.repetitions[0]?.components[0]
+          ?.subcomponents[0],
+      ).toStrictEqual({
+        kind: "value",
+        value: "Long tex",
+        truncated: true,
+        span: { start: header.length + 8, end: header.length + 17 },
+      });
+      expect(result.issues).toStrictEqual([
+        {
+          code: "VALUE_TRUNCATED",
+          severity: "info",
+          message: expect.any(String) as string,
+          location: {
+            span: { start: header.length + 16, end: header.length + 17 },
+            segmentIndex: 1,
+            segmentId: "NTE",
+            field: 3,
+            repetition: 1,
+            component: 1,
+            subcomponent: 1,
+          },
+          value: "#",
+        },
+      ]);
+    });
+
+    it("does not mark values in a message older than 2.7", () => {
+      const header = `MSH|^~\\&#${"|".repeat(10)}2.6`;
+      const value = parsed(`${header}\rNTE|1||text#`).message.segments[1]
+        ?.fields[2]?.repetitions[0]?.components[0]?.subcomponents[0];
+      expect(value).toMatchObject({ value: "text#" });
+      expect(value).not.toHaveProperty("truncated");
+    });
+
     it.each([
       ["the escape and subcomponent delimiters", "^~", [[["a&b\\F\\c"]]]],
       ["the subcomponent separator", "^~\\", [[["a&b|c"]]]],
