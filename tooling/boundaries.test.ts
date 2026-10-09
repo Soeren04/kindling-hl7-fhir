@@ -35,10 +35,14 @@ describe("dependency-cruiser boundaries", () => {
 
     expect(violations).toStrictEqual([
       "fhir-builds-on-hl7v2-only: tooling/fixtures/src/fhir/imports-cli.ts -> tooling/fixtures/src/cli/main.ts",
+      "fhir-builds-on-hl7v2-only: tooling/fixtures/src/fhir/unresolvable-import.ts -> ./does-not-exist",
+      "hl7v2-knows-no-fhir: tooling/fixtures/src/hl7v2/imports-fhir-types.ts -> fhir/r4",
       "hl7v2-knows-no-fhir: tooling/fixtures/src/hl7v2/imports-fhir.ts -> tooling/fixtures/src/fhir/class-declaration.ts",
       "hl7v2-knows-no-fhir: tooling/fixtures/src/hl7v2/node-import.ts -> fs",
       "no-circular: tooling/fixtures/src/shared/cycle-a.ts -> tooling/fixtures/src/shared/cycle-b.ts",
       "no-dev-dependencies-in-library: tooling/fixtures/src/uses-dev-dependency.ts -> vitest",
+      "no-unresolvable: tooling/fixtures/src/cli/imports-fhir-types.ts -> fhir/r4",
+      "no-unresolvable: tooling/fixtures/src/hl7v2/imports-fhir-types.ts -> fhir/r4",
       "no-unresolvable: tooling/fixtures/src/unresolvable-import.ts -> ./does-not-exist",
       "nothing-imports-the-cli: tooling/fixtures/src/fhir/imports-cli.ts -> tooling/fixtures/src/cli/main.ts",
       "only-cli-uses-node: tooling/fixtures/src/hl7v2/node-import.ts -> fs",

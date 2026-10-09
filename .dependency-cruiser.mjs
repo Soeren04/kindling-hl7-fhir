@@ -2,6 +2,13 @@
 // Architecture boundaries of the library (ADR 0002). Paths are matched as `(^|/)src/<layer>/` so the same rules
 // apply to packages/hl7-to-fhir/src and to the fixtures in tooling/fixtures/src that prove the rules fire.
 
+/**
+ * The FHIR R4 types: `import type ... from "fhir/r4"`, the module form of the @types/fhir dependency. The package
+ * ships declarations only, which TypeScript finds in @types but enhanced-resolve cannot, so the import stays
+ * unresolved here; the type check proves that it resolves, and `verbatimModuleSyntax` keeps it type-only.
+ */
+const fhirTypes = "^fhir/r4$";
+
 /** @type {import("dependency-cruiser").IConfiguration} */
 const configuration = {
   forbidden: [
@@ -24,10 +31,12 @@ const configuration = {
     {
       name: "fhir-builds-on-hl7v2-only",
       comment:
-        "The FHIR mapping may import only fhir/, hl7v2/ and shared/; never the CLI.",
+        "The FHIR mapping may import only fhir/, hl7v2/, shared/ and the FHIR R4 types of @types/fhir; never the CLI.",
       severity: "error",
       from: { path: "(^|/)src/fhir/" },
-      to: { pathNot: "(^|/)src/(fhir|hl7v2|shared)/" },
+      to: {
+        pathNot: `(^|/)src/(fhir|hl7v2|shared)/|${fhirTypes}`,
+      },
     },
     {
       name: "only-cli-uses-node",
@@ -56,9 +65,9 @@ const configuration = {
     {
       name: "no-unresolvable",
       comment:
-        "Every import must resolve; a typo would otherwise only surface at build time.",
+        "Every import must resolve; a typo would otherwise only surface at build time. The FHIR layer is exempt because the FHIR types resolve for TypeScript only (see fhirTypes); there, fhir-builds-on-hl7v2-only flags every unresolved import but those types.",
       severity: "error",
-      from: {},
+      from: { pathNot: "(^|/)src/fhir/" },
       to: { couldNotResolve: true },
     },
     {

@@ -57,6 +57,9 @@ export default defineConfig(
     "packages/hl7-to-fhir/api/",
     // Deliberately broken code; linted by the tooling tests with `ignore: false`.
     "tooling/fixtures/",
+    // A consumer project that imports the package by name, which resolves only once it is installed; compiled by
+    // test/consumer.test.ts and the Consumer job of CI.
+    "packages/hl7-to-fhir/test/consumer/",
   ]),
   {
     linterOptions: { reportUnusedDisableDirectives: "error" },
