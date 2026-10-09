@@ -15,8 +15,9 @@ import { isValidSegmentId } from "./segment";
 /**
  * Why a tree cannot be written with the delimiters of its message.
  *
- * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter, a line break or is the text `""`, which need an escape
- *   sequence, but MSH-2 declares no escape character.
+ * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return or is the text `""`, which need an
+ *   escape sequence, but MSH-2 declares no escape character. Line feeds are written as they are, except in MSH,
+ *   where a line feed would end the segment.
  * - `SUBCOMPONENT_SEPARATOR_REQUIRED`: a component has more than one subcomponent, but MSH-2 declares no subcomponent
  *   separator.
  * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
@@ -216,11 +217,18 @@ function writeSubcomponent(
 ): string {
   const location = { span: subcomponent.span, ...position };
   switch (subcomponent.kind) {
-    case "value":
-      return (
-        encodeText(subcomponent.value, writer.delimiters) ??
-        fail(writer, "ESCAPE_CHARACTER_REQUIRED", location)
-      );
+    case "value": {
+      const { value } = subcomponent;
+      // A raw line feed would end MSH, and the terminator of MSH decides how every segment ends.
+      const lineFeedInHeader =
+        position.segmentId === "MSH" &&
+        writer.delimiters.escape === undefined &&
+        value.includes("\n");
+      const encoded = lineFeedInHeader
+        ? undefined
+        : encodeText(value, writer.delimiters);
+      return encoded ?? fail(writer, "ESCAPE_CHARACTER_REQUIRED", location);
+    }
     case "null":
       return quoteIsDelimiter(writer.delimiters)
         ? fail(writer, "NULL_NOT_REPRESENTABLE", location)

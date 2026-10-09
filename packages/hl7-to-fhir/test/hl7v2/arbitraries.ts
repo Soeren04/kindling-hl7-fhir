@@ -84,13 +84,19 @@ function trimmedList<T>(
   );
 }
 
-function subcomponents(delimiters: Delimiters): {
+/** Where generated fields go: in MSH, a line feed always needs an escape sequence, as it would end the segment. */
+type Place = "header" | "body";
+
+function subcomponents(
+  delimiters: Delimiters,
+  place: Place,
+): {
   readonly any: fc.Arbitrary<Subcomponent>;
   readonly filled: fc.Arbitrary<Subcomponent>;
 } {
   // With an escape character, values may contain every delimiter, quotes, line breaks and a period (never a
-  // delimiter here). Without one, they hold only what needs no escape sequence. They are never empty: an empty value
-  // only arises from removed formatting commands, which `stringify` cannot reproduce.
+  // delimiter here). Without one, they hold only what needs no escape sequence, and line feeds outside MSH. They are
+  // never empty: an empty value only arises from removed formatting commands, which `stringify` cannot reproduce.
   const { field, component, repetition, escape, subcomponent, truncation } =
     delimiters;
   const declared = [
@@ -106,6 +112,7 @@ function subcomponents(delimiters: Delimiters): {
       unit: fc.constantFrom(
         ...Array.from(`ab .,"é`).filter((c) => !declared.includes(c)),
         ...(escape === undefined ? [] : ["\n", "\r", ...declared]),
+        ...(escape === undefined && place === "body" ? ["\n"] : []),
       ),
       minLength: 1,
       maxLength: 6,
@@ -125,8 +132,8 @@ function subcomponents(delimiters: Delimiters): {
   return { any, filled };
 }
 
-function fields(delimiters: Delimiters): fc.Arbitrary<Field> {
-  const subcomponent = subcomponents(delimiters);
+function fields(delimiters: Delimiters, place: Place): fc.Arbitrary<Field> {
+  const subcomponent = subcomponents(delimiters, place);
   // Without a subcomponent separator, a component holds at most one subcomponent.
   const children =
     delimiters.subcomponent === undefined
@@ -199,7 +206,7 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
     const encoding =
       encodingCharactersOf(delimiters) + (truncating ? truncation : "");
     const { field } = delimiters;
-    const anyField = fields(delimiters);
+    const anyField = fields(delimiters, "body");
     const segment = fc.tuple(
       fc.constantFrom("PID", "OBX", "NTE", "ZPI"),
       trimmedList(
@@ -210,7 +217,7 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
     // MSH-3 to MSH-11, then MSH-12 with the version.
     return fc
       .tuple(
-        fc.array(fields(delimiters), { minLength: 9, maxLength: 9 }),
+        fc.array(fields(delimiters, "header"), { minLength: 9, maxLength: 9 }),
         truncating
           ? fc.constant("2.8.2")
           : fc.constantFrom("2.3", "2.5.1", "2.6"),

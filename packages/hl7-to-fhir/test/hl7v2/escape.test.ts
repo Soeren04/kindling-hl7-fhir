@@ -313,16 +313,16 @@ describe("encodeText", () => {
       repetition: "~",
     };
 
-    it("writes values that need no escape sequence as they are", () => {
-      expect(encodeText("a&b\\c", withoutEscape)).toBe("a&b\\c");
-    });
-
-    it.each(["a|b", "a^b", "a~b", "line\nbreak", "a\rb", '""'])(
-      "cannot write %j",
+    it.each(["a&b\\c", "line\nfeed"])(
+      "writes %j, which needs no escape sequence there, as it is",
       (value) => {
-        expect(encodeText(value, withoutEscape)).toBeUndefined();
+        expect(encodeText(value, withoutEscape)).toBe(value);
       },
     );
+
+    it.each(["a|b", "a^b", "a~b", "a\rb", '""'])("cannot write %j", (value) => {
+      expect(encodeText(value, withoutEscape)).toBeUndefined();
+    });
   });
 
   const charsets = fc.constantFrom<Charset>("ascii", "iso-8859-1", "utf-8");

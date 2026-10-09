@@ -217,7 +217,8 @@ function expectExactSpans(input: string, message: Hl7Message): void {
   for (const segment of message.segments) {
     const raw = text(segment.span);
     expect(segment.span.start).toBeGreaterThan(previousEnd);
-    expect(raw).not.toMatch(/[\r\n]/u);
+    // A line feed can be data, in messages whose segments end with carriage returns; a carriage return never is.
+    expect(raw).not.toContain("\r");
     expect(raw.startsWith(segment.id)).toBe(true);
     previousEnd = segment.span.end;
 

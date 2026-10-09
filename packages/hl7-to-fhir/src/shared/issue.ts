@@ -56,6 +56,11 @@ export type IssueCode =
   | "NON_STANDARD_SEGMENT_TERMINATOR"
   /** An empty line between segments was removed. */
   | "BLANK_LINE_REMOVED"
+  /**
+   * A line feed inside a message whose MSH segment ends with a carriage return is data, not a segment terminator; it
+   * stays in its value.
+   */
+  | "LINE_FEED_IN_SEGMENT"
   /** A segment identifier is not three upper-case letters or digits starting with a letter; the segment is kept. */
   | "INVALID_SEGMENT_ID"
   /** MSH-1 is missing, or it is not a printable ASCII punctuation character. */
@@ -227,6 +232,11 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "info",
     message: "An empty line between segments was removed.",
   },
+  LINE_FEED_IN_SEGMENT: {
+    severity: "info",
+    message:
+      "A line feed in a message whose segments end with carriage returns is data, not a segment terminator; it stays in its value.",
+  },
   INVALID_SEGMENT_ID: {
     severity: "error",
     message:
@@ -289,7 +299,7 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
   ESCAPE_CHARACTER_REQUIRED: {
     severity: "error",
     message:
-      'A value contains a delimiter or a line break or is the text "", which need an escape sequence, but MSH-2 declares no escape character.',
+      'A value contains a delimiter or a line break that cannot be written as it is, or is the text "", which need an escape sequence, but MSH-2 declares no escape character.',
   },
   SUBCOMPONENT_SEPARATOR_REQUIRED: {
     severity: "error",

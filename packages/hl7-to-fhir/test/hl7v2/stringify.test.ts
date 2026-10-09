@@ -243,7 +243,7 @@ describe("stringify", () => {
     };
     const header = segment("MSH", "|", "^~");
 
-    it.each(["a|b", "a^b", "a~b", "two\nlines", '""'])(
+    it.each(["a|b", "a^b", "a~b", "a\rb", '""'])(
       "fails for the value %j without an escape character",
       (value) => {
         const message: Hl7Message = {
@@ -333,6 +333,30 @@ describe("stringify", () => {
       expect(result.ok || result.error.location).toMatchObject({
         segmentIndex: 1,
         field: 1,
+      });
+    });
+
+    it("writes a line feed as it is, where it reads back as data", () => {
+      const message: Hl7Message = {
+        delimiters: withoutEscape,
+        segments: [header, segment("NTE", "two\nlines")],
+      };
+      const text = stringified(message);
+      expect(text).toBe("MSH|^~\rNTE|two\nlines\r");
+      expect(roundTrip(text)).toBe(text);
+    });
+
+    it("fails for a line feed in MSH, where it would end the segment", () => {
+      const message: Hl7Message = {
+        delimiters: withoutEscape,
+        segments: [segment("MSH", "|", "^~", "two\nlines")],
+      };
+      expect(stringify(message)).toMatchObject({
+        ok: false,
+        error: {
+          code: "ESCAPE_CHARACTER_REQUIRED",
+          location: { segmentId: "MSH", field: 3 },
+        },
       });
     });
 
