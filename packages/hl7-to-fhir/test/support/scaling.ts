@@ -7,17 +7,23 @@ export interface ScalingTask {
   readonly prefix: string;
   /** Text that is repeated to make the input grow. */
   readonly unit: string;
+  /** Text at the end of every input, so that the repeated unit is not trailing whitespace the parser trims. */
+  readonly suffix: string;
   /**
-   * The characters of the first small input. The worker doubles it until a run takes long enough to measure; the
-   * large input has four times as many characters as the small one it ends with.
+   * The characters of the first small input. The worker doubles it until a run takes at least `minimumMilliseconds`;
+   * the large input has about four times as many characters as the small one it ends with.
    */
   readonly bytes: number;
+  /** How long a run on the small input takes at least, so that clock and scheduling noise cannot hide growth. */
+  readonly minimumMilliseconds: number;
 }
 
-/** Milliseconds for the operation on the small input and on the input four times its size. */
+/** Milliseconds for the operation on the small input and on a larger one, with the characters of both. */
 export interface ScalingTimes {
   readonly small: number;
+  readonly smallLength: number;
   readonly large: number;
+  readonly largeLength: number;
 }
 
 /**

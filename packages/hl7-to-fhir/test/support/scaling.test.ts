@@ -6,7 +6,9 @@ const task: ScalingTask = {
   operation: "parse",
   prefix: "MSH|^~\\&|A\r",
   unit: "NTE\r",
+  suffix: "",
   bytes: 10_000,
+  minimumMilliseconds: 10,
 };
 
 describe("measureScaling", () => {

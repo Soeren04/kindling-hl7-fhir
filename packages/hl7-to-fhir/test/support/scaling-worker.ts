@@ -31,9 +31,13 @@ registerHooks({
 
 const { parse, splitBatch, stringify } = await import("../../src/hl7v2");
 
-/** Builds an input of about `bytes` characters: the prefix once, then the unit repeated. */
+/** Builds an input of about `bytes` characters: the prefix once, then the unit repeated, then the suffix. */
 function inputOf(task: ScalingTask, bytes: number): string {
-  return task.prefix + task.unit.repeat(Math.ceil(bytes / task.unit.length));
+  return (
+    task.prefix +
+    task.unit.repeat(Math.ceil(bytes / task.unit.length)) +
+    task.suffix
+  );
 }
 
 /** Prepares the operation for an input and returns the part that is timed. */
@@ -52,29 +56,39 @@ function operation(task: ScalingTask, input: string): () => unknown {
   }
 }
 
-/** The fastest of a few runs of an operation on an input of `bytes` characters; noise only makes a run slower. */
+/** The fastest of two runs after a warm-up run of an operation on an input of `bytes` characters; noise only makes a run slower. */
 function fastest(task: ScalingTask, bytes: number): number {
   const run = operation(task, inputOf(task, bytes));
   run();
   let best = Infinity;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const started = performance.now();
-    run();
-    best = Math.min(best, performance.now() - started);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    best = Math.min(best, timed(run));
   }
   return best;
 }
 
+function timed(run: () => unknown): number {
+  const started = performance.now();
+  run();
+  return performance.now() - started;
+}
+
 const task = workerData as ScalingTask;
 
-// Inputs that are cheap to process need more characters before a run is long enough to measure reliably.
-const longEnough = 10;
-const largestSmallInput = 256 * task.bytes;
+// Inputs that are cheap to process need many characters before a run is long enough to measure reliably. A single
+// cold run per size finds that size; only the two sizes that are compared are timed carefully.
+const largestSmallInput = 1024 * task.bytes;
 let bytes = task.bytes;
-let small = fastest(task, bytes);
-while (small < longEnough && bytes < largestSmallInput) {
+while (
+  bytes < largestSmallInput &&
+  timed(operation(task, inputOf(task, bytes))) < task.minimumMilliseconds
+) {
   bytes *= 2;
-  small = fastest(task, bytes);
 }
-const times: ScalingTimes = { small, large: fastest(task, bytes * 4) };
+const times: ScalingTimes = {
+  small: fastest(task, bytes),
+  smallLength: inputOf(task, bytes).length,
+  large: fastest(task, bytes * 4),
+  largeLength: inputOf(task, bytes * 4).length,
+};
 parentPort?.postMessage(times);

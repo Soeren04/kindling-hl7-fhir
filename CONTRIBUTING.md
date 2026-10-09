@@ -50,7 +50,7 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 | `pnpm lint`                   | ESLint with zero warnings allowed                                                           |
 | `pnpm typecheck`              | `tsc` for every config, including the Node-free library config                              |
 | `pnpm test`                   | Vitest: library and tooling tests, without the slow scaling tests                           |
-| `pnpm test:scaling`           | Vitest: the scaling tests, which fail quadratic running time (about 15 s)                   |
+| `pnpm test:scaling`           | Vitest: the scaling tests, which fail quadratic running time (about 40 s)                   |
 | `pnpm test:coverage`          | All tests, scaling included, with coverage; fails below 95 % on the library and the scripts |
 | `pnpm depcruise`              | Checks the layer boundaries with dependency-cruiser                                         |
 | `pnpm knip`                   | Finds unused files, exports and dependencies                                                |
