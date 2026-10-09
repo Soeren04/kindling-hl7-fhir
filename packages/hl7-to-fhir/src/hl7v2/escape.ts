@@ -254,6 +254,12 @@ const removedFormatting: Interpretation = {
 
 const lineBreak: Interpretation = { text: "\n" };
 
+/** A line break whose formatting beyond the break itself (centering, extra blank lines) plain text cannot show. */
+const lineBreakWithFormatting: Interpretation = {
+  text: "\n",
+  issue: "FORMATTING_REMOVED",
+};
+
 /** Interprets the content of one escape sequence, between the escape characters `escape`. */
 function interpret(
   content: string,
@@ -311,17 +317,16 @@ type FormattingArgument = "none" | "count" | "signed";
 
 // The formatting commands of the FT data type (HL7 v2.5.1 section 2.7.6). `.br`, `.sp` and `.ce` end the current line,
 // so they become a line feed; `.ce` also centers the next line, which plain text cannot show, so it is reported like
-// the commands that are removed. The argument is optional for every command that takes one.
+// the commands that are removed. `.spN` skips N lines; for N above one it still becomes one line feed, so that a
+// short sequence cannot expand into a long value, and the lost lines are reported. The argument is optional for every
+// command that takes one.
 const formattingCommands: ReadonlyMap<
   string,
   { readonly argument: FormattingArgument; readonly effect: Interpretation }
 > = new Map([
   ["br", { argument: "none", effect: lineBreak }],
   ["sp", { argument: "count", effect: lineBreak }],
-  [
-    "ce",
-    { argument: "none", effect: { text: "\n", issue: "FORMATTING_REMOVED" } },
-  ],
+  ["ce", { argument: "none", effect: lineBreakWithFormatting }],
   ["fi", { argument: "none", effect: removedFormatting }],
   ["nf", { argument: "none", effect: removedFormatting }],
   ["in", { argument: "signed", effect: removedFormatting }],
@@ -343,9 +348,10 @@ function interpretFormatting(
 ): Interpretation {
   const definition = formattingCommands.get(command);
   if (definition === undefined) return unknown;
-  return argumentPatterns[definition.argument].test(argument)
-    ? definition.effect
-    : unknown;
+  if (!argumentPatterns[definition.argument].test(argument)) return unknown;
+  return command === "sp" && Number(argument) > 1
+    ? lineBreakWithFormatting
+    : definition.effect;
 }
 
 const invalidHex: Interpretation = { issue: "INVALID_HEX_ESCAPE" };

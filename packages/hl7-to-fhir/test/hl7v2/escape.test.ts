@@ -212,11 +212,22 @@ describe("decodeText", () => {
     it.each([
       ["a\\.br\\b", "a\nb"],
       ["a\\.sp\\b", "a\nb"],
-      ["a\\.sp3\\b", "a\nb"],
-      ["a\\.sp 3\\b", "a\nb"],
+      ["a\\.sp1\\b", "a\nb"],
+      ["a\\.sp 1\\b", "a\nb"],
+      ["a\\.sp0\\b", "a\nb"],
     ])("turns the line break in %s into a line feed", (raw, value) => {
       expect(summary(decode(raw))).toStrictEqual([value, []]);
     });
+
+    it.each(["a\\.sp2\\b", "a\\.sp 3\\b", `a\\.sp${"9".repeat(400)}\\b`])(
+      "turns %s, which skips several lines, into one line feed and reports the others",
+      (raw) => {
+        expect(summary(decode(raw))).toStrictEqual([
+          "a\nb",
+          ["FORMATTING_REMOVED"],
+        ]);
+      },
+    );
 
     it("turns \\.ce\\ into a line feed and reports the centering it drops", () => {
       expect(summary(decode("a\\.ce\\b"))).toStrictEqual([
