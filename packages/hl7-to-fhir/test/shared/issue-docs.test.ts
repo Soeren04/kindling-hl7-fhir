@@ -26,7 +26,44 @@ function documentedSeverities(): Map<string, string> {
   );
 }
 
+/**
+ * The text of every list item of the doc comment, keyed by code, each with the heading of its section, which can say
+ * what `value` holds for every item below it.
+ */
+function documentedItems(): Map<string, string> {
+  const comment =
+    /\/\*\*((?:[^*]|\*(?!\/))*)\*\/\s*export type IssueCode\b/u.exec(
+      source,
+    )?.[1];
+  const lines = (comment ?? "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*\*\s?/u, ""));
+  const items = new Map<string, string>();
+  let heading = "";
+  let code: string | undefined;
+  for (const line of lines) {
+    const item = /^- `([A-Z_]+)`/u.exec(line);
+    if (item !== null) {
+      code = item[1];
+      if (code !== undefined) items.set(code, `${heading} ${line}`);
+    } else if (line.startsWith("  ") && code !== undefined) {
+      items.set(code, `${items.get(code) ?? ""} ${line.trim()}`);
+    } else {
+      code = undefined;
+      if (line.endsWith(":")) heading = line;
+    }
+  }
+  return items;
+}
+
 describe("the IssueCode documentation", () => {
+  it("says for every code what the issue value holds", () => {
+    const silent = [...documentedItems()]
+      .filter(([, text]) => !text.includes("`value`"))
+      .map(([code]) => code);
+    expect(silent).toStrictEqual([]);
+  });
+
   const documented = documentedSeverities();
 
   it("lists every code of the table and nothing else", () => {

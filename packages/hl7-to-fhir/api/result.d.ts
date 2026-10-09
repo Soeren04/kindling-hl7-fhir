@@ -30,63 +30,66 @@ interface Span {
  */
 type Severity = "error" | "warning" | "info";
 /**
- * Stable identifiers of every issue the library reports. Each code always has the severity listed here.
+ * Stable identifiers of every issue the library reports. Each code always has the severity listed here, and each
+ * entry says what {@link Issue.value} holds for it.
  *
  * Input and message structure:
  *
  * - `INVALID_INPUT` (error): the input is not a string, for example a `Buffer` that was not decoded or `undefined`.
+ *   No `value`.
  * - `INVALID_TREE` (error): a message passed to `validate` or `group` does not have the shape of the tree `parse`
  *   returns: a node is missing, `null` or of the wrong type, or has no valid span. Possible only for trees built in
  *   plain JavaScript. No `value`.
  * - `INVALID_DEFINITION` (error): a segment definition passed to `validate` or `group` was not made with
  *   `defineSegment` and does not have its shape; it is ignored. `value` says what is wrong with it.
- * - `EMPTY_INPUT` (error): the input contains no text once framing and whitespace are removed.
- * - `MISSING_MSH` (error): the first segment is not `MSH`.
+ * - `EMPTY_INPUT` (error): the input contains no text once framing and whitespace are removed. No `value`.
+ * - `MISSING_MSH` (error): the first segment is not `MSH`. No `value`.
  * - `UNEXPECTED_MSH` (warning): a later segment is MSH, so the input holds more than one message and should be split
- *   with `splitBatch` first.
+ *   with `splitBatch` first. No `value`.
  * - `UNEXPECTED_MSH_DELIMITERS` (error): like `UNEXPECTED_MSH`, but the later MSH declares other delimiters while its
- *   fields are read with the first's.
+ *   fields are read with the first's. No `value`.
  * - `INVALID_SEGMENT_ID` (error): a segment identifier is not three upper-case letters or digits starting with a
- *   letter; the segment is kept.
+ *   letter; the segment is kept. `value` is the identifier.
  * - `INVALID_FIELD_SEPARATOR` (error): MSH-1 is missing, or it is not a printable ASCII punctuation character.
+ *   `value` is the character, when there is one.
  * - `INVALID_ENCODING_CHARACTERS` (error): MSH-2 has fewer than two or more than five characters, or its delimiters
- *   are not distinct punctuation characters.
+ *   are not distinct punctuation characters. `value` is MSH-2.
  * - `ENCODING_CHARACTERS_OMITTED` (info): MSH-2 omits the subcomponent separator and possibly the escape character;
- *   the message does not use them.
+ *   the message does not use them. `value` is MSH-2.
  * - `TRUNCATION_CHARACTER_IGNORED` (warning): MSH-2 has a fifth character, but the message version is older than 2.7,
- *   which introduced it.
+ *   which introduced it. `value` is that character.
  * - `VALUE_TRUNCATED` (info): a value ends with the truncation character (version 2.7 and later): the sender cut it
- *   off.
+ *   off. `value` is the truncation character.
  *
  * Framing and whitespace:
  *
- * - `BYTE_ORDER_MARK_REMOVED` (info): a byte order mark at the start of the input was removed.
+ * - `BYTE_ORDER_MARK_REMOVED` (info): a byte order mark at the start of the input was removed. No `value`.
  * - `MLLP_FRAMING_REMOVED` (info): an MLLP start block (`0x0B`) or end block (`0x1C`, optionally followed by a
- *   carriage return) was removed.
+ *   carriage return) was removed. No `value`.
  * - `MLLP_FRAME_UNTERMINATED` (warning): an MLLP start block has no matching end block; the message runs to the next
- *   start block or the end of the input.
+ *   start block or the end of the input. No `value`.
  * - `MLLP_FRAME_MALFORMED` (warning): MLLP framing that does not follow the protocol: an end block without start
  *   block or not followed by a carriage return, text between frames, or several messages in one frame. The messages
- *   are split anyway.
+ *   are split anyway. No `value`.
  * - `CONTENT_OUTSIDE_MESSAGE` (warning): text outside any message (before the first `MSH`, between batches or between
- *   MLLP frames) was dropped.
+ *   MLLP frames) was dropped. `value` is the dropped text.
  * - `BATCH_COUNT_MISMATCH` (warning): a trailer count differs from what the input contains: `BTS-1` counts messages,
- *   `FTS-1` counts batches.
+ *   `FTS-1` counts batches. No `value`.
  * - `UNEXPECTED_ENVELOPE_SEGMENT` (warning): an `FHS` inside a file without `FTS`, or a `BHS` inside a batch without
- *   `BTS`; counting starts again from it.
+ *   `BTS`; counting starts again from it. No `value`.
  * - `TRAILING_WHITESPACE_REMOVED` (info): whitespace and blank lines after the terminator of the last segment were
- *   removed. Spaces and tabs at the end of the last segment itself are part of its last value and stay.
+ *   removed. Spaces and tabs at the end of the last segment itself are part of its last value and stay. No `value`.
  * - `NON_STANDARD_SEGMENT_TERMINATOR` (info): segments end with a line feed or a carriage return plus line feed
- *   instead of a carriage return.
- * - `BLANK_LINE_REMOVED` (info): an empty line between segments was removed.
+ *   instead of a carriage return. No `value`.
+ * - `BLANK_LINE_REMOVED` (info): an empty line between segments was removed. No `value`.
  * - `LINE_FEED_IN_SEGMENT` (info): a line feed inside a message whose MSH segment ends with a carriage return is data,
- *   not a segment terminator; it stays in its value.
+ *   not a segment terminator; it stays in its value. No `value`.
  *
- * Escape sequences and character sets:
+ * Escape sequences and character sets (`value` is the escape sequence as written, unless stated otherwise):
  *
  * - `UNKNOWN_ESCAPE` (warning): an escape sequence the standard does not define; it is kept as written.
  * - `UNTERMINATED_ESCAPE` (warning): an escape sequence without its closing escape character; the rest of the value
- *   is kept as written.
+ *   is kept as written. `value` runs from the escape character to the end of the value.
  * - `FORMATTING_REMOVED` (info): a text formatting escape sequence (highlighting, indentation, centering, ...) was
  *   removed.
  * - `CHARACTER_SET_ESCAPE_KEPT` (warning): a character set switching escape sequence (`\C...\`, `\M...\`); it is kept
@@ -97,7 +100,7 @@ type Severity = "error" | "warning" | "info";
  * - `UNSUPPORTED_CHARACTER_SET` (warning): a hexadecimal escape sequence in a character set (MSH-18) the library
  *   cannot decode; it is kept as written.
  * - `NON_STANDARD_CHARACTER_SET` (info): MSH-18 names a character set with a spelling HL7 table 0211 does not use,
- *   such as `UTF-8`; it is recognized.
+ *   such as `UTF-8`; it is recognized. `value` is MSH-18.
  *
  * Message version and structure (validation):
  *
@@ -132,7 +135,7 @@ type Severity = "error" | "warning" | "info";
  * - `UNEXPECTED_COMPONENT` (warning): a component or subcomponent beyond those its data type defines holds something;
  *   a primitive type has one of each. No `value`.
  *
- * Values (validation; `value` holds the decoded value):
+ * Values (validation; `value` is the decoded value, as the message tree holds it):
  *
  * - `INVALID_NUMBER` (error): a value of type NM is not an optional sign, digits and at most one decimal point.
  * - `INVALID_SEQUENCE_ID` (error): a value of type SI is not a non-negative whole number.
@@ -150,7 +153,7 @@ type Severity = "error" | "warning" | "info";
  * Limits:
  *
  * - `TOO_MANY_ISSUES` (warning): more issues were found than are reported (10,000); this issue, at the end of the
- *   input, replaces the rest.
+ *   input, replaces the rest. No `value`.
  *
  * Codes are public API: adding a code is a minor release, renaming or removing one is a major release.
  */
@@ -288,8 +291,9 @@ interface Issue {
   /** Where the issue was found; an issue about the input as a whole has only a span. */
   readonly location: Location;
   /**
-   * The input text the issue is about: the raw text for issues of parsing, the decoded value (as the message tree
-   * holds it) for issues of validation.
+   * The input text the issue is about, when there is one: the raw text for issues of parsing, the decoded value (as
+   * the message tree holds it) for issues of validation. The entry of each code in {@link IssueCode} says what it
+   * holds.
    *
    * This may contain protected health information (PHI). Do not log it unless your logs are allowed to hold
    * patient data.
