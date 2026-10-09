@@ -3,7 +3,8 @@
 // validation rules and the typed path union can be generated from it.
 
 /**
- * Whether a sender must populate an element.
+ * Whether a sender must populate an element. `validate` reports a missing element only when it is required, and a
+ * populated one only when it is not used.
  *
  * - `R`: required.
  * - `O`: optional.
@@ -14,27 +15,20 @@
  *
  * @example
  * ```ts
+ * import type { Optionality } from "hl7-to-fhir/hl7v2";
+ *
  * const optionality: Optionality = "R";
  * ```
  */
 export type Optionality = "R" | "O" | "C" | "B" | "X";
 
 /**
- * How often an element may repeat: a count, or `"unbounded"` when the standard sets no limit.
+ * One field of a segment, as `defineSegment` returns it.
  *
  * @example
  * ```ts
- * const phoneNumbers: MaxRepetitions = 2;
- * const names: MaxRepetitions = "unbounded";
- * ```
- */
-type MaxRepetitions = number | "unbounded";
-
-/**
- * One field of a segment.
+ * import type { FieldDefinition } from "hl7-to-fhir/hl7v2";
  *
- * @example
- * ```ts
  * // PID-3, the patient identifier list
  * const pid3: FieldDefinition = {
  *   position: 3,
@@ -50,22 +44,25 @@ export interface FieldDefinition {
   readonly position: number;
   /** A short identifier-style name, unique within the segment (for example `patientName`). */
   readonly name: string;
-  /** The identifier of the field's data type, a key of the data type definitions (for example `XPN`). */
+  /** The identifier of the field's data type (for example `XPN`); see `FieldDefinitionInput.dataType`. */
   readonly dataType: string;
   /** Whether the field is required. */
   readonly optionality: Optionality;
-  /** How often the field may repeat. */
-  readonly maxRepetitions: MaxRepetitions;
+  /** How often the field may repeat: a count, or `"unbounded"` when there is no limit. */
+  readonly maxRepetitions: number | "unbounded";
   /** The number of the HL7 table that lists the field's codes (for example `0001`), when there is one. */
   readonly table?: string | undefined;
 }
 
 /**
- * A segment: its identifier and its fields in order.
+ * A segment: its identifier and its fields in order. Make one with `defineSegment` and pass it to `validate` or
+ * `group` in `options.segments`.
  *
  * @example
  * ```ts
- * const evn: SegmentDefinition = { id: "EVN", fields: [] };
+ * import { defineSegment, type SegmentDefinition } from "hl7-to-fhir/hl7v2";
+ *
+ * const zpi: SegmentDefinition = defineSegment({ id: "ZPI", fields: [{ name: "setId", dataType: "SI" }] });
  * ```
  */
 export interface SegmentDefinition {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { group } from "../../../src/hl7v2/group";
 import { validate } from "../../../src/hl7v2/validate";
 import { maxIssues } from "../../../src/shared/collect";
 import type { Issue } from "../../../src/shared/issue";
@@ -24,24 +25,25 @@ function validated(segments: readonly string[]): readonly Issue[] {
 const pidWith = (setId: string, rest: string): string =>
   `PID|${setId}||PATID1234||Everyman|||||${rest}`;
 
-describe("validate with more issues than it reports", () => {
-  it("keeps the first issues and ends with TOO_MANY_ISSUES", () => {
+describe("validate and group with more issues than they report", () => {
+  it("keep the first issues and end with TOO_MANY_ISSUES", () => {
     const zpi = Array.from({ length: 2 * maxIssues + 1 }, () => "ZPI|1");
     const { message } = parsed([...adtWith(), ...zpi].join("\r"));
     const end = message.segments.at(-1)?.span.end ?? 0;
-    const issues = validate(message);
-    expect(issues).toHaveLength(maxIssues + 1);
-    expect(counts(issues)).toStrictEqual([
-      ["UNDEFINED_Z_SEGMENT", maxIssues],
-      ["TOO_MANY_ISSUES", 1],
-    ]);
-    expect(issues[maxIssues - 1]?.location.segmentIndex).toBe(maxIssues + 3);
-    expect(issues.at(-1)?.location).toStrictEqual({
-      span: { start: end, end },
-    });
+    for (const issues of [validate(message), group(message).issues]) {
+      expect(issues).toHaveLength(maxIssues + 1);
+      expect(counts(issues)).toStrictEqual([
+        ["UNDEFINED_Z_SEGMENT", maxIssues],
+        ["TOO_MANY_ISSUES", 1],
+      ]);
+      expect(issues[maxIssues - 1]?.location.segmentIndex).toBe(maxIssues + 3);
+      expect(issues.at(-1)?.location).toStrictEqual({
+        span: { start: end, end },
+      });
+    }
   });
 
-  it("keeps an early field issue among many later segment issues", () => {
+  it("keep an early field issue among many later segment issues", () => {
     const segments = adtWith({ pid: "PID|1||||Everyman" });
     const unexpected = Array.from({ length: 2 * maxIssues }, () => "XYZ|1");
     expect(counts(validated([...segments, ...unexpected]))).toStrictEqual([
@@ -51,7 +53,7 @@ describe("validate with more issues than it reports", () => {
     ]);
   });
 
-  it("stops checking fields once there are too many issues", () => {
+  it("stop checking fields once there are too many issues", () => {
     const [msh = "", pid = "", ...rest] = validOru;
     const notes = Array.from({ length: 2 * maxIssues }, () => "NTE|x");
     const issues = validated([msh, pid, ...notes, ...rest]);
@@ -62,7 +64,7 @@ describe("validate with more issues than it reports", () => {
     expect(issues[maxIssues - 1]?.location.segmentIndex).toBe(maxIssues + 1);
   });
 
-  it("keeps the first issues of one segment in message order, whichever rule finds them", () => {
+  it("keep the first issues of one segment in message order, whichever rule finds them", () => {
     const fields = "|".repeat(29) + "|a".repeat(2 * maxIssues);
     const issues = validated(adtWith({ pid: pidWith("x", fields) }));
     expect(counts(issues)).toStrictEqual([
@@ -73,7 +75,7 @@ describe("validate with more issues than it reports", () => {
     expect(issues[1]?.location.field).toBe(40);
   });
 
-  it("keeps the extra subcomponent of an early component before many extra components", () => {
+  it("keep the extra subcomponent of an early component before many extra components", () => {
     const race = `x&s^b^c^d^e^f${"^z".repeat(2 * maxIssues)}`;
     const [first] = validated(adtWith({ pid: pidWith("1", race) }));
     expect(first?.code).toBe("UNEXPECTED_COMPONENT");

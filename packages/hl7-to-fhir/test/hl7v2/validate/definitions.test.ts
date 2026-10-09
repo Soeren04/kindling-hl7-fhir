@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { defineSegment } from "../../../src/hl7v2/define-segment";
 import type { DefinitionOptions } from "../../../src/hl7v2/definition-options";
+import { group } from "../../../src/hl7v2/group";
 import { validate } from "../../../src/hl7v2/validate";
+import type { IssueCode } from "../../../src/shared/issue";
 import { parsed } from "../helpers";
 import { adtWith } from "./messages";
 
@@ -283,15 +285,23 @@ describe("defineSegment on malformed input", () => {
   });
 });
 
-describe("validate with definitions not made by defineSegment", () => {
+describe("validate and group with definitions not made by defineSegment", () => {
   const { message } = parsed([...adtWith(), "ZPI|A"].join("\r"));
 
-  /** The code and value of every issue. */
+  /** The codes of the field rules, which only validate applies. */
+  const fieldCodes: ReadonlySet<IssueCode> = new Set([
+    "REQUIRED_FIELD_MISSING",
+    "INVALID_SEQUENCE_ID",
+  ]);
+
+  /** The code and value of every issue of validate and group, which report invalid definitions alike. */
   function reported(options: unknown): unknown[] {
-    return validate(message, untyped(options)).map(({ code, value }) => [
-      code,
-      value,
-    ]);
+    const fromValidate = validate(message, untyped(options));
+    const fromGroup = group(message, untyped(options)).issues;
+    expect(fromGroup).toStrictEqual(
+      fromValidate.filter(({ code }) => !fieldCodes.has(code)),
+    );
+    return fromValidate.map(({ code, value }) => [code, value]);
   }
 
   it("accepts a plain object with the shape defineSegment returns", () => {

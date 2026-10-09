@@ -2,13 +2,15 @@
 // keeps one frame per open group and never recurses over the input; the structures are small and fixed, so a segment
 // costs at most a few walks over its structure, and a message takes time linear in its segments.
 import type { Issue } from "../shared/issue";
-import { report } from "../shared/collect";
+import { finishIssues, report } from "../shared/collect";
 import { emptySpanAt } from "../shared/span";
+import { type DefinitionOptions, definitionsOf } from "./definition-options";
 import type { StructureElement } from "./definitions/types";
 import { hasBuiltInDefinitions } from "./definitions/version";
 import type { Hl7Message, Segment } from "./model";
 import { isValidSegmentId } from "./segment";
 import { resolveStructure } from "./structure";
+import { shapeIssue } from "./tree-check";
 
 /**
  * A segment in a {@link SegmentGroup}: its position in `message.segments`.
@@ -99,6 +101,73 @@ export interface MessageGroups {
   readonly issues: readonly Issue[];
 }
 
+/**
+ * Arranges the segments of a message in the segment groups of its message structure, such as the
+ * `ORDER_OBSERVATION` and `OBSERVATION` groups of an ORU^R01, so that code mapping a message can walk orders and their
+ * observations instead of a flat list of segments.
+ *
+ * The structure is the one MSH-9.3 names or, without MSH-9.3, the one MSH-9.1 and MSH-9.2 imply: `ACK` for an
+ * acknowledgment, otherwise the one HL7 table 0354 assigns to the message code and trigger event (`ADT^A04` is
+ * `ADT_A01`). The library knows the 2.5.1 structures ADT_A01 and ORU_R01; for other structures every segment is a
+ * child of the top level.
+ *
+ * Every segment appears exactly once, in message order, referred to by its index in `message.segments`. A segment
+ * that cannot continue the structure (a Z segment, an unknown, misplaced or repeated one) stays in the group that was
+ * open when it occurred and is reported in `issues`, as are required segments that are missing; `validate` reports
+ * the same issues. Segments the structure does not contain are allowed anywhere when the options define them. A
+ * segment that is valid in several places belongs to the first one that the segments before it leave open, so an NTE
+ * after an OBX belongs to its `OBSERVATION`. A segment is never reported as missing when it is present elsewhere.
+ *
+ * For a message whose MSH-12 is not 2.5 or 2.5.x, the tree is still the best grouping the 2.5.1 structure gives, but
+ * what does not fit it is not reported, as segments were added and moved between versions.
+ *
+ * It takes time linear in the number of segments and never throws: a tree that does not have the shape of a message,
+ * possible only from plain JavaScript, has no children and one `INVALID_TREE` issue, and a definition in `options`
+ * that was not made with `defineSegment` and does not have its shape is ignored and reported as
+ * `INVALID_DEFINITION`.
+ *
+ * @param message - A message from `parse`.
+ * @param options - Definitions of further segments, such as Z segments made with `defineSegment`.
+ * @returns The structure, the tree of groups and segments, and the issues.
+ *
+ * @example
+ * ```ts
+ * import { group, parse, type GroupChild } from "hl7-to-fhir/hl7v2";
+ *
+ * const result = parse(
+ *   "MSH|^~\\&|LAB|HOSP|||20240116091500||ORU^R01|MSG00002|P|2.5.1\rPID|1||12345||Everyman^Adam\rOBR|1|||24331-1^Lipid panel^LN\rOBX|1|NM|2093-3^Cholesterol^LN||196\rNTE|1||Fasting\rOBX|2|NM|2571-8^Triglyceride^LN||110",
+ * );
+ * if (result.ok) {
+ *   const { message } = result.value;
+ *   const groups = group(message);
+ *   groups.structure; // => "ORU_R01"
+ *
+ *   const outline = (children: readonly GroupChild[]): unknown[] =>
+ *     children.map((child) =>
+ *       child.kind === "segment" ? message.segments[child.segmentIndex]?.id : { [child.name]: outline(child.children) },
+ *     );
+ *   outline(groups.children);
+ *   // => ["MSH", { PATIENT_RESULT: [{ PATIENT: ["PID"] }, { ORDER_OBSERVATION: ["OBR", { OBSERVATION: ["OBX", "NTE"] }, { OBSERVATION: ["OBX"] }] }] }]
+ * }
+ * ```
+ */
+export function group(
+  message: Hl7Message,
+  options: DefinitionOptions = {},
+): MessageGroups {
+  const problem = shapeIssue(message);
+  if (problem !== undefined) return { children: [], issues: [problem] };
+  const issues: Issue[] = [];
+  const definitions = definitionsOf(options, issues);
+  const tree = groupSegments(message, (id) => definitions.has(id), issues);
+  return { ...tree, issues: finishIssues(issues, endOfMessage(message)) };
+}
+
+/** The end of the last segment, where an issue about the end of a message goes. */
+export function endOfMessage(message: Hl7Message): number {
+  return message.segments.at(-1)?.span.end ?? 0;
+}
+
 /** The tree that {@link groupSegments} builds, without the issues it reports. */
 type GroupTree = Omit<MessageGroups, "issues">;
 
@@ -169,7 +238,7 @@ export function groupSegments(
   for (const [segmentIndex, segment] of message.segments.entries()) {
     current = place(matcher, current, segment, segmentIndex);
   }
-  const end = emptySpanAt(message.segments.at(-1)?.span.end ?? 0);
+  const end = emptySpanAt(endOfMessage(message));
   for (
     let frame: Frame | undefined = current;
     frame !== undefined;

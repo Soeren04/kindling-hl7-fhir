@@ -2112,6 +2112,327 @@ interface BatchSplit {
  */
 export declare function splitBatch(input: string): BatchSplit;
 //#endregion
+//#region src/hl7v2/definitions/types.d.ts
+/**
+ * Whether a sender must populate an element. `validate` reports a missing element only when it is required, and a
+ * populated one only when it is not used.
+ *
+ * - `R`: required.
+ * - `O`: optional.
+ * - `C`: conditional; the condition depends on other elements and is not modelled here.
+ * - `B`: kept only for backward compatibility with older versions.
+ * - `X`: not used with this trigger event, or not supported; a field marked `X` that holds something is reported as
+ *   `UNEXPECTED_FIELD`. The reserved positions of 2.5.1, such as OBX-20 to OBX-22, are marked `X`.
+ *
+ * @example
+ * ```ts
+ * import type { Optionality } from "hl7-to-fhir/hl7v2";
+ *
+ * const optionality: Optionality = "R";
+ * ```
+ */
+type Optionality = "R" | "O" | "C" | "B" | "X";
+/**
+ * One field of a segment, as `defineSegment` returns it.
+ *
+ * @example
+ * ```ts
+ * import type { FieldDefinition } from "hl7-to-fhir/hl7v2";
+ *
+ * // PID-3, the patient identifier list
+ * const pid3: FieldDefinition = {
+ *   position: 3,
+ *   name: "patientIdentifierList",
+ *   dataType: "CX",
+ *   optionality: "R",
+ *   maxRepetitions: "unbounded",
+ * };
+ * ```
+ */
+interface FieldDefinition {
+  /** The 1-based field number, as in HL7 notation (`PID-3` has position 3). */
+  readonly position: number;
+  /** A short identifier-style name, unique within the segment (for example `patientName`). */
+  readonly name: string;
+  /** The identifier of the field's data type (for example `XPN`); see `FieldDefinitionInput.dataType`. */
+  readonly dataType: string;
+  /** Whether the field is required. */
+  readonly optionality: Optionality;
+  /** How often the field may repeat: a count, or `"unbounded"` when there is no limit. */
+  readonly maxRepetitions: number | "unbounded";
+  /** The number of the HL7 table that lists the field's codes (for example `0001`), when there is one. */
+  readonly table?: string | undefined;
+}
+/**
+ * A segment: its identifier and its fields in order. Make one with `defineSegment` and pass it to `validate` or
+ * `group` in `options.segments`.
+ *
+ * @example
+ * ```ts
+ * import { defineSegment, type SegmentDefinition } from "hl7-to-fhir/hl7v2";
+ *
+ * const zpi: SegmentDefinition = defineSegment({ id: "ZPI", fields: [{ name: "setId", dataType: "SI" }] });
+ * ```
+ */
+interface SegmentDefinition {
+  /** The three-character segment identifier, such as `PID`. */
+  readonly id: string;
+  /** The fields, ordered by position and numbered contiguously from 1. */
+  readonly fields: readonly FieldDefinition[];
+}
+//#endregion
+//#region src/hl7v2/define-segment.d.ts
+/**
+ * One field of a {@link SegmentDefinitionInput}. Its number is its position in the list: the first field is field 1.
+ *
+ * @example
+ * ```ts
+ * import type { FieldDefinitionInput } from "hl7-to-fhir/hl7v2";
+ *
+ * const visitCount: FieldDefinitionInput = { name: "visitCount", dataType: "NM", optionality: "R" };
+ * ```
+ */
+interface FieldDefinitionInput {
+  /** A short identifier-style name, such as `favouriteColour`. */
+  readonly name: string;
+  /**
+   * The data type, such as `ST`, `NM`, `DTM`, `TS`, `CE` or `XPN`: one of the types of the library's segment
+   * definitions or `TM`. The formats of `NM`, `SI`, `DT`, `DTM`, `TM`, `ID` and `IS` are checked, and the components
+   * of composite types. For a type the library does not know, use `ST`, which is not checked.
+   */
+  readonly dataType: string;
+  /** Whether the field is required (`R`); `O`, optional, when left out. */
+  readonly optionality?: Optionality | undefined;
+  /** How often the field may repeat: a whole number of at least 1 or `"unbounded"`; 1 when left out. */
+  readonly maxRepetitions?: number | "unbounded" | undefined;
+  /**
+   * The number of the HL7 table its codes come from: four digits, such as `0001`. Only the tables the library ships
+   * are checked: 0001, 0003, 0004, 0076, 0085, 0104, 0123, 0203 and 0354.
+   */
+  readonly table?: string | undefined;
+}
+/**
+ * What {@link defineSegment} takes: a segment identifier and its fields in order.
+ *
+ * @example
+ * ```ts
+ * import type { SegmentDefinitionInput } from "hl7-to-fhir/hl7v2";
+ *
+ * const zpi: SegmentDefinitionInput = { id: "ZPI", fields: [{ name: "setId", dataType: "SI" }] };
+ * ```
+ */
+interface SegmentDefinitionInput {
+  /** The segment identifier, such as `ZPI`: three upper-case letters or digits, starting with a letter. */
+  readonly id: string;
+  /** The fields in order: the first is field 1. */
+  readonly fields: readonly FieldDefinitionInput[];
+}
+/**
+ * Defines a segment, typically a locally defined Z segment, so that `validate` checks it: pass the result in
+ * `validate(message, { segments: [...] })`.
+ *
+ * Fields are numbered by their position in the list and default to optional and not repeating. A segment with a
+ * definition is allowed anywhere in a message whose structure does not contain it, so a defined Z segment is never
+ * reported for its position. A definition with the identifier of a built-in segment replaces the built-in one. The
+ * definitions passed in apply to every message version, while the built-in ones apply to version 2.5 and 2.5.x only.
+ *
+ * A malformed definition is a mistake in the calling code, not in a message, so it throws instead of returning a
+ * `Result`, as the library does only for programming errors: a `TypeError` for a missing property or one of the wrong type, and a `RangeError` for an
+ * identifier that is not three upper-case letters or digits starting with a letter, an empty name, a data type the
+ * library does not know, an optionality other than `R`, `O`, `C`, `B` and `X`, repetitions that are not a whole
+ * number of at least 1 or `"unbounded"`, or a table number that is not four digits. The message names the property.
+ *
+ * @param definition - The identifier and the fields.
+ * @returns The definition with every field numbered and its defaults filled in.
+ * @throws `TypeError` or `RangeError` when the definition is malformed.
+ *
+ * @example
+ * ```ts
+ * import { defineSegment, parse, validate } from "hl7-to-fhir/hl7v2";
+ *
+ * const zpi = defineSegment({
+ *   id: "ZPI",
+ *   fields: [
+ *     { name: "setId", dataType: "SI" },
+ *     { name: "favouriteColour", dataType: "ST", optionality: "R" },
+ *     { name: "lastVisit", dataType: "DT" },
+ *   ],
+ * });
+ * zpi.fields[2]; // => { position: 3, name: "lastVisit", dataType: "DT", optionality: "O", maxRepetitions: 1 }
+ *
+ * const result = parse(
+ *   "MSH|^~\\&|ADT|HOSP|||20240115103000||ADT^A01^ADT_A01|1|P|2.5.1\rEVN||20240115\rPID|1||1||Everyman\rPV1|1|I\rZPI|1||2024-01-15",
+ * );
+ * if (result.ok) {
+ *   validate(result.value.message, { segments: [zpi] }).map(({ code }) => code);
+ *   // => ["REQUIRED_FIELD_MISSING", "INVALID_DATE"]
+ * }
+ * ```
+ */
+export declare function defineSegment(definition: SegmentDefinitionInput): SegmentDefinition;
+//#endregion
+//#region src/hl7v2/definition-options.d.ts
+/**
+ * The options of `validate` and `group`: definitions of segments the library does not define.
+ *
+ * @example
+ * ```ts
+ * import { defineSegment, type DefinitionOptions } from "hl7-to-fhir/hl7v2";
+ *
+ * const options: DefinitionOptions = {
+ *   segments: [defineSegment({ id: "ZPI", fields: [{ name: "setId", dataType: "SI" }] })],
+ * };
+ * ```
+ */
+interface DefinitionOptions {
+  /**
+   * Definitions of segments the library does not define, typically Z segments, made with `defineSegment`. A segment
+   * with a definition is allowed wherever the message structure does not contain it, its fields are checked against
+   * the definition in every message version, and a definition with the identifier of a built-in segment replaces it.
+   * Of several definitions with one identifier, the last counts. A definition that was not made with `defineSegment`
+   * and does not have its shape is ignored and reported as `INVALID_DEFINITION`.
+   */
+  readonly segments?: readonly SegmentDefinition[] | undefined;
+}
+//#endregion
+//#region src/hl7v2/group.d.ts
+/**
+ * A segment in a {@link SegmentGroup}: its position in `message.segments`.
+ *
+ * @example
+ * ```ts
+ * import type { Hl7Message, SegmentReference } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const message: Hl7Message;
+ * declare const reference: SegmentReference;
+ *
+ * const segment = message.segments[reference.segmentIndex];
+ * ```
+ */
+interface SegmentReference {
+  /** Discriminant: a segment, not a group. */
+  readonly kind: "segment";
+  /** The 0-based index of the segment in `message.segments`. */
+  readonly segmentIndex: number;
+}
+/**
+ * One occurrence of a segment group of the message structure, such as one `ORDER_OBSERVATION` of an ORU^R01.
+ *
+ * @example
+ * ```ts
+ * import type { SegmentGroup } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const order: SegmentGroup;
+ *
+ * const observations = order.children.filter(
+ *   (child) => child.kind === "group" && child.name === "OBSERVATION",
+ * );
+ * ```
+ */
+interface SegmentGroup {
+  /** Discriminant: a group, not a segment. */
+  readonly kind: "group";
+  /** The name of the group in the message structure, such as `ORDER_OBSERVATION`. */
+  readonly name: string;
+  /** The segments and nested groups of this occurrence, in message order. */
+  readonly children: readonly GroupChild[];
+}
+/**
+ * A segment or a nested group in a {@link SegmentGroup} or at the top level of {@link MessageGroups}.
+ *
+ * @example
+ * ```ts
+ * import type { GroupChild } from "hl7-to-fhir/hl7v2";
+ *
+ * function segmentIndexes(children: readonly GroupChild[]): number[] {
+ *   return children.flatMap((child) =>
+ *     child.kind === "segment" ? [child.segmentIndex] : segmentIndexes(child.children),
+ *   );
+ * }
+ * ```
+ */
+type GroupChild = SegmentReference | SegmentGroup;
+/**
+ * The segments of a message arranged in the groups of its message structure.
+ *
+ * Every segment of the message appears exactly once, in message order, so the tree never drops a segment: one the
+ * structure does not allow at its position (a Z segment, an unknown or misplaced one) is placed in the group that was
+ * open when it occurred and, in a message of version 2.5 or 2.5.x, reported in `issues`. When the structure is
+ * unknown or the library has no definition of it, every segment is a child of the top level.
+ *
+ * @example
+ * ```ts
+ * import type { MessageGroups } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const groups: MessageGroups;
+ *
+ * if (groups.structure === "ORU_R01") console.log(groups.children.length);
+ * ```
+ */
+interface MessageGroups {
+  /**
+   * The message structure, such as `ORU_R01`: MSH-9.3, or the structure MSH-9.1 and MSH-9.2 imply (`ACK` for an
+   * acknowledgment, otherwise the one HL7 table 0354 assigns to the message code and trigger event). Absent when
+   * MSH-9 identifies none.
+   */
+  readonly structure?: string | undefined;
+  /** The top-level segments and groups, in message order. */
+  readonly children: readonly GroupChild[];
+  /** The issues of the structure and of what does not match it, in message order. */
+  readonly issues: readonly Issue[];
+}
+/**
+ * Arranges the segments of a message in the segment groups of its message structure, such as the
+ * `ORDER_OBSERVATION` and `OBSERVATION` groups of an ORU^R01, so that code mapping a message can walk orders and their
+ * observations instead of a flat list of segments.
+ *
+ * The structure is the one MSH-9.3 names or, without MSH-9.3, the one MSH-9.1 and MSH-9.2 imply: `ACK` for an
+ * acknowledgment, otherwise the one HL7 table 0354 assigns to the message code and trigger event (`ADT^A04` is
+ * `ADT_A01`). The library knows the 2.5.1 structures ADT_A01 and ORU_R01; for other structures every segment is a
+ * child of the top level.
+ *
+ * Every segment appears exactly once, in message order, referred to by its index in `message.segments`. A segment
+ * that cannot continue the structure (a Z segment, an unknown, misplaced or repeated one) stays in the group that was
+ * open when it occurred and is reported in `issues`, as are required segments that are missing; `validate` reports
+ * the same issues. Segments the structure does not contain are allowed anywhere when the options define them. A
+ * segment that is valid in several places belongs to the first one that the segments before it leave open, so an NTE
+ * after an OBX belongs to its `OBSERVATION`. A segment is never reported as missing when it is present elsewhere.
+ *
+ * For a message whose MSH-12 is not 2.5 or 2.5.x, the tree is still the best grouping the 2.5.1 structure gives, but
+ * what does not fit it is not reported, as segments were added and moved between versions.
+ *
+ * It takes time linear in the number of segments and never throws: a tree that does not have the shape of a message,
+ * possible only from plain JavaScript, has no children and one `INVALID_TREE` issue, and a definition in `options`
+ * that was not made with `defineSegment` and does not have its shape is ignored and reported as
+ * `INVALID_DEFINITION`.
+ *
+ * @param message - A message from `parse`.
+ * @param options - Definitions of further segments, such as Z segments made with `defineSegment`.
+ * @returns The structure, the tree of groups and segments, and the issues.
+ *
+ * @example
+ * ```ts
+ * import { group, parse, type GroupChild } from "hl7-to-fhir/hl7v2";
+ *
+ * const result = parse(
+ *   "MSH|^~\\&|LAB|HOSP|||20240116091500||ORU^R01|MSG00002|P|2.5.1\rPID|1||12345||Everyman^Adam\rOBR|1|||24331-1^Lipid panel^LN\rOBX|1|NM|2093-3^Cholesterol^LN||196\rNTE|1||Fasting\rOBX|2|NM|2571-8^Triglyceride^LN||110",
+ * );
+ * if (result.ok) {
+ *   const { message } = result.value;
+ *   const groups = group(message);
+ *   groups.structure; // => "ORU_R01"
+ *
+ *   const outline = (children: readonly GroupChild[]): unknown[] =>
+ *     children.map((child) =>
+ *       child.kind === "segment" ? message.segments[child.segmentIndex]?.id : { [child.name]: outline(child.children) },
+ *     );
+ *   outline(groups.children);
+ *   // => ["MSH", { PATIENT_RESULT: [{ PATIENT: ["PID"] }, { ORDER_OBSERVATION: ["OBR", { OBSERVATION: ["OBX", "NTE"] }, { OBSERVATION: ["OBX"] }] }] }]
+ * }
+ * ```
+ */
+export declare function group(message: Hl7Message, options?: DefinitionOptions): MessageGroups;
+//#endregion
 //#region src/hl7v2/parse.d.ts
 /**
  * What {@link parse} returns when it succeeds, the counterpart of {@link ParseFailure}: the message and everything the
@@ -2445,4 +2766,48 @@ interface StringifyFailure {
  */
 export declare function stringify(message: Hl7Message): Result<string, StringifyFailure>;
 //#endregion
-export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, Hl7Path, KnownPath, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathFailure, PathFailureCode, Repetition, Segment, StringifyFailure, StringifyFailureCode, Subcomponent, ValueSubcomponent };
+//#region src/hl7v2/validate.d.ts
+/**
+ * Checks a message against HL7 v2.5.1 and returns everything that deviates from it: the issues `group` reports about
+ * the message structure and the order of the segments, and the issues of the fields and values of every segment the
+ * library or `options` defines (required fields, repetitions, components, the formats of numbers, dates, times and
+ * codes, and codes of the shipped HL7 tables), together in message order.
+ *
+ * Parsing is lenient and validation strict: `parse` accepts what it can read, `validate` reports everything that
+ * deviates from the standard, so callers decide what to block. Every issue has a stable code, an exact location and,
+ * for a value, the value in `value`; the message never contains message content, but `value` may, so do not log it
+ * unless your logs may hold patient data.
+ *
+ * - The built-in definitions are those of version 2.5.1. For a message whose MSH-12 is not 2.5 or 2.5.x, the segments
+ *   are neither checked for their order nor against the built-in definitions, only against the definitions in
+ *   `options`, and an `UNSUPPORTED_VERSION` note says so.
+ * - Z segments and segments the structure does not contain are never dropped; they are reported unless `options`
+ *   defines them.
+ *
+ * It takes time linear in the size of the message and never throws: a tree that does not have the shape of a
+ * message, possible only from plain JavaScript, yields one `INVALID_TREE` issue, and a definition in `options` that was
+ * not made with `defineSegment` and does not have its shape is ignored and reported as `INVALID_DEFINITION`.
+ *
+ * @param message - A message from `parse`.
+ * @param options - Definitions of further segments, such as Z segments made with `defineSegment`.
+ * @returns The first 10,000 issues in message order, followed by `TOO_MANY_ISSUES` when there are more; empty for a
+ *   valid message.
+ *
+ * @example
+ * ```ts
+ * import { parse, validate } from "hl7-to-fhir/hl7v2";
+ *
+ * const result = parse(
+ *   "MSH|^~\\&|ADT|HOSP|||20240115103000||ADT^A01^ADT_A01|MSG00001|P|2.5.1\rEVN||20240115103000\rPID|1||12345||Everyman^Adam||19800231|Q",
+ * );
+ * if (result.ok) {
+ *   const issues = validate(result.value.message);
+ *   issues.map(({ severity, code, location }) => `${severity} ${code} ${location.segmentId ?? ""}`);
+ *   // => ["error INVALID_DATE_TIME PID", "warning UNKNOWN_USER_DEFINED_CODE PID", "error SEGMENT_MISSING PV1"]
+ *   issues[0]?.value; // => "19800231"
+ * }
+ * ```
+ */
+export declare function validate(message: Hl7Message, options?: DefinitionOptions): readonly Issue[];
+//#endregion
+export type { BatchSplit, Component, DefinitionOptions, Delimiters, EmptySubcomponent, Field, FieldDefinition, FieldDefinitionInput, GroupChild, Hl7Message, Hl7Path, KnownPath, MessageGroups, NullSubcomponent, Optionality, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathFailure, PathFailureCode, Repetition, Segment, SegmentDefinition, SegmentDefinitionInput, SegmentGroup, SegmentReference, StringifyFailure, StringifyFailureCode, Subcomponent, ValueSubcomponent };

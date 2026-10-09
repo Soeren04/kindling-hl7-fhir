@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { type GroupChild, groupSegments } from "../../src/hl7v2/group";
+import { defineSegment } from "../../src/hl7v2/define-segment";
+import { group, type GroupChild, groupSegments } from "../../src/hl7v2/group";
 import type { Hl7Message } from "../../src/hl7v2/model";
 import type { Issue } from "../../src/shared/issue";
 import { parsed } from "./helpers";
@@ -529,5 +530,65 @@ describe("groupSegments", () => {
     expect(result.issues.length).toBeGreaterThan(0);
     for (const { message } of result.issues)
       expect(message).not.toContain("Everyman");
+  });
+});
+
+describe("group", () => {
+  it("returns the structure, the tree and the issues in message order", () => {
+    const { message } = parsed(
+      [adtHeader, "ZPI|1", "PID|1", "EVN|A01", "PV1|1|I"].join("\r"),
+    );
+    const groups = group(message);
+    expect(groups.structure).toBe("ADT_A01");
+    expect(outline(message, groups.children)).toStrictEqual([
+      "MSH",
+      "ZPI",
+      "PID",
+      "EVN",
+      "PV1",
+    ]);
+    expect(
+      groups.issues.map(({ code, location }) => [code, location.segmentIndex]),
+    ).toStrictEqual([
+      ["UNDEFINED_Z_SEGMENT", 1],
+      ["SEGMENT_OUT_OF_ORDER", 2],
+    ]);
+  });
+
+  it("allows the segments defined in the options anywhere", () => {
+    const { message } = parsed([adtHeader, "ZPI|1"].join("\r"));
+    const zpi = defineSegment({ id: "ZPI", fields: [] });
+    expect(
+      group(message, { segments: [zpi] }).issues.map(({ code }) => code),
+    ).toStrictEqual(["SEGMENT_MISSING", "SEGMENT_MISSING", "SEGMENT_MISSING"]);
+  });
+
+  it("reports an unknown structure at the start of a message without segments", () => {
+    const delimiters = { field: "|", component: "^", repetition: "~" };
+    expect(group({ delimiters, segments: [] })).toStrictEqual({
+      children: [],
+      issues: [
+        expect.objectContaining({
+          code: "MESSAGE_STRUCTURE_UNKNOWN",
+          location: { span: { start: 0, end: 0 } },
+        }),
+      ],
+    });
+  });
+
+  it.each([
+    ["a segment without fields", { id: "PID" }],
+    ["a segment without span", { id: "PID", fields: [] }],
+  ])("reports a tree with %s instead of throwing", (_case, segment) => {
+    const tree = { segments: [segment] } as unknown as Hl7Message;
+    expect(group(tree)).toStrictEqual({
+      children: [],
+      issues: [
+        expect.objectContaining({
+          code: "INVALID_TREE",
+          location: { span: { start: 0, end: 0 }, segmentIndex: 0 },
+        }),
+      ],
+    });
   });
 });
