@@ -49,7 +49,10 @@ interface Delimiters {
 interface Hl7Message {
   /** The delimiters declared in MSH-1 and MSH-2. */
   readonly delimiters: Delimiters;
-  /** The version ID from MSH-12.1 (for example `2.5.1`), as written; absent when MSH-12 is empty. */
+  /**
+   * The version ID (for example `2.5.1`): the raw text of the first component of the first repetition of MSH-12,
+   * without unescaping; absent when it is empty. MSH-18, the character set, is read the same way.
+   */
   readonly version?: string | undefined;
   /** Every segment in input order, including Z segments and segments with unknown identifiers. */
   readonly segments: readonly Segment$1[];
@@ -70,7 +73,10 @@ interface Hl7Message {
  * ```
  */
 interface Segment$1 {
-  /** The segment identifier, such as `PID` or `ZPI`, as written. */
+  /**
+   * The segment identifier, such as `PID` or `ZPI`, as written: the text before the first field separator. For a line
+   * without a field separator, it is the whole line (reported as `INVALID_SEGMENT_ID` unless it is a valid identifier).
+   */
   readonly id: string;
   /** The fields after the identifier; `fields[n - 1]` is field `n`. */
   readonly fields: readonly Field$1[];
@@ -151,7 +157,10 @@ interface Component$1 {
 interface ValueSubcomponent {
   /** Discriminant: this subcomponent has content. */
   readonly kind: "value";
-  /** The decoded text. */
+  /**
+   * The decoded text. It may contain any character the input or a hexadecimal escape holds, including NUL, other
+   * control characters and lone surrogates, without an issue; check before passing it on where they are not allowed.
+   */
   readonly value: string;
   /** `true` when the sender truncated the value; absent otherwise. */
   readonly truncated?: true | undefined;

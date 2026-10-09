@@ -39,10 +39,14 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   later siblings. `""` is `{ kind: "null" }`. Trailing empty children are trimmed when their parent closes; the parent
   span still covers them.
 - **Values are decoded text.** A `value` subcomponent holds the text a reader sees: delimiter, truncation and
-  hexadecimal escapes are decoded (hexadecimal ones in the MSH-18 character set), `\.br\` and `\.sp\` become `"\n"`,
+  hexadecimal escapes are decoded (hexadecimal ones in the MSH-18 character set), `\.br\`, `\.sp\` and `\.ce\` become `"\n"`,
   highlighting and the other formatting commands are removed, and sequences that cannot be interpreted stay verbatim.
   Every case other than delimiter escapes and line breaks is reported as an issue. The raw text is always available
-  through the span.
+  through the span. The parser does not know the data type of a field, so formatting escapes (`\.br\`, `\H\`, ...) are interpreted
+  in every value, although the standard defines them for formatted text (FT) and, partly, other text types. Typed
+  validation in phase 2 knows the data types and reports formatting escapes in fields that do not allow them.
+  Decoded values may hold NUL, other control characters and lone surrogates from the input or from hexadecimal
+  escapes; they are passed on without an issue, because rejecting them is a policy of the consumer.
 - **Omitted encoding characters stay unused.** MSH-2 may stop after the repetition separator: the escape character
   "may be omitted if no escape characters are used" and the subcomponent separator "if not used, may be omitted"
   (HL7 v2.5.1 section 2.5.4, table 2-1). `Delimiters.escape` and `Delimiters.subcomponent` are then absent, values
