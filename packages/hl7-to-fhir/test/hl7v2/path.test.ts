@@ -7,10 +7,10 @@ describe("parsePath", () => {
     [
       "PID.5",
       {
-        segment: "PID",
-        segmentIndex: undefined,
+        segmentId: "PID",
+        segmentOccurrence: undefined,
         field: 5,
-        fieldIndex: undefined,
+        repetition: undefined,
         component: undefined,
         subcomponent: undefined,
       },
@@ -18,10 +18,10 @@ describe("parsePath", () => {
     [
       "PID.5.1",
       {
-        segment: "PID",
-        segmentIndex: undefined,
+        segmentId: "PID",
+        segmentOccurrence: undefined,
         field: 5,
-        fieldIndex: undefined,
+        repetition: undefined,
         component: 1,
         subcomponent: undefined,
       },
@@ -29,10 +29,10 @@ describe("parsePath", () => {
     [
       "PID.3[2].4.2",
       {
-        segment: "PID",
-        segmentIndex: undefined,
+        segmentId: "PID",
+        segmentOccurrence: undefined,
         field: 3,
-        fieldIndex: 2,
+        repetition: 2,
         component: 4,
         subcomponent: 2,
       },
@@ -40,10 +40,10 @@ describe("parsePath", () => {
     [
       "OBX[3].5",
       {
-        segment: "OBX",
-        segmentIndex: 3,
+        segmentId: "OBX",
+        segmentOccurrence: 3,
         field: 5,
-        fieldIndex: undefined,
+        repetition: undefined,
         component: undefined,
         subcomponent: undefined,
       },
@@ -51,10 +51,10 @@ describe("parsePath", () => {
     [
       "ZPI[12].10[11].20.30",
       {
-        segment: "ZPI",
-        segmentIndex: 12,
+        segmentId: "ZPI",
+        segmentOccurrence: 12,
         field: 10,
-        fieldIndex: 11,
+        repetition: 11,
         component: 20,
         subcomponent: 30,
       },
@@ -62,10 +62,10 @@ describe("parsePath", () => {
     [
       "MSH.2",
       {
-        segment: "MSH",
-        segmentIndex: undefined,
+        segmentId: "MSH",
+        segmentOccurrence: undefined,
         field: 2,
-        fieldIndex: undefined,
+        repetition: undefined,
         component: undefined,
         subcomponent: undefined,
       },
@@ -73,10 +73,10 @@ describe("parsePath", () => {
     [
       "Q99.1",
       {
-        segment: "Q99",
-        segmentIndex: undefined,
+        segmentId: "Q99",
+        segmentOccurrence: undefined,
         field: 1,
-        fieldIndex: undefined,
+        repetition: undefined,
         component: undefined,
         subcomponent: undefined,
       },

@@ -4,6 +4,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 
 import type { Delimiters, Hl7Message } from "../../src/hl7v2/model";
+import type { ParsedPath } from "../../src/hl7v2/path";
 import type { Issue, Location } from "../../src/shared/issue";
 
 declare const maybeNumber: number | undefined;
@@ -40,6 +41,14 @@ describe("optional properties", () => {
       version: maybeString,
       segments: [],
     };
-    expectTypeOf([location, issue, message]).toBeArray();
+    const path: ParsedPath = {
+      segmentId: "OBX",
+      segmentOccurrence: maybeNumber,
+      field: 5,
+      repetition: maybeNumber,
+      component: maybeNumber,
+      subcomponent: maybeNumber,
+    };
+    expectTypeOf([location, issue, message, path]).toBeArray();
   });
 });

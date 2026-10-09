@@ -164,7 +164,7 @@ function repetitionAt(
   target: ParsedPath,
 ): Repetition | undefined {
   const field = segmentAt(message, target)?.fields[target.field - 1];
-  return field?.repetitions[(target.fieldIndex ?? 1) - 1];
+  return field?.repetitions[(target.repetition ?? 1) - 1];
 }
 
 /**
@@ -175,10 +175,10 @@ function segmentAt(
   message: Hl7Message,
   target: ParsedPath,
 ): Segment | undefined {
-  const occurrence = target.segmentIndex ?? 1;
+  const occurrence = target.segmentOccurrence ?? 1;
   let seen = 0;
   for (const segment of message.segments) {
-    if (segment.id === target.segment) {
+    if (segment.id === target.segmentId) {
       seen++;
       if (seen === occurrence) return segment;
     }
@@ -191,19 +191,19 @@ function selectSegments(
   message: Hl7Message,
   target: ParsedPath,
 ): readonly Segment[] {
-  if (target.segmentIndex !== undefined) {
+  if (target.segmentOccurrence !== undefined) {
     const indexed = segmentAt(message, target);
     return indexed === undefined ? [] : [indexed];
   }
-  return message.segments.filter(({ id }) => id === target.segment);
+  return message.segments.filter(({ id }) => id === target.segmentId);
 }
 /** The repetitions a path selects: the indexed one, or all of them. */
 function selectRepetitions(
   repetitions: readonly Repetition[],
   target: ParsedPath,
 ): readonly Repetition[] {
-  if (target.fieldIndex === undefined) return repetitions;
-  const indexed = repetitions[target.fieldIndex - 1];
+  if (target.repetition === undefined) return repetitions;
+  const indexed = repetitions[target.repetition - 1];
   return indexed === undefined ? [] : [indexed];
 }
 

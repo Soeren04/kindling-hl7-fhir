@@ -566,30 +566,36 @@ export declare function parse(input: string): Result<ParseSuccess, ParseFailure>
 //#endregion
 //#region src/hl7v2/path.d.ts
 /**
- * A path split into its parts. Numbers are 1-based, as written in HL7 notation (`PID.5.1` has `field: 5` and
- * `component: 1`); {@link get} reads `fields[field - 1]`.
+ * A path split into its parts. Numbering follows the rule of `Location`: a name ending in `Index` is a 0-based array
+ * index, every other position is the 1-based number of HL7 notation. A path names positions only, so all numbers here
+ * are 1-based (`PID.5.1` has `field: 5` and `component: 1`; `OBX[3]` is the third `OBX` segment), and {@link get}
+ * reads `fields[field - 1]`.
+ *
+ * Parts the path leaves out are `undefined`: no `segmentOccurrence` selects the first segment with the identifier
+ * (`get`) or all of them (`getAll`), no `repetition` the first repetition (`get`) or all (`getAll`), and no
+ * `component` or `subcomponent` the first one.
  *
  * @example
  * ```ts
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("OBX[3].5.1");
- * // { segment: "OBX", segmentIndex: 3, field: 5, fieldIndex: undefined, component: 1, subcomponent: undefined }
+ * // { segmentId: "OBX", segmentOccurrence: 3, field: 5, repetition: undefined, component: 1, subcomponent: undefined }
  * ```
  */
 interface ParsedPath {
   /** The segment identifier, such as `PID`. */
-  readonly segment: string;
-  /** Which segment of that identifier, counted over the whole message; `undefined` selects the first (`get`) or all (`getAll`). */
-  readonly segmentIndex: number | undefined;
+  readonly segmentId: string;
+  /** Which segment of that identifier, counted over the whole message from 1: `3` in `OBX[3]`. */
+  readonly segmentOccurrence?: number | undefined;
   /** The field number: `5` in `PID.5`. */
   readonly field: number;
-  /** Which repetition of the field; `undefined` selects the first (`get`) or all (`getAll`). */
-  readonly fieldIndex: number | undefined;
-  /** The component number; `undefined` selects the first component. */
-  readonly component: number | undefined;
-  /** The subcomponent number; `undefined` selects the first subcomponent. */
-  readonly subcomponent: number | undefined;
+  /** Which repetition of the field, counted from 1: `2` in `PID.3[2]`. */
+  readonly repetition?: number | undefined;
+  /** The component number: `1` in `PID.5.1`. */
+  readonly component?: number | undefined;
+  /** The subcomponent number: `2` in `PID.5.1.2`. */
+  readonly subcomponent?: number | undefined;
 }
 /**
  * Why a path could not be read.
@@ -638,7 +644,7 @@ interface PathFailure {
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("PID.3[2].1");
- * if (result.ok) console.log(result.value.field, result.value.fieldIndex); // 3 2
+ * if (result.ok) console.log(result.value.field, result.value.repetition); // 3 2
  * ```
  */
 export declare function parsePath(path: string): Result<ParsedPath, PathFailure>;
