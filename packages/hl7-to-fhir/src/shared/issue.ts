@@ -103,6 +103,16 @@ export type Severity = "error" | "warning" | "info";
  *   (`ADT^A04^ORU_R01`); the segments are checked against the one MSH-9.3 names. `value` is MSH-9.3.
  * - `MESSAGE_STRUCTURE_UNSUPPORTED` (info): the library has no definition of the message structure; segment order is
  *   not checked. `value` is the structure, such as `ORM_O01`.
+ * - `SEGMENT_MISSING` (error): a segment the message structure requires is missing; the location names it
+ *   (`segmentId`) and has an empty span where it belongs, but no `segmentIndex`. No `value`.
+ * - `SEGMENT_OUT_OF_ORDER` (error): the message structure contains the segment, but not at this position: segments
+ *   that must follow it come before it. No `value`.
+ * - `SEGMENT_REPEATED` (error): the segment, or the group it starts, occurs more often than the message structure
+ *   allows at this position. No `value`.
+ * - `UNEXPECTED_SEGMENT` (warning): the message structure does not contain the segment, and no definition of it was
+ *   passed in. No `value`.
+ * - `UNDEFINED_Z_SEGMENT` (info): a locally defined Z segment without a definition; it is kept, but neither its
+ *   position nor its fields are checked. No `value`.
  *
  * Limits:
  *
@@ -145,6 +155,11 @@ export type IssueCode =
   | "MESSAGE_STRUCTURE_UNKNOWN"
   | "MESSAGE_STRUCTURE_MISMATCH"
   | "MESSAGE_STRUCTURE_UNSUPPORTED"
+  | "SEGMENT_MISSING"
+  | "SEGMENT_OUT_OF_ORDER"
+  | "SEGMENT_REPEATED"
+  | "UNEXPECTED_SEGMENT"
+  | "UNDEFINED_Z_SEGMENT"
   | "TOO_MANY_ISSUES";
 
 /**

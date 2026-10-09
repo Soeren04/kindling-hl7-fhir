@@ -169,6 +169,31 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The library has no definition of the message structure that MSH-9 names; the order of the segments is not checked.",
   },
+  SEGMENT_MISSING: {
+    severity: "error",
+    message:
+      "A segment that the message structure requires is missing; the location names the segment and points where it belongs.",
+  },
+  SEGMENT_OUT_OF_ORDER: {
+    severity: "error",
+    message:
+      "The message structure contains the segment, but not at this position: segments that must follow it come before it.",
+  },
+  SEGMENT_REPEATED: {
+    severity: "error",
+    message:
+      "The segment, or the segment group it starts, occurs more often than the message structure allows at this position.",
+  },
+  UNEXPECTED_SEGMENT: {
+    severity: "warning",
+    message:
+      "The message structure does not contain the segment, and no definition of it was passed in.",
+  },
+  UNDEFINED_Z_SEGMENT: {
+    severity: "info",
+    message:
+      "A locally defined Z segment has no definition, so neither its position nor its fields are checked; pass a definition made with defineSegment to validate it.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:
