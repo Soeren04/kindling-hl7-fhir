@@ -98,14 +98,6 @@ export type IssueCode =
   | "UNSUPPORTED_CHARACTER_SET"
   /** MSH-18 names a character set with a spelling HL7 table 0211 does not use, such as `UTF-8`; it is recognized. */
   | "NON_STANDARD_CHARACTER_SET"
-  /** `stringify`: a value needs an escape sequence, but MSH-2 declares no escape character. */
-  | "ESCAPE_CHARACTER_REQUIRED"
-  /** `stringify`: a component has several subcomponents, but MSH-2 declares no subcomponent separator. */
-  | "SUBCOMPONENT_SEPARATOR_REQUIRED"
-  /** `stringify`: a subcomponent is the HL7 null `""`, but the quote is one of the delimiters. */
-  | "NULL_NOT_REPRESENTABLE"
-  /** `stringify`: a value is marked as truncated, but MSH-2 declares no truncation character. */
-  | "TRUNCATION_CHARACTER_REQUIRED"
   /** More issues were found than are reported (10,000); this issue, at the end of the input, replaces the rest. */
   | "TOO_MANY_ISSUES";
 
@@ -336,26 +328,6 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "info",
     message:
       "MSH-18 names the character set with a spelling that HL7 table 0211 does not use; it was recognized anyway.",
-  },
-  ESCAPE_CHARACTER_REQUIRED: {
-    severity: "error",
-    message:
-      'A value contains a delimiter or a line break that cannot be written as it is, or is the text "", which need an escape sequence, but MSH-2 declares no escape character.',
-  },
-  SUBCOMPONENT_SEPARATOR_REQUIRED: {
-    severity: "error",
-    message:
-      "A component has several subcomponents, but MSH-2 declares no subcomponent separator.",
-  },
-  NULL_NOT_REPRESENTABLE: {
-    severity: "error",
-    message:
-      'A subcomponent is the HL7 null, but the quote is one of the delimiters, so "" would not read back as the null.',
-  },
-  TRUNCATION_CHARACTER_REQUIRED: {
-    severity: "error",
-    message:
-      "A value is marked as truncated, but MSH-2 declares no truncation character.",
   },
   TOO_MANY_ISSUES: {
     severity: "warning",

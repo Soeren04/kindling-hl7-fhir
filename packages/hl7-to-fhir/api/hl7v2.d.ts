@@ -1,4 +1,4 @@
-import { a as IssueCode, c as Span, i as Issue, o as Location, r as Result } from "./result.js";
+import { c as Span, i as Issue, o as Location, r as Result } from "./result.js";
 //#region src/hl7v2/model.d.ts
 /**
  * The delimiters a message declares in MSH-1 and MSH-2.
@@ -621,6 +621,9 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
 /**
  * Why a tree cannot be written with the delimiters of its message.
  *
+ * The codes are separate from the issue codes of `parse`, because a failure of `stringify` is about a tree, not about
+ * input text.
+ *
  * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return or is the text `""`, which need an
  *   escape sequence, but MSH-2 declares no escape character. Line feeds are written as they are, except in MSH,
  *   where a line feed would end the segment.
@@ -630,7 +633,7 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
  *   `""` would not read back as the null.
  * - `TRUNCATION_CHARACTER_REQUIRED`: a value is marked as truncated, but MSH-2 declares no truncation character.
  */
-type StringifyFailureCode = Extract<IssueCode, "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE" | "TRUNCATION_CHARACTER_REQUIRED">;
+type StringifyFailureCode = "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE" | "TRUNCATION_CHARACTER_REQUIRED";
 /**
  * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
  * the message cannot express. Trees returned by `parse` never fail; only trees built or changed by hand can.

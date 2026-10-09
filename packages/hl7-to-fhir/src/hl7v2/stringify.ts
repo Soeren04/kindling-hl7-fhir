@@ -1,4 +1,4 @@
-import { issue, type IssueCode, type Location } from "../shared/issue";
+import type { Location } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { encodeText } from "./escape";
 import type {
@@ -15,6 +15,9 @@ import { isValidSegmentId } from "./segment";
 /**
  * Why a tree cannot be written with the delimiters of its message.
  *
+ * The codes are separate from the issue codes of `parse`, because a failure of `stringify` is about a tree, not about
+ * input text.
+ *
  * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return or is the text `""`, which need an
  *   escape sequence, but MSH-2 declares no escape character. Line feeds are written as they are, except in MSH,
  *   where a line feed would end the segment.
@@ -24,13 +27,23 @@ import { isValidSegmentId } from "./segment";
  *   `""` would not read back as the null.
  * - `TRUNCATION_CHARACTER_REQUIRED`: a value is marked as truncated, but MSH-2 declares no truncation character.
  */
-export type StringifyFailureCode = Extract<
-  IssueCode,
+export type StringifyFailureCode =
   | "ESCAPE_CHARACTER_REQUIRED"
   | "SUBCOMPONENT_SEPARATOR_REQUIRED"
   | "NULL_NOT_REPRESENTABLE"
-  | "TRUNCATION_CHARACTER_REQUIRED"
->;
+  | "TRUNCATION_CHARACTER_REQUIRED";
+
+// One message per code, like the issue messages; a message never contains message content.
+const failureMessages: Readonly<Record<StringifyFailureCode, string>> = {
+  ESCAPE_CHARACTER_REQUIRED:
+    'A value contains a delimiter or a line break that cannot be written as it is, or is the text "", which need an escape sequence, but MSH-2 declares no escape character.',
+  SUBCOMPONENT_SEPARATOR_REQUIRED:
+    "A component has several subcomponents, but MSH-2 declares no subcomponent separator.",
+  NULL_NOT_REPRESENTABLE:
+    'A subcomponent is the HL7 null, but the quote is one of the delimiters, so "" would not read back as the null.',
+  TRUNCATION_CHARACTER_REQUIRED:
+    "A value is marked as truncated, but MSH-2 declares no truncation character.",
+};
 
 /**
  * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
@@ -115,10 +128,7 @@ function fail(
   code: StringifyFailureCode,
   location: Location,
 ): string {
-  if (writer.failure === undefined) {
-    const { message } = issue(code, location);
-    writer.failure = { code, message, location };
-  }
+  writer.failure ??= { code, message: failureMessages[code], location };
   return "";
 }
 
