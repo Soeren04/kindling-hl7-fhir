@@ -448,6 +448,9 @@ interface ParseFailure {
  * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n` (ADR 0008).
  * The types of the issues are exported from the main entry point, `hl7-to-fhir`.
  *
+ * A later MSH segment starts a second message; `parse` keeps it as a segment and reports it (`UNEXPECTED_MSH`, or the
+ * error `UNEXPECTED_MSH_DELIMITERS` when it declares other delimiters than the first).
+ *
  * @param input - One message as text. Use `splitBatch` for batch files or streams with several messages.
  * @returns The message and its issues, or why it could not be parsed.
  *

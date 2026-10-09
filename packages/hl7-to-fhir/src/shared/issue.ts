@@ -37,6 +37,10 @@ export type IssueCode =
   | "EMPTY_INPUT"
   /** The first segment is not `MSH`. */
   | "MISSING_MSH"
+  /** A later segment is MSH: the input holds more than one message and should be split with `splitBatch` first. */
+  | "UNEXPECTED_MSH"
+  /** Like `UNEXPECTED_MSH`, but the later MSH declares other delimiters, while its fields are read with the first's. */
+  | "UNEXPECTED_MSH_DELIMITERS"
   /** A byte order mark at the start of the input was removed. */
   | "BYTE_ORDER_MARK_REMOVED"
   /** An MLLP start block (`0x0B`) or end block (`0x1C`, optionally followed by a carriage return) was removed. */
@@ -194,6 +198,16 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "error",
     message:
       "The first segment is not MSH. Batch files (FHS, BHS) must be split into messages first.",
+  },
+  UNEXPECTED_MSH: {
+    severity: "warning",
+    message:
+      "A later MSH segment starts another message; split the input with splitBatch first. The segment is kept in this message.",
+  },
+  UNEXPECTED_MSH_DELIMITERS: {
+    severity: "error",
+    message:
+      "A later MSH segment starts another message with other delimiters, but its fields were read with the delimiters of the first; split the input with splitBatch first.",
   },
   BYTE_ORDER_MARK_REMOVED: {
     severity: "info",
