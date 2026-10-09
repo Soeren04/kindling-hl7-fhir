@@ -52,14 +52,18 @@ export interface BatchSplit {
  * passed to `parse` as it is. Blank lines between messages are ignored.
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
- * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
- * frame without end block, text that belongs to no message and is dropped, an `FHS` or `BHS` inside an envelope of
- * its kind that has no trailer yet, and a `BTS-1` or `FTS-1` count that differs from the number of messages or
- * batches (warnings). Batches are counted as HL7 v2.5.1 section 2.10.3 defines a file,
- * `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without `BHS` form a batch too. Envelope segments are dropped
- * without an issue, because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
- * messages, which are independent strings; the position of a message in the result tells which message a later
- * `parse` issue belongs to.
+ * doubts is reported in `issues`, as `parse` does (ADR 0003):
+ *
+ * - info: the byte order mark and MLLP framing that were removed;
+ * - warning: an MLLP frame without end block, malformed MLLP framing (an end block without start block or without
+ *   the carriage return after it, text between frames, several messages in one frame), text that belongs to no
+ *   message and is dropped, an `FHS` or `BHS` inside an envelope of its kind that has no trailer yet, and a `BTS-1`
+ *   or `FTS-1` count that differs from the number of messages or batches.
+ *
+ * Envelope segments are dropped without an issue, because removing them is the purpose of the function. Batches are
+ * counted as HL7 v2.5.1 section 2.10.3 defines a file, `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without
+ * `BHS` form a batch too. Offsets in the issues refer to `input`, not to the returned messages, which are independent
+ * strings; the position of a message in the result tells which message a later `parse` issue belongs to.
  *
  * The scan is a single pass over the characters, so the time is linear in the size of the input.
  *
@@ -103,6 +107,8 @@ export function splitBatch(input: string): BatchSplit {
     message: undefined,
     outside: undefined,
     frameStart: undefined,
+    messagesInFrame: 0,
+    afterFrame: false,
     lineFeedIsData: false,
     fileOpen: false,
     batch: "none",
@@ -142,6 +148,10 @@ interface Scan {
   outside: Span | undefined;
   /** Offset of the MLLP start block of the frame that is open. */
   frameStart: number | undefined;
+  /** Messages in the open frame; MLLP carries one per frame. */
+  messagesInFrame: number;
+  /** Whether an MLLP frame has ended and no text or start block followed yet, so text now lies between frames. */
+  afterFrame: boolean;
   /** Whether the MSH of the message being read ends with `\r` or `\r\n`, which makes a line feed on its own data. */
   lineFeedIsData: boolean;
   /** Whether an `FHS` opened a file that no `FTS` has closed yet. */
@@ -163,6 +173,8 @@ function startFrame(scan: Scan, index: number): number {
   closeSection(scan);
   if (scan.frameStart !== undefined) reportUnterminated(scan, scan.frameStart);
   scan.frameStart = index;
+  scan.messagesInFrame = 0;
+  scan.afterFrame = false;
   report(scan.issues, "MLLP_FRAMING_REMOVED", {
     span: { start: index, end: index + 1 },
   });
@@ -212,6 +224,10 @@ function readLine(scan: Scan, start: number): number {
   const contentEnd = framed ? end : next;
 
   if (!isBlank(input, start, end)) {
+    if (scan.afterFrame) {
+      reportMalformedFrame(scan, { start, end });
+      scan.afterFrame = false;
+    }
     readSegment(scan, id, start, end, contentEnd);
     if (id === "MSH") scan.lineFeedIsData = marker === "\r";
   }
@@ -252,7 +268,20 @@ function endFrame(scan: Scan, end: number, next: number): void {
   report(scan.issues, "MLLP_FRAMING_REMOVED", {
     span: { start: end, end: next },
   });
+  // MLLP ends a frame with the end block and a carriage return, after a start block.
+  if (scan.frameStart === undefined || next - end === 1) {
+    reportMalformedFrame(scan, { start: end, end: end + 1 });
+  }
   scan.frameStart = undefined;
+  scan.afterFrame = true;
+}
+
+/**
+ * Reports a violation of the MLLP framing that the split tolerates: an end block without start block or without
+ * the carriage return after it, text between frames, or a second message in one frame.
+ */
+function reportMalformedFrame(scan: Scan, span: Span): void {
+  report(scan.issues, "MLLP_FRAME_MALFORMED", { span });
 }
 
 /**
@@ -270,6 +299,12 @@ function readSegment(
     case "MSH":
       closeSection(scan);
       scan.message = { start, end: contentEnd };
+      if (scan.frameStart !== undefined) {
+        scan.messagesInFrame++;
+        if (scan.messagesInFrame > 1) {
+          reportMalformedFrame(scan, { start, end: start + id.length });
+        }
+      }
       if (scan.batch === "none") scan.batch = "implicit";
       scan.messagesInBatch++;
       break;

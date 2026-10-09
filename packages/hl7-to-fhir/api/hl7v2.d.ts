@@ -421,14 +421,18 @@ interface BatchSplit {
  * passed to `parse` as it is. Blank lines between messages are ignored.
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
- * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
- * frame without end block, text that belongs to no message and is dropped, an `FHS` or `BHS` inside an envelope of
- * its kind that has no trailer yet, and a `BTS-1` or `FTS-1` count that differs from the number of messages or
- * batches (warnings). Batches are counted as HL7 v2.5.1 section 2.10.3 defines a file,
- * `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without `BHS` form a batch too. Envelope segments are dropped
- * without an issue, because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
- * messages, which are independent strings; the position of a message in the result tells which message a later
- * `parse` issue belongs to.
+ * doubts is reported in `issues`, as `parse` does (ADR 0003):
+ *
+ * - info: the byte order mark and MLLP framing that were removed;
+ * - warning: an MLLP frame without end block, malformed MLLP framing (an end block without start block or without
+ *   the carriage return after it, text between frames, several messages in one frame), text that belongs to no
+ *   message and is dropped, an `FHS` or `BHS` inside an envelope of its kind that has no trailer yet, and a `BTS-1`
+ *   or `FTS-1` count that differs from the number of messages or batches.
+ *
+ * Envelope segments are dropped without an issue, because removing them is the purpose of the function. Batches are
+ * counted as HL7 v2.5.1 section 2.10.3 defines a file, `[FHS] { [BHS] { [MSH ...] } [BTS] } [FTS]`: messages without
+ * `BHS` form a batch too. Offsets in the issues refer to `input`, not to the returned messages, which are independent
+ * strings; the position of a message in the result tells which message a later `parse` issue belongs to.
  *
  * The scan is a single pass over the characters, so the time is linear in the size of the input.
  *

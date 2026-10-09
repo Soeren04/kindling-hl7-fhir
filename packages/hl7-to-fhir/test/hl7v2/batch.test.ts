@@ -360,7 +360,7 @@ describe("splitBatch", () => {
       expect(messages).toStrictEqual([adt, oru]);
     });
 
-    it("accepts an end block without carriage return", () => {
+    it("accepts an end block without carriage return and reports it", () => {
       const [messages, issues] = split(
         `${start}${adt}\r\u001C${start}${oru}\u001C`,
       );
@@ -368,16 +368,46 @@ describe("splitBatch", () => {
       expect(issues).toStrictEqual([
         ["MLLP_FRAMING_REMOVED", "info", start],
         ["MLLP_FRAMING_REMOVED", "info", "\u001C"],
+        ["MLLP_FRAME_MALFORMED", "warning", "\u001C"],
         ["MLLP_FRAMING_REMOVED", "info", start],
         ["MLLP_FRAMING_REMOVED", "info", "\u001C"],
+        ["MLLP_FRAME_MALFORMED", "warning", "\u001C"],
       ]);
     });
 
-    it("accepts several messages in one frame and frames without a gap", () => {
-      const [messages] = split(
-        `${start}${adt}\r${oru}\r${end}${start}${adt}\r${end}`,
-      );
+    it("splits several messages in one frame and reports the second", () => {
+      const input = `${start}${adt}\r${oru}\r${adt}\r${end}`;
+      const [messages, issues] = split(input);
       expect(messages).toStrictEqual([`${adt}\r`, `${oru}\r`, `${adt}\r`]);
+      expect(issues).toStrictEqual([
+        ["MLLP_FRAMING_REMOVED", "info", start],
+        ["MLLP_FRAME_MALFORMED", "warning", "MSH"],
+        ["MLLP_FRAME_MALFORMED", "warning", "MSH"],
+        ["MLLP_FRAMING_REMOVED", "info", end],
+      ]);
+    });
+
+    it("accepts frames without a gap", () => {
+      const [messages, issues] = split(
+        `${start}${adt}\r${end}${start}${oru}\r${end}`,
+      );
+      expect(messages).toStrictEqual([`${adt}\r`, `${oru}\r`]);
+      expect(issues.map(([code]) => code)).not.toContain(
+        "MLLP_FRAME_MALFORMED",
+      );
+    });
+
+    it("reports text between frames once per gap, located at its first line", () => {
+      const input = `${start}${adt}\r${end}junk\rmore\r${start}${oru}\r${end}${oru}\r`;
+      const [messages, issues] = split(input);
+      expect(messages).toStrictEqual([`${adt}\r`, `${oru}\r`, `${oru}\r`]);
+      expect(
+        issues.filter(([code]) => code !== "MLLP_FRAMING_REMOVED"),
+      ).toStrictEqual([
+        ["MLLP_FRAME_MALFORMED", "warning", "junk"],
+        ["CONTENT_OUTSIDE_MESSAGE", "warning", "junk\rmore"],
+        ["MLLP_FRAME_MALFORMED", "warning", oru],
+      ]);
     });
 
     it("accepts a frame with line feed terminators and whitespace between frames", () => {
@@ -414,10 +444,13 @@ describe("splitBatch", () => {
       ]);
     });
 
-    it("reports an end block without start block as removed framing", () => {
+    it("reports an end block without start block as removed and malformed framing", () => {
       const [messages, issues] = split(`${adt}\r${end}`);
       expect(messages).toStrictEqual([`${adt}\r`]);
-      expect(issues).toStrictEqual([["MLLP_FRAMING_REMOVED", "info", end]]);
+      expect(issues).toStrictEqual([
+        ["MLLP_FRAMING_REMOVED", "info", end],
+        ["MLLP_FRAME_MALFORMED", "warning", "\u001C"],
+      ]);
     });
 
     it("splits batches inside frames", () => {

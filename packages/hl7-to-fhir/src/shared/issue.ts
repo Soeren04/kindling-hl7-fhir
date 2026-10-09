@@ -52,6 +52,11 @@ export type IssueCode =
   | "MLLP_FRAMING_REMOVED"
   /** An MLLP start block (`0x0B`) has no matching end block; the message runs to the next start block or the end of the input. */
   | "MLLP_FRAME_UNTERMINATED"
+  /**
+   * MLLP framing that does not follow the protocol: an end block without start block or not followed by a carriage
+   * return, text between frames, or several messages in one frame. The messages are split anyway.
+   */
+  | "MLLP_FRAME_MALFORMED"
   /** Text outside any message (before the first `MSH`, between batches or between MLLP frames) was dropped. */
   | "CONTENT_OUTSIDE_MESSAGE"
   /** A trailer count differs from what the input contains: `BTS-1` counts messages, `FTS-1` counts batches. */
@@ -232,6 +237,11 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "warning",
     message:
       "An MLLP frame has no end block; the message may be cut off, for example by a closed connection.",
+  },
+  MLLP_FRAME_MALFORMED: {
+    severity: "warning",
+    message:
+      "The MLLP framing is malformed: an end block without start block or without the carriage return after it, text between frames, or several messages in one frame.",
   },
   CONTENT_OUTSIDE_MESSAGE: {
     severity: "warning",
