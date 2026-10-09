@@ -128,7 +128,7 @@ describe("stringify", () => {
       ["a~b", "a\\R\\b"],
       ["a\\b", "a\\E\\b"],
       ["a&b", "a\\T\\b"],
-      ["two\nlines", "two\\.br\\lines"],
+      ["two\nlines", "two\\X0A\\lines"],
       ["a\rb", "a\\X0D\\b"],
     ])("writes the value %j as %j", (value, written) => {
       const message: Hl7Message = {
@@ -157,9 +157,9 @@ describe("stringify", () => {
       );
     });
 
-    it("writes line breaks as text commands", () => {
+    it("writes line breaks as hexadecimal escapes, which every text data type allows", () => {
       expect(roundTrip(`${header}\rNTE|1|a\\.br\\b\\.sp\\c\r`)).toBe(
-        `${header}\rNTE|1|a\\.br\\b\\.br\\c\r`,
+        `${header}\rNTE|1|a\\X0A\\b\\X0A\\c\r`,
       );
     });
 

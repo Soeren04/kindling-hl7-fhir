@@ -109,8 +109,7 @@ function endsInsideEscape(
 
 /**
  * Escapes `value` so that it can be written as one subcomponent: delimiters (and the truncation character, if
- * declared) become their escape sequences, a line feed becomes `\.br\` (`\X0A\` if "." is a delimiter) and a
- * carriage return `\X0D\`, which would otherwise end the segment. The first quote of a value of exactly `""` is
+ * declared) become their escape sequences, a line feed becomes `\X0A\` and a carriage return `\X0D\`, which would otherwise end the segment. The first quote of a value of exactly `""` is
  * written as `\X22\`, so the value is not read as the HL7 null.
  *
  * `decodeText` restores the original value in every supported character set.
@@ -163,18 +162,13 @@ function escapeSequenceFor(
     case delimiters.truncation:
       return "P";
     case "\n":
-      // `\.br\` is what text fields use; it cannot be written when "." is a delimiter, the hexadecimal form can.
-      return usesPeriod(delimiters) ? "X0A" : ".br";
+      // `\.br\` is only valid in formatted text (FT); the hexadecimal form is valid in every text data type.
+      return "X0A";
     case "\r":
       return "X0D";
     default:
       return undefined;
   }
-}
-
-function usesPeriod(delimiters: Delimiters): boolean {
-  const { field, component, repetition, subcomponent, escape } = delimiters;
-  return [field, component, repetition, subcomponent, escape].includes(".");
 }
 
 /** The replacement for one escape sequence; `text` is absent when the sequence is kept as written. */
