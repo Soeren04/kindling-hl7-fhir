@@ -41,6 +41,14 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   highlighting and the other formatting commands are removed, and sequences that cannot be interpreted stay verbatim.
   Every case other than delimiter escapes and line breaks is reported as an issue. The raw text is always available
   through the span.
+- **`parse` returns `Result<ParseSuccess, ParseFailure>`, and the success holds `{ message, issues }`.** The plan
+  sketched `Result<Hl7Message, …>`, but parsing is lenient (ADR 0003): a successful parse has issues too, and they
+  belong to the same call as the tree. Pairing them in the success value keeps them out of the tree, which stays plain
+  data that `stringify` and the accessors take without diagnostics, and gives the failure the same `issues` property
+  with the issues found before parsing stopped. `ParseSuccess` and `ParseFailure` are named as a pair.
+- **`ParseFailure` is one interface with a code union** (`ParseFailureCode`), not a union of one interface per code.
+  Every failure carries the same data (code, message, issues, the last of which locates the cause), so per-code
+  interfaces would repeat one shape without giving callers anything more to narrow on than `code`.
 - **Locations never carry content.** `Location.segmentId` is set only for a valid segment identifier; the raw text of
   an invalid one is in `Issue.value`, like every other raw value.
 

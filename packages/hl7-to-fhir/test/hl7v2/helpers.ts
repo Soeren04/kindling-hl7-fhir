@@ -1,10 +1,10 @@
 import { expect } from "vitest";
 
 import type { Field, Hl7Message, Segment } from "../../src/hl7v2/model";
-import { parse, type ParsedMessage } from "../../src/hl7v2/parse";
+import { parse, type ParseSuccess } from "../../src/hl7v2/parse";
 
 /** Parses `input` and fails the test when parsing fails. */
-export function parsed(input: string): ParsedMessage {
+export function parsed(input: string): ParseSuccess {
   const result = parse(input);
   if (!result.ok) {
     expect.fail(

@@ -23,7 +23,7 @@ export { get, getAll, isNull } from "./hl7v2/access";
 export { type BatchSplit, splitBatch } from "./hl7v2/batch";
 export {
   parse,
-  type ParsedMessage,
+  type ParseSuccess,
   type ParseFailure,
   type ParseFailureCode,
 } from "./hl7v2/parse";
