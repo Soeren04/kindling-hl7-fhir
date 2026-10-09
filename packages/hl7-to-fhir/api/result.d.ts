@@ -113,6 +113,15 @@ type Severity = "error" | "warning" | "info";
  * - `UNDEFINED_Z_SEGMENT` (info): a locally defined Z segment without a definition; it is kept, but neither its
  *   position nor its fields are checked. No `value`.
  *
+ * Fields (validation):
+ *
+ * - `REQUIRED_FIELD_MISSING` (error): a field the segment definition requires holds neither a value nor `""`. No
+ *   `value`.
+ * - `TOO_MANY_REPETITIONS` (error): a field repeats more often than its definition allows; the location is the first
+ *   repetition too many. No `value`.
+ * - `UNEXPECTED_FIELD` (warning): a field after the last one the segment definition has, or one it marks as not used
+ *   (`X`), holds something. No `value`.
+ *
  * Limits:
  *
  * - `TOO_MANY_ISSUES` (warning): more issues were found than are reported (10,000); this issue, at the end of the
@@ -159,6 +168,9 @@ type IssueCode =
   | "SEGMENT_REPEATED"
   | "UNEXPECTED_SEGMENT"
   | "UNDEFINED_Z_SEGMENT"
+  | "REQUIRED_FIELD_MISSING"
+  | "TOO_MANY_REPETITIONS"
+  | "UNEXPECTED_FIELD"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
@@ -172,6 +184,10 @@ type IssueCode =
  *
  * A location never contains message content: `segmentId` is only set when the segment identifier is valid
  * (three upper-case letters or digits, starting with a letter).
+ *
+ * Something that is missing has no node to point at: a missing segment has the identifier the message structure
+ * expects in `segmentId`, no `segmentIndex`, and an empty span where it belongs; a missing field has its number and,
+ * when the segment ends before it, an empty span at the end of the segment.
  *
  * @example
  * ```ts
@@ -193,7 +209,10 @@ interface Location {
   readonly span: Span;
   /** 0-based index of the segment in the message. */
   readonly segmentIndex?: number | undefined;
-  /** Identifier of the segment, such as `PID`; absent when the identifier is not valid. */
+  /**
+   * Identifier of the segment, such as `PID`; absent when the identifier is not valid. For a missing segment, the
+   * identifier the message structure expects.
+   */
   readonly segmentId?: string | undefined;
   /** 1-based field number (`PID-5` is field 5; `MSH-1` is the field separator). */
   readonly field?: number | undefined;

@@ -9,7 +9,8 @@
  * - `O`: optional.
  * - `C`: conditional; the condition depends on other elements and is not modelled here.
  * - `B`: kept only for backward compatibility with older versions.
- * - `X`: not used in this version (a reserved position that keeps the numbering contiguous).
+ * - `X`: not used with this trigger event, or not supported; a field marked `X` that holds something is reported as
+ *   `UNEXPECTED_FIELD`. The reserved positions of 2.5.1, such as OBX-20 to OBX-22, are marked `X`.
  *
  * @example
  * ```ts

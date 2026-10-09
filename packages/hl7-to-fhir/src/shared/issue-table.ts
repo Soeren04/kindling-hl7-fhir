@@ -194,6 +194,21 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "A locally defined Z segment has no definition, so neither its position nor its fields are checked; pass a definition made with defineSegment to validate it.",
   },
+  REQUIRED_FIELD_MISSING: {
+    severity: "error",
+    message:
+      'A field that the segment definition requires holds neither a value nor the explicit null "".',
+  },
+  TOO_MANY_REPETITIONS: {
+    severity: "error",
+    message:
+      "The field repeats more often than its definition allows; the location points at the first repetition too many.",
+  },
+  UNEXPECTED_FIELD: {
+    severity: "warning",
+    message:
+      "A field after the last one the segment definition has, or one it marks as not used (X), holds a value, often because a value contains an unescaped field separator.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

@@ -1,5 +1,6 @@
 import type { Issue, IssueCode, Location } from "./issue";
 import { issue } from "./issue-table";
+import { emptySpanAt } from "./span";
 
 /**
  * The most issues one call reports. Hostile input can hold an issue every few characters; the limit keeps the issue
@@ -31,12 +32,18 @@ export function finishIssues(
   issues: readonly Issue[],
   inputLength: number,
 ): Issue[] {
-  const sorted = issues
-    .slice()
-    .sort((a, b) => a.location.span.start - b.location.span.start);
+  const sorted = inMessageOrder(issues);
   if (sorted.length <= maxIssues) return sorted;
-  const end = { start: inputLength, end: inputLength };
   return sorted
     .slice(0, maxIssues)
-    .concat(issue("TOO_MANY_ISSUES", { span: end }));
+    .concat(issue("TOO_MANY_ISSUES", { span: emptySpanAt(inputLength) }));
+}
+
+/**
+ * The issues sorted by their position in the input; issues at the same position keep the order they were found in.
+ */
+export function inMessageOrder(issues: readonly Issue[]): Issue[] {
+  return issues
+    .slice()
+    .sort((a, b) => a.location.span.start - b.location.span.start);
 }
