@@ -9,19 +9,27 @@
  * - a field number follows the segment, and component and subcomponent numbers may follow it,
  * - every number is a positive whole number without leading zeros, and only the segment and the field take an index.
  *
- * The check is shallow on purpose: it does not know which segments and fields exist, so `PID.99` passes, and it
- * costs a few type instantiations per literal. Strings that are not literals (variables, template strings) always
- * pass.
+ * The check is shallow on purpose: it does not know which segments and fields exist, so `PID.99` and `ZPI.3` pass,
+ * and it costs a few type instantiations per literal. Strings that are not literals (variables, template strings)
+ * always pass. Where `get`, `getAll` and `isNull` take a path, the editor also offers every `KnownPath` while
+ * you type, so the fields of the defined segments complete without limiting the paths that are accepted.
  *
- * @typeParam P - The path to check; inferred from the argument by `get`, `getAll` and `isNull`.
+ * @typeParam P - The path to check; inferred from the argument by `get`, `getAll` and `isNull`. A malformed literal
+ * becomes a string type that carries the reason in its `invalidHl7Path` property, so the compiler's message names it.
  *
  * @example
  * ```ts
- * import type { Hl7Path } from "hl7-to-fhir/hl7v2";
+ * import { get, parse, type Hl7Path } from "hl7-to-fhir/hl7v2";
  *
  * const name: Hl7Path = "PID.5.1";
  * const checked: Hl7Path<"OBX[3].5"> = "OBX[3].5";
- * // const broken: Hl7Path<"PID..5"> = "PID..5"; // error: Invalid HL7 path: ...
+ * // const broken: Hl7Path<"PID..5"> = "PID..5"; // error: ... "a field is a positive number"
+ *
+ * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||Everyman^Adam");
+ * if (result.ok) {
+ *   get(result.value.message, name); // => "Everyman"
+ *   get(result.value.message, "ZPI.3"); // => undefined
+ * }
  * ```
  */
 export type Hl7Path<P extends string = string> = string extends P
@@ -29,7 +37,7 @@ export type Hl7Path<P extends string = string> = string extends P
   : Invalid<P> extends infer Reason extends string
     ? [Reason] extends [""]
       ? P
-      : `Invalid HL7 path: ${Reason}`
+      : string & { readonly invalidHl7Path: Reason }
     : never;
 
 // The names after `infer` are local to each type, but the declaration bundler puts every type of the package into

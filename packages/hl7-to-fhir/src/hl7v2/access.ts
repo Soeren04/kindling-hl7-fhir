@@ -1,5 +1,6 @@
 import type { Hl7Message, Repetition, Segment, Subcomponent } from "./model";
 import { parsePath, type ParsedPath } from "./path";
+import type { KnownPath } from "./known-paths";
 import type { Hl7Path } from "./path-type";
 
 /**
@@ -23,7 +24,8 @@ import type { Hl7Path } from "./path-type";
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
- * @param path - The path, such as `PID.5.1`.
+ * @param path - The path, such as `PID.5.1`. Editors suggest the {@link KnownPath} values; any other well-formed
+ * path is accepted too.
  * @returns The text, or `undefined`.
  *
  * @example
@@ -34,12 +36,14 @@ import type { Hl7Path } from "./path-type";
  * if (result.ok) {
  *   get(result.value.message, "PID.5.1"); // => "Everyman"
  *   get(result.value.message, "MSH.9.2"); // => "A01"
+ *   // A well-formed path outside the defined segments is accepted and reads what it names.
+ *   get(result.value.message, "ZPI.3"); // => undefined
  * }
  * ```
  */
 export function get<P extends string>(
   message: Hl7Message,
-  path: Hl7Path<P>,
+  path: Hl7Path<P> | KnownPath,
 ): string | undefined {
   const parsed = parsePath(path);
   if (!parsed.ok) return undefined;
@@ -61,7 +65,8 @@ export function get<P extends string>(
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
- * @param path - The path, such as `PID.3.1`.
+ * @param path - The path, such as `PID.3.1`. Editors suggest the {@link KnownPath} values; any other well-formed
+ * path is accepted too.
  * @returns The texts in message order; empty when the path selects nothing.
  *
  * @example
@@ -71,12 +76,13 @@ export function get<P extends string>(
  * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||111^^^HOSP^MR~222^^^HOSP^PI");
  * if (result.ok) {
  *   getAll(result.value.message, "PID.3.1"); // => ["111", "222"]
+ *   getAll(result.value.message, "ZPI.3"); // => []
  * }
  * ```
  */
 export function getAll<P extends string>(
   message: Hl7Message,
-  path: Hl7Path<P>,
+  path: Hl7Path<P> | KnownPath,
 ): readonly string[] {
   const parsed = parsePath(path);
   if (!parsed.ok) return [];
@@ -109,7 +115,8 @@ export function getAll<P extends string>(
  *
  * @typeParam P - The type of the path, which {@link Hl7Path} checks when it is a string literal.
  * @param message - The message to read.
- * @param path - The path, such as `PID.8`.
+ * @param path - The path, such as `PID.8`. Editors suggest the {@link KnownPath} values; any other well-formed
+ * path is accepted too.
  * @returns Whether the position holds the explicit null and nothing else.
  *
  * @example
@@ -123,12 +130,13 @@ export function getAll<P extends string>(
  *   isNull(result.value.message, "PID.8"); // => false
  *   isNull(result.value.message, "PID.5"); // => false
  *   isNull(result.value.message, "PID.5.1"); // => true
+ *   isNull(result.value.message, "ZPI.3"); // => false
  * }
  * ```
  */
 export function isNull<P extends string>(
   message: Hl7Message,
-  path: Hl7Path<P>,
+  path: Hl7Path<P> | KnownPath,
 ): boolean {
   const parsed = parsePath(path);
   if (!parsed.ok) return false;

@@ -33,6 +33,7 @@ export {
   type PathFailure,
   type PathFailureCode,
 } from "./hl7v2/path";
+export type { KnownPath } from "./hl7v2/known-paths";
 export type { Hl7Path } from "./hl7v2/path-type";
 export {
   stringify,

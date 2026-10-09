@@ -2,10 +2,16 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import { get, getAll, isNull } from "../../src/hl7v2/access";
 import type { Hl7Message } from "../../src/hl7v2/model";
+import type { KnownPath } from "../../src/hl7v2/known-paths";
 import type { Hl7Path } from "../../src/hl7v2/path-type";
 
 declare const message: Hl7Message;
 declare const anyString: string;
+
+/** What `Hl7Path` turns a malformed literal into: a string that carries the reason. */
+type Invalid<Reason extends string> = string & {
+  readonly invalidHl7Path: Reason;
+};
 
 describe("Hl7Path", () => {
   it("is a plain string without a type argument", () => {
@@ -24,39 +30,39 @@ describe("Hl7Path", () => {
   });
 
   it("replaces a malformed literal with an explanation", () => {
-    expectTypeOf<
-      Hl7Path<"PID..5">
-    >().toEqualTypeOf<"Invalid HL7 path: a field is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.x">
-    >().toEqualTypeOf<"Invalid HL7 path: a field is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.05">
-    >().toEqualTypeOf<"Invalid HL7 path: a field is a positive number without leading zeros">();
-    expectTypeOf<
-      Hl7Path<"PID">
-    >().toEqualTypeOf<"Invalid HL7 path: a field number must follow the segment, as in PID.5">();
-    expectTypeOf<
-      Hl7Path<"pid.5">
-    >().toEqualTypeOf<"Invalid HL7 path: the segment identifier must be upper case">();
-    expectTypeOf<
-      Hl7Path<"PI.5">
-    >().toEqualTypeOf<"Invalid HL7 path: the segment identifier has three characters">();
-    expectTypeOf<
-      Hl7Path<"OBX[a].5">
-    >().toEqualTypeOf<"Invalid HL7 path: a repetition index is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.5.x">
-    >().toEqualTypeOf<"Invalid HL7 path: a component is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.5.1.x">
-    >().toEqualTypeOf<"Invalid HL7 path: a subcomponent is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.5.1[2]">
-    >().toEqualTypeOf<"Invalid HL7 path: a component is a positive number">();
-    expectTypeOf<
-      Hl7Path<"PID.5.1.1.1">
-    >().toEqualTypeOf<"Invalid HL7 path: a subcomponent is a positive number">();
+    expectTypeOf<Hl7Path<"PID..5">>().toEqualTypeOf<
+      Invalid<"a field is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.x">>().toEqualTypeOf<
+      Invalid<"a field is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.05">>().toEqualTypeOf<
+      Invalid<"a field is a positive number without leading zeros">
+    >();
+    expectTypeOf<Hl7Path<"PID">>().toEqualTypeOf<
+      Invalid<"a field number must follow the segment, as in PID.5">
+    >();
+    expectTypeOf<Hl7Path<"pid.5">>().toEqualTypeOf<
+      Invalid<"the segment identifier must be upper case">
+    >();
+    expectTypeOf<Hl7Path<"PI.5">>().toEqualTypeOf<
+      Invalid<"the segment identifier has three characters">
+    >();
+    expectTypeOf<Hl7Path<"OBX[a].5">>().toEqualTypeOf<
+      Invalid<"a repetition index is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.5.x">>().toEqualTypeOf<
+      Invalid<"a component is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.5.1.x">>().toEqualTypeOf<
+      Invalid<"a subcomponent is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.5.1[2]">>().toEqualTypeOf<
+      Invalid<"a component is a positive number">
+    >();
+    expectTypeOf<Hl7Path<"PID.5.1.1.1">>().toEqualTypeOf<
+      Invalid<"a subcomponent is a positive number">
+    >();
   });
 
   it("accepts strings that are not literals", () => {
@@ -65,7 +71,34 @@ describe("Hl7Path", () => {
   });
 });
 
+describe("KnownPath", () => {
+  it("offers fields and components of the defined segments", () => {
+    expectTypeOf<"PID.5">().toExtend<KnownPath>();
+    expectTypeOf<"PID.5.1">().toExtend<KnownPath>();
+    expectTypeOf<"MSH.9.2">().toExtend<KnownPath>();
+    expectTypeOf<"OBX.5">().toExtend<KnownPath>();
+  });
+
+  it("leaves out what the definitions do not name", () => {
+    expectTypeOf<"ZPI.3">().not.toExtend<KnownPath>();
+    expectTypeOf<"PID.99">().not.toExtend<KnownPath>();
+    expectTypeOf<"PID.5.1.1">().not.toExtend<KnownPath>();
+    expectTypeOf<"PID.3[2]">().not.toExtend<KnownPath>();
+    expectTypeOf<"OBX[3].5">().not.toExtend<KnownPath>();
+    expectTypeOf<string>().not.toExtend<KnownPath>();
+  });
+});
+
 describe("get, getAll and isNull", () => {
+  it("accept well-formed literals that are not known paths", () => {
+    expectTypeOf(get(message, "ZPI.3")).toEqualTypeOf<string | undefined>();
+    expectTypeOf(get(message, "PID.99")).toEqualTypeOf<string | undefined>();
+    expectTypeOf(getAll(message, "OBX[3].5[2]")).toEqualTypeOf<
+      readonly string[]
+    >();
+    expectTypeOf(isNull(message, "PID.3[2].1")).toEqualTypeOf<boolean>();
+  });
+
   it("accept valid literals and any string variable", () => {
     expectTypeOf(get(message, "PID.5.1")).toEqualTypeOf<string | undefined>();
     expectTypeOf(get(message, "OBX[3].5[2].1.1")).toEqualTypeOf<

@@ -28,6 +28,7 @@ get(message, "OBX[3].5");
 get(message, "OBX[3].5.1.1");
 get(message, "NTE[12].3");
 get(message, "ZPI.10.20.30");
+get(message, "ZPI.3");
 get(message, "IN1.36");
 getAll(message, "PID.3");
 getAll(message, "PID.3.1");
