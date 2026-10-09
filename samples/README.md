@@ -15,4 +15,4 @@ Segments end with a carriage return, as HL7 v2 requires. The files are stored by
 | `custom-delimiters.hl7` | ADT^A04, v2.8.2, `#$*!%` and `?`     | Non-standard delimiters, including a truncation character that marks a truncated value and one escaped as `!P!`   |
 | `batch.hl7`             | FHS, two BHS batches, three messages | A batch file for `splitBatch`: file and batch envelopes with correct counts                                       |
 
-`batch.hl7` is not one message: `splitBatch` cuts it into three, which parse like the others. The parse trees of the single messages are checked in `packages/hl7-to-fhir/test/golden/`.
+`batch.hl7` is not one message: `splitBatch` cuts it into three, which parse like the others. The values and issues of every message, and the full tree of `adt-a01.hl7`, are checked in `packages/hl7-to-fhir/test/golden/`.
