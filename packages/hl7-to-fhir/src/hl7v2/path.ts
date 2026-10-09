@@ -1,4 +1,4 @@
-import type { Span } from "../shared/issue";
+import { isString, type Span } from "../shared/issue";
 import { type Err, err, ok, type Result } from "../shared/result";
 import { isValidSegmentId } from "./segment";
 
@@ -30,6 +30,7 @@ export interface ParsedPath {
 /**
  * Why a path could not be read.
  *
+ * - `INVALID_INPUT`: the path is not a string.
  * - `EMPTY_PATH`: the path is the empty string.
  * - `INVALID_SEGMENT_ID`: the segment is not three upper-case letters or digits starting with a letter.
  * - `MISSING_FIELD`: there is no field number after the segment, as in `PID`.
@@ -39,6 +40,7 @@ export interface ParsedPath {
  * - `TOO_MANY_PARTS`: the path has more than four parts (segment, field, component, subcomponent).
  */
 export type PathErrorCode =
+  | "INVALID_INPUT"
   | "EMPTY_PATH"
   | "INVALID_SEGMENT_ID"
   | "MISSING_FIELD"
@@ -83,6 +85,7 @@ export interface PathError {
  * ```
  */
 export function parsePath(path: string): Result<ParsedPath, PathError> {
+  if (!isString(path)) return fail("INVALID_INPUT", { start: 0, end: 0 });
   const parts = splitParts(path);
   const [segmentPart, fieldPart, componentPart, subcomponentPart] = parts;
   if (segmentPart === undefined) {
@@ -179,6 +182,7 @@ function toPositiveInteger(text: string): number | undefined {
 
 // One message per code, like the issue messages; a message never repeats the path, which may come from data.
 const messages: Readonly<Record<PathErrorCode, string>> = {
+  INVALID_INPUT: "The path is not a string.",
   EMPTY_PATH: "The path is empty.",
   INVALID_SEGMENT_ID:
     "A segment identifier is three upper-case letters or digits, starting with a letter.",

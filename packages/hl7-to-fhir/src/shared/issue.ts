@@ -31,6 +31,8 @@ export type Severity = "error" | "warning" | "info";
  * Codes are public API: adding a code is a minor release, renaming or removing one is a major release.
  */
 export type IssueCode =
+  /** The input is not a string, for example a `Buffer` that was not decoded or `undefined`. */
+  | "INVALID_INPUT"
   /** The input contains no text once framing and whitespace are removed. */
   | "EMPTY_INPUT"
   /** The first segment is not `MSH`. */
@@ -165,6 +167,11 @@ interface IssueDefinition {
 
 // One entry per code: a code always has the same severity and message, so callers state only what happened and where.
 const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
+  INVALID_INPUT: {
+    severity: "error",
+    message:
+      'The input is not a string. Decode bytes first, for example with buffer.toString("latin1") for ASCII and ISO-8859-1 messages or buffer.toString("utf8") for UTF-8 ones.',
+  },
   EMPTY_INPUT: {
     severity: "error",
     message: "The input contains no segments.",
@@ -314,6 +321,14 @@ export function report(
   value?: string,
 ): void {
   if (issues.length <= maxIssues) issues.push(issue(code, location, value));
+}
+
+/**
+ * Whether `value` is a string. Callers in plain JavaScript can pass anything, so the public functions check their
+ * text arguments and fail with `INVALID_INPUT` instead of throwing a `TypeError` deep inside.
+ */
+export function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 /**

@@ -133,4 +133,18 @@ describe("parsePath", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.message).not.toContain("Everyman");
   });
+
+  it.each([undefined, null, 5])(
+    "rejects %s with INVALID_INPUT instead of throwing",
+    (path) => {
+      expect(parsePath(path as unknown as string)).toStrictEqual({
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "The path is not a string.",
+          span: { start: 0, end: 0 },
+        },
+      });
+    },
+  );
 });
