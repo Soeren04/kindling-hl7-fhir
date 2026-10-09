@@ -369,11 +369,68 @@ describe("parse", () => {
       },
     );
 
-    it("reports the first non-standard terminator of mixed terminators", () => {
-      const input = `${msh}\rPID|1\nPV1|1\r\nZPI|1`;
-      expect(
-        parsed(input).issues.map(({ location }) => location?.span),
-      ).toStrictEqual([{ start: msh.length + 6, end: msh.length + 7 }]);
+    it("ends segments at every terminator when MSH ends with a line feed, and reports the first once", () => {
+      const input = `${msh}\nPID|1\rPV1|1\r\nZPI|1`;
+      const result = parsed(input);
+      expect(result.message.segments.map(({ id }) => id)).toStrictEqual([
+        "MSH",
+        "PID",
+        "PV1",
+        "ZPI",
+      ]);
+      expect(result.issues.map(({ location }) => location?.span)).toStrictEqual(
+        [{ start: msh.length, end: msh.length + 1 }],
+      );
+    });
+
+    describe("line feeds in messages whose segments end with carriage returns", () => {
+      it.each([
+        ["carriage returns", "\r"],
+        ["carriage returns and line feeds", "\r\n"],
+      ])(
+        "keeps a line feed in its value when segments end with %s",
+        (_description, end) => {
+          const input = `${msh}${end}NTE|1||line\nfeed${end}PID|1`;
+          const result = parsed(input);
+          expect(result.message.segments.map(({ id }) => id)).toStrictEqual([
+            "MSH",
+            "NTE",
+            "PID",
+          ]);
+          expect(
+            fieldShape(result.message.segments[1]?.fields[2]),
+          ).toStrictEqual([[["line\nfeed"]]]);
+          const lineFeed = input.indexOf("\nfeed");
+          expect(
+            result.issues.find(({ code }) => code === "LINE_FEED_IN_SEGMENT"),
+          ).toStrictEqual({
+            code: "LINE_FEED_IN_SEGMENT",
+            severity: "info",
+            message: expect.any(String) as string,
+            location: {
+              span: { start: lineFeed, end: lineFeed + 1 },
+              segmentIndex: 1,
+            },
+          });
+        },
+      );
+
+      it("keeps a line feed at the end of the last value", () => {
+        const result = parsed(`${msh}\rNTE|1||text\n\r`);
+        expect(fieldShape(result.message.segments[1]?.fields[2])).toStrictEqual(
+          [[["text\n"]]],
+        );
+      });
+
+      it("ends the last segment at a line feed that ends the input", () => {
+        const result = parsed(`${msh}\rPID|1\n`);
+        expect(segmentShape(result.message.segments[1])).toStrictEqual([
+          [[["1"]]],
+        ]);
+        expect(result.issues.map(({ code }) => code)).toStrictEqual([
+          "NON_STANDARD_SEGMENT_TERMINATOR",
+        ]);
+      });
     });
 
     it("accepts a final segment terminator without an issue", () => {

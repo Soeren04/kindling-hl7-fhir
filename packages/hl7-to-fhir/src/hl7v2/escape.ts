@@ -78,6 +78,10 @@ export function decodeText(
  *
  * `decodeText` restores the original value in every supported character set.
  *
+ * Without an escape character, a line feed is written as it is: in text whose segments end with carriage returns, as
+ * `stringify` writes it, a line feed is data. Every other character that needs an escape sequence makes the value
+ * unrepresentable.
+ *
  * @returns The escaped text, or `undefined` when the value needs an escape sequence but the message declares no
  *   escape character.
  */
@@ -97,8 +101,9 @@ export function encodeText(
         ? "X22"
         : escapeSequenceFor(character, delimiters);
     if (sequence === undefined) encoded += character;
-    else if (escape === undefined) return undefined;
-    else encoded += escape + sequence + escape;
+    else if (escape !== undefined) encoded += escape + sequence + escape;
+    else if (character === "\n") encoded += character;
+    else return undefined;
   }
   return encoded;
 }

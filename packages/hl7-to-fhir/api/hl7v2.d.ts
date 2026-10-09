@@ -438,8 +438,9 @@ interface ParseFailure {
 /**
  * Parses an HL7 v2 message.
  *
- * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n`; a byte order mark, MLLP framing and
- * trailing whitespace are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
+ * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n` (when MSH ends with `\r` or `\r\n`, a
+ * line feed on its own is data and stays in its value); a byte order mark, MLLP framing and whitespace after the last
+ * segment are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
  * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
  * declares unusable delimiters; it never throws.
  *
@@ -546,8 +547,9 @@ export declare function parsePath(path: string): Result<ParsedPath, PathError>;
 /**
  * Why a tree cannot be written with the delimiters of its message.
  *
- * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter, a line break or is the text `""`, which need an escape
- *   sequence, but MSH-2 declares no escape character.
+ * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return or is the text `""`, which need an
+ *   escape sequence, but MSH-2 declares no escape character. Line feeds are written as they are, except in MSH,
+ *   where a line feed would end the segment.
  * - `SUBCOMPONENT_SEPARATOR_REQUIRED`: a component has more than one subcomponent, but MSH-2 declares no subcomponent
  *   separator.
  * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so

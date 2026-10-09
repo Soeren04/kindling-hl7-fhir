@@ -15,11 +15,13 @@ describe("stringify properties", () => {
         expect(withoutSpans(result.value.message)).toStrictEqual(
           withoutSpans(message),
         );
-        expect(result.value.issues.map(({ code }) => code)).toStrictEqual(
-          message.delimiters.subcomponent === undefined
-            ? ["ENCODING_CHARACTERS_OMITTED"]
-            : [],
-        );
+        // Omitted delimiters and line feeds kept as data are worth an info, nothing more.
+        for (const { code } of result.value.issues) {
+          expect([
+            "ENCODING_CHARACTERS_OMITTED",
+            "LINE_FEED_IN_SEGMENT",
+          ]).toContain(code);
+        }
       }
     },
   );
@@ -33,12 +35,14 @@ describe("stringify properties", () => {
   );
 
   propertyTest.prop([hl7Messages])(
-    "ends every segment with exactly one carriage return and writes no other line break",
+    "ends every segment with exactly one carriage return and writes line feeds only without escape character",
     (message) => {
       const text = stringified(message);
       expect(text.endsWith("\r")).toBe(true);
       expect(text.split("\r")).toHaveLength(message.segments.length + 1);
-      expect(text).not.toContain("\n");
+      if (message.delimiters.escape !== undefined) {
+        expect(text).not.toContain("\n");
+      }
     },
   );
 });

@@ -44,16 +44,23 @@ export function locateContent(input: string, issues: LocatedIssue[]): Span {
   }
   // Without any text, all of it is trailing whitespace.
   const contentEnd =
-    textEnd > start ? endOfLastLine(input, textEnd, end) : start;
+    textEnd > start
+      ? endOfLastLine(input, textEnd, end, lineFeedEnds(input, start, end))
+      : start;
   reportTrailingWhitespace(issues, contentEnd, end);
   return { start, end: contentEnd };
 }
 
 /**
- * Splits the content into segment spans at `\r`, `\n` and `\r\n`. Blank lines are dropped and reported, and the first
- * terminator other than `\r` is reported once.
+ * Splits the content into segment spans. Blank lines are dropped and reported, and the first terminator other than
+ * `\r` is reported once.
  *
- * @param issues - Receives the issues about blank lines and terminators.
+ * The terminator of the first line, MSH, decides how segments end. After `\n`, every `\r`, `\n` and `\r\n` ends a
+ * segment. After `\r` or `\r\n`, only those do: a line feed on its own is data, as the standard says, and stays in
+ * its value with an info issue. A line feed that ends the content still ends the last segment, so that a newline an
+ * editor added after a message does not change its last value.
+ *
+ * @param issues - Receives the issues about blank lines, terminators and line feeds kept as data.
  * @returns The spans of the non-empty lines, without their terminators.
  */
 export function splitLines(
@@ -61,6 +68,7 @@ export function splitLines(
   content: Span,
   issues: LocatedIssue[],
 ): Span[] {
+  const lineFeedIsTerminator = lineFeedEnds(input, content.start, content.end);
   const spans: Span[] = [];
   let terminatorReported = false;
   let lineStart = content.start;
@@ -68,6 +76,19 @@ export function splitLines(
   while (index < content.end) {
     const length = terminatorLength(input, index, content.end);
     if (length === 0) {
+      index++;
+      continue;
+    }
+    const lineFeedAsData =
+      !lineFeedIsTerminator &&
+      input.charAt(index) === "\n" &&
+      index + 1 < content.end;
+    if (lineFeedAsData) {
+      const span = { start: index, end: index + 1 };
+      report(issues, "LINE_FEED_IN_SEGMENT", {
+        span,
+        segmentIndex: spans.length,
+      });
       index++;
       continue;
     }
@@ -118,10 +139,33 @@ function endOfText(input: string, start: number, end: number): number {
 }
 
 /**
- * The end of the last line, given the end of its last character that is not whitespace: after the spaces and tabs
- * that follow it and the terminator after them, if any.
+ * Whether the segments of the content end with a line feed alone: whether the first line ends with `\n` rather than
+ * with `\r` or `\r\n`. Blank lines before it are skipped.
  */
-function endOfLastLine(input: string, textEnd: number, end: number): number {
+function lineFeedEnds(input: string, start: number, end: number): boolean {
+  let index = start;
+  while (index < end && terminatorLength(input, index, end) > 0) index++;
+  while (index < end && terminatorLength(input, index, end) === 0) index++;
+  return input.charAt(index) === "\n";
+}
+
+/**
+ * The end of the last line, given the end of its last character that is not whitespace: after the spaces and tabs
+ * that follow it and the terminator after them, if any. When segments end with carriage returns, line feeds are
+ * data, so the last line runs to the next carriage return.
+ */
+function endOfLastLine(
+  input: string,
+  textEnd: number,
+  end: number,
+  lineFeedIsTerminator: boolean,
+): number {
+  if (!lineFeedIsTerminator) {
+    const carriageReturn = indexOfOrEnd(input, "\r", textEnd, end);
+    if (carriageReturn < end) {
+      return carriageReturn + terminatorLength(input, carriageReturn, end);
+    }
+  }
   let index = textEnd;
   while (index < end && isSpaceOrTab(input.charAt(index))) index++;
   return index + terminatorLength(input, index, end);
