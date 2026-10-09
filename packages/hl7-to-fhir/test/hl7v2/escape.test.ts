@@ -218,16 +218,24 @@ describe("decodeText", () => {
       expect(summary(decode(raw))).toStrictEqual([value, []]);
     });
 
+    it("turns \\.ce\\ into a line feed and reports the centering it drops", () => {
+      expect(summary(decode("a\\.ce\\b"))).toStrictEqual([
+        "a\nb",
+        ["FORMATTING_REMOVED"],
+      ]);
+    });
+
     it.each([
       "\\H\\",
       "\\N\\",
       "\\.fi\\",
       "\\.nf\\",
-      "\\.ce\\",
       "\\.in+4\\",
+      "\\.in 4\\",
       "\\.in\\",
       "\\.ti-2\\",
       "\\.sk3\\",
+      "\\.sk\\",
     ])("removes %s with an info", (raw) => {
       const decoded = decode(`a${raw}b`);
       expect(summary(decoded)).toStrictEqual(["ab", ["FORMATTING_REMOVED"]]);
@@ -235,6 +243,12 @@ describe("decodeText", () => {
 
     it.each([
       "\\.br3\\",
+      "\\.sp+3\\",
+      "\\.sp-1\\",
+      "\\.sk-2\\",
+      "\\.ce2\\",
+      "\\.in+\\",
+      "\\.in  4\\",
       "\\.fi3\\",
       "\\.spx\\",
       "\\.sp3x\\",
