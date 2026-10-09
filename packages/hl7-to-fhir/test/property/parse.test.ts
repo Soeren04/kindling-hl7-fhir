@@ -140,7 +140,7 @@ function abstractMessages(): fc.Arbitrary<AbstractSegment[]> {
   return fc.array(segment, { maxLength: 4 });
 }
 
-/** Writes the segments after an MSH header, escaping every value; a final segment keeps trailing values intact. */
+/** Writes the segments after an MSH header, escaping every value. */
 function serialize(
   segments: readonly AbstractSegment[],
   delimiters: Delimiters,
@@ -165,7 +165,7 @@ function serialize(
       ),
     ].join(field),
   );
-  return [header, ...lines, `ZZZ${field}end`].join("\r");
+  return [header, ...lines].join("\r");
 }
 
 /** The tree without spans, which necessarily differ between delimiter sets of different escape lengths. */

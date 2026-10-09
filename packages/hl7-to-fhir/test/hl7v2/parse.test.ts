@@ -334,6 +334,14 @@ describe("parse", () => {
   });
 
   describe("lenient input", () => {
+    it("keeps spaces at the end of the last value, like in every other segment", () => {
+      const result = parsed(message("NTE|1||text \t", "NTE|2||text \t"));
+      expect(result.issues).toStrictEqual([]);
+      for (const segment of result.message.segments.slice(1)) {
+        expect(fieldShape(segment.fields[2])).toStrictEqual([[["text \t"]]]);
+      }
+    });
+
     const lines = [msh, "PID|1", "PV1|1"];
     const canonical = parsed(lines.join("\r"));
 
@@ -414,7 +422,7 @@ describe("parse", () => {
     });
 
     it.each([
-      ["spaces", `${msh}   `, msh.length],
+      ["spaces after the final terminator", `${msh}\r   `, msh.length + 1],
       ["blank lines", `${msh}\r\r\n\r`, msh.length + 1],
       [
         "whitespace inside the MLLP frame",

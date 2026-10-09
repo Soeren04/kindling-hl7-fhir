@@ -10,7 +10,9 @@ export const mllpEndBlock = "\u001C";
 
 /**
  * Finds the segments in `input`: skips a leading byte order mark and MLLP start block, and an MLLP end block and
- * whitespace at the end. A single segment terminator after the last segment is kept; it is part of the message.
+ * whitespace at the end. Spaces and tabs at the end of the last segment are part of its last value and stay, like in
+ * every other segment; a single segment terminator after the last segment is kept, as it is part of the message; the
+ * whitespace and blank lines after that terminator are removed.
  *
  * @param issues - Receives one info issue per removed artifact.
  * @returns The span of the segments, including the terminator of the last one when present.
@@ -40,7 +42,9 @@ export function locateContent(input: string, issues: LocatedIssue[]): Span {
     end = textEnd - 1;
     textEnd = endOfText(input, start, end);
   }
-  const contentEnd = textEnd + terminatorLength(input, textEnd, end);
+  // Without any text, all of it is trailing whitespace.
+  const contentEnd =
+    textEnd > start ? endOfLastLine(input, textEnd, end) : start;
   reportTrailingWhitespace(issues, contentEnd, end);
   return { start, end: contentEnd };
 }
@@ -111,6 +115,20 @@ function endOfText(input: string, start: number, end: number): number {
   let index = end;
   while (index > start && isWhitespace(input.charAt(index - 1))) index--;
   return index;
+}
+
+/**
+ * The end of the last line, given the end of its last character that is not whitespace: after the spaces and tabs
+ * that follow it and the terminator after them, if any.
+ */
+function endOfLastLine(input: string, textEnd: number, end: number): number {
+  let index = textEnd;
+  while (index < end && isSpaceOrTab(input.charAt(index))) index++;
+  return index + terminatorLength(input, index, end);
+}
+
+function isSpaceOrTab(character: string): boolean {
+  return character === " " || character === "\t";
 }
 
 function isWhitespace(character: string): boolean {

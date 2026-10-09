@@ -47,7 +47,10 @@ export type IssueCode =
   | "CONTENT_OUTSIDE_MESSAGE"
   /** A trailer count differs from what the input contains: `BTS-1` counts messages, `FTS-1` counts batches. */
   | "BATCH_COUNT_MISMATCH"
-  /** Whitespace after the last segment was removed. */
+  /**
+   * Whitespace and blank lines after the terminator of the last segment were removed. Spaces and tabs at the end of
+   * the last segment itself are part of its last value and stay.
+   */
   | "TRAILING_WHITESPACE_REMOVED"
   /** Segments end with a line feed or carriage return plus line feed instead of a carriage return. */
   | "NON_STANDARD_SEGMENT_TERMINATOR"
@@ -212,7 +215,8 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
   },
   TRAILING_WHITESPACE_REMOVED: {
     severity: "info",
-    message: "Whitespace after the last segment was removed.",
+    message:
+      "Whitespace and blank lines after the terminator of the last segment were removed.",
   },
   NON_STANDARD_SEGMENT_TERMINATOR: {
     severity: "info",
