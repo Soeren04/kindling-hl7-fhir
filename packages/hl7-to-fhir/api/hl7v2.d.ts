@@ -56,8 +56,8 @@ interface Hl7Message {
   /** The delimiters declared in MSH-1 and MSH-2. */
   readonly delimiters: Delimiters;
   /**
-   * The version ID (for example `2.5.1`): the raw text of the first component of the first repetition of MSH-12,
-   * without unescaping; absent when it is empty. MSH-18, the character set, is read the same way.
+   * The version ID (for example `2.5.1`): the value of MSH-12.1, the first subcomponent of the first component of the
+   * first repetition of MSH-12, decoded like every value; absent when that position holds no text.
    */
   readonly version?: string | undefined;
   /** Every segment in input order, including Z segments and segments with unknown identifiers. */

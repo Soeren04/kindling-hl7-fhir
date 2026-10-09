@@ -45,6 +45,23 @@ describe("parse", () => {
       expect(result.message).not.toHaveProperty("version");
     });
 
+    it.each([
+      ["a subcomponent after the version", "2.5.1&x", "2.5.1"],
+      ["an escape sequence in the version", "2.5\\H\\.1", "2.5.1"],
+      ["a later component", "2.5.1^DEU", "2.5.1"],
+    ])(
+      "reads the version as the decoded MSH-12.1 with %s",
+      (_name, raw, version) => {
+        const result = parsed(`MSH|^~\\&${"|".repeat(10)}${raw}`);
+        expect(result.message.version).toBe(version);
+      },
+    );
+
+    it.each(['""', "\\H\\"])("omits the version when MSH-12.1 is %j", (raw) => {
+      const result = parsed(`MSH|^~\\&${"|".repeat(10)}${raw}`);
+      expect(result.message).not.toHaveProperty("version");
+    });
+
     it("gives every segment the span of its text without terminator", () => {
       const input = message("PID|1", "PV1|1");
       const spans = parsed(input).message.segments.map(({ span }) =>

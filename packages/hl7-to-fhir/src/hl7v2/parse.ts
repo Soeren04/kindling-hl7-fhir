@@ -11,10 +11,11 @@ import {
 import { err, ok, type Result } from "../shared/result";
 import { type Charset, resolveCharset } from "./charset";
 import { isDelimiterCharacter, readDelimiters } from "./delimiters";
-import { characterSetField, findHeaderValue, versionField } from "./header";
+import { characterSetField, findHeaderValue } from "./header";
 import { locateContent, splitLines } from "./input";
 import type { Delimiters, Hl7Message } from "./model";
 import { parseSegment } from "./segment";
+import { versionOf } from "./version";
 
 /**
  * What {@link parse} returns when it succeeds, the counterpart of {@link ParseFailure}: the message and everything the
@@ -147,10 +148,7 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
   if (!reading.ok) return fail(input, issues, reading.error);
 
   const { delimiters } = reading.value;
-  // Both are read from the raw header text: the first component of the first repetition, without unescaping.
-  const versionSpan = findHeaderValue(input, msh, delimiters, versionField);
-  const version =
-    versionSpan && input.slice(versionSpan.start, versionSpan.end);
+  // The character set must be known before values are decoded, so it is read from the raw header text.
   const context = {
     delimiters,
     charset: readCharset(input, msh, delimiters, issues),
@@ -160,6 +158,7 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     if (index > 0) checkLaterHeader(input, span, index, declaration, issues);
     return parseSegment(input, span, index, context, issues);
   });
+  const version = versionOf(segments[0]);
   // An absent version is left out instead of set to undefined, so the tree keeps its keys through JSON.
   const message: Hl7Message = {
     delimiters,
