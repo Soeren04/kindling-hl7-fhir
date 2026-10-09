@@ -373,6 +373,10 @@ describe("parse", () => {
       ["8859/2", "\\X41\\", "A", []],
       ["8859/2", "\\XE9\\", "\\XE9\\", ["UNSUPPORTED_CHARACTER_SET"]],
       ["ISO IR6", "\\X41\\", "A", []],
+      ["ISO IR87", "\\X0D0A\\", "\r\n", []],
+      ["GB 18030-2000", "\\X22\\", '"', []],
+      ["BIG-5", "\\XA4A4\\", "\\XA4A4\\", ["UNSUPPORTED_CHARACTER_SET"]],
+      ["UNICODE UTF-16", "\\X0A\\", "\\X0A\\", ["UNSUPPORTED_CHARACTER_SET"]],
     ])(
       "decodes hexadecimal escapes with MSH-18 %j",
       (charset, raw, value, issueCodes) => {

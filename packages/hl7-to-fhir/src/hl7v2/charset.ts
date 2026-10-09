@@ -6,12 +6,16 @@ import { err, ok, type Result } from "../shared/result";
  * How the bytes of hexadecimal escape sequences are turned into text, from MSH-18.
  *
  * - `ascii`, `iso-8859-1` and `utf-8` are decoded completely.
- * - `iso-8859` is any other part of ISO 8859: bytes below 0x80 are ASCII in every part; higher bytes need the
- *   table of the part, which this library does not have.
- * - `unsupported` keeps every sequence as written.
+ * - `ascii-compatible` is a character set whose bytes below 0x80 are ASCII: the other parts of ISO 8859 and the
+ *   Japanese, Chinese and Korean sets of table 0211 (`ISO IR14`, `ISO IR87`, `ISO IR159`, `GB 18030-2000`,
+ *   `KS X 1001`, `CNS 11643-1992`, `BIG-5`). Higher bytes need the tables of the set, which this library does not
+ *   have.
+ * - `unsupported` keeps every sequence as written. It covers the UTF-16 and UTF-32 sets of table 0211 (`UNICODE`,
+ *   `UNICODE UTF-16`, `UNICODE UTF-32`), whose code units are wider than a byte, and every name the table does not
+ *   define.
  */
 export type Charset =
-  "ascii" | "iso-8859-1" | "iso-8859" | "utf-8" | "unsupported";
+  "ascii" | "iso-8859-1" | "ascii-compatible" | "utf-8" | "unsupported";
 
 /** The character set MSH-18 names, and whether it uses a spelling other than the one of HL7 table 0211. */
 export interface ResolvedCharset {
@@ -26,8 +30,17 @@ const table0211: ReadonlyMap<string, Charset> = new Map<string, Charset>([
   ["ISO IR6", "ascii"],
   ["8859/1", "iso-8859-1"],
   ...["2", "3", "4", "5", "6", "7", "8", "9", "15"].map(
-    (part): [string, Charset] => [`8859/${part}`, "iso-8859"],
+    (part): [string, Charset] => [`8859/${part}`, "ascii-compatible"],
   ),
+  ...[
+    "ISO IR14",
+    "ISO IR87",
+    "ISO IR159",
+    "GB 18030-2000",
+    "KS X 1001",
+    "CNS 11643-1992",
+    "BIG-5",
+  ].map((code): [string, Charset] => [code, "ascii-compatible"]),
   ["UNICODE UTF-8", "utf-8"],
 ]);
 
@@ -83,7 +96,7 @@ export function decodeBytes(
   switch (charset) {
     case "ascii":
       return ascii ? ok(fromCodes(bytes)) : err("INVALID_HEX_ESCAPE");
-    case "iso-8859":
+    case "ascii-compatible":
       return ascii ? ok(fromCodes(bytes)) : err("UNSUPPORTED_CHARACTER_SET");
     case "iso-8859-1":
       // ISO-8859-1 maps every byte to the code point of the same value. It is decoded here because the WHATWG
