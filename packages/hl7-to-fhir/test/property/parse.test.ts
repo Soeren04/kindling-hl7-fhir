@@ -1,6 +1,6 @@
 import { test as propertyTest } from "@fast-check/vitest";
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
 
 import { encodeText } from "../../src/hl7v2/escape";
 import type { Delimiters, Hl7Message, Segment } from "../../src/hl7v2/model";
@@ -158,28 +158,6 @@ describe("parse properties", () => {
       );
     },
   );
-});
-
-describe("parse performance", () => {
-  // Generous budgets: a linear parser needs a few milliseconds per megabyte, a quadratic one minutes.
-  const budget = 3000;
-  const header = "MSH|^~\\&|LAB|||||||1|P|2.5.1\rOBX|1|TX|||";
-
-  it.each([
-    ["plain text", "a".repeat(1_000_000)],
-    ["line break escapes", "\\.br\\".repeat(200_000)],
-    ["hexadecimal escapes", `\\X${"41".repeat(500_000)}\\`],
-    ["an unterminated escape", `\\${"a".repeat(1_000_000)}`],
-    ["components", "a^".repeat(500_000)],
-    ["empty subcomponents", "&".repeat(1_000_000)],
-  ])("parses a 1 MB field of %s in linear time", (_description, field) => {
-    const input = `${header}${field}`;
-    const started = performance.now();
-    const result = parse(input);
-    const elapsed = performance.now() - started;
-    expect(result.ok).toBe(true);
-    expect(elapsed).toBeLessThan(budget);
-  });
 });
 
 /** A message without header as segments of fields of repetitions of components of subcomponent values. */

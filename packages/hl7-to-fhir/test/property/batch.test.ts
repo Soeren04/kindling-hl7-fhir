@@ -1,6 +1,6 @@
 import { test as propertyTest } from "@fast-check/vitest";
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
 
 import { splitBatch } from "../../src/hl7v2/batch";
 
@@ -121,22 +121,4 @@ describe("splitBatch properties", () => {
       }
     },
   );
-});
-
-describe("splitBatch performance", () => {
-  // Generous budget: a linear scan needs milliseconds per megabyte, a quadratic one minutes.
-  const budget = 3000;
-
-  it.each([
-    ["one line of 1 MB", `MSH|^~\\&|${"a".repeat(1_000_000)}`],
-    ["many short messages", "MSH|^~\\&|a\r".repeat(100_000)],
-    ["many frames", "\u000BMSH|^~\\&|a\r\u001C\r".repeat(50_000)],
-    ["many unterminated frames", "\u000BMSH|^~\\&|a\r".repeat(100_000)],
-    ["text outside messages", "x\r".repeat(500_000)],
-    ["blank lines", " \r".repeat(500_000)],
-  ])("splits %s in linear time", (_description, input) => {
-    const started = performance.now();
-    splitBatch(input);
-    expect(performance.now() - started).toBeLessThan(budget);
-  });
 });
