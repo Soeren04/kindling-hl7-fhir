@@ -74,7 +74,9 @@ export type IssueCode =
   /** A hexadecimal escape sequence that is malformed or not valid in the message character set; kept as written. */
   | "INVALID_HEX_ESCAPE"
   /** A hexadecimal escape sequence in a message whose character set (MSH-18) is not supported; kept as written. */
-  | "UNSUPPORTED_CHARACTER_SET";
+  | "UNSUPPORTED_CHARACTER_SET"
+  /** More issues were found than are reported (10,000); this issue, at the end of the input, replaces the rest. */
+  | "TOO_MANY_ISSUES";
 
 /**
  * Where in the input an {@link Issue} was found.
@@ -267,7 +269,18 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The character set in MSH-18 is not supported for hexadecimal escape sequences; the sequence is kept as written.",
   },
+  TOO_MANY_ISSUES: {
+    severity: "warning",
+    message:
+      "The input has more than 10,000 issues; only the first 10,000 are reported.",
+  },
 };
+
+/**
+ * The most issues one call reports. Hostile input can hold an issue every few characters; the limit keeps the issue
+ * list from growing with the input while leaving far more than anyone reads.
+ */
+export const maxIssues = 10_000;
 
 /** An issue of a known code, so that a function returning a subset of codes can say so in its type. */
 export type IssueOf<Code extends IssueCode> = LocatedIssue & {
@@ -290,19 +303,36 @@ export function issue<Code extends IssueCode>(
     : { code, severity, message, location, value };
 }
 
-/** Creates the issue of `code` (see {@link issue}) and adds it to `issues`. */
+/**
+ * Creates the issue of `code` (see {@link issue}) and adds it to `issues`, unless the list is full: it keeps at most
+ * one issue more than {@link maxIssues}, which tells {@link finishIssues} that issues were dropped.
+ */
 export function report(
   issues: LocatedIssue[],
   code: IssueCode,
   location: Location,
   value?: string,
 ): void {
-  issues.push(issue(code, location, value));
+  if (issues.length <= maxIssues) issues.push(issue(code, location, value));
 }
 
-/** Sorts issues by their position in the input; issues at the same position keep the order they were found in. */
-export function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
-  return [...issues].sort(
-    (a, b) => a.location.span.start - b.location.span.start,
-  );
+/**
+ * Turns the collected issues into the reported list: sorted by their position in the input (issues at the same
+ * position keep the order they were found in) and, when issues were dropped, cut to {@link maxIssues} and ended by
+ * one `TOO_MANY_ISSUES` warning located at the end of the input.
+ *
+ * @param inputLength - The length of the input, where `TOO_MANY_ISSUES` is located.
+ */
+export function finishIssues(
+  issues: readonly LocatedIssue[],
+  inputLength: number,
+): LocatedIssue[] {
+  const sorted = issues
+    .slice()
+    .sort((a, b) => a.location.span.start - b.location.span.start);
+  if (sorted.length <= maxIssues) return sorted;
+  const end = { start: inputLength, end: inputLength };
+  return sorted
+    .slice(0, maxIssues)
+    .concat(issue("TOO_MANY_ISSUES", { span: end }));
 }

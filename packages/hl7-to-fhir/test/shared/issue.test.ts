@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inInputOrder, issue, report } from "../../src/shared/issue";
+import { finishIssues, issue, maxIssues, report } from "../../src/shared/issue";
 import type { IssueCode, LocatedIssue } from "../../src/shared/issue";
 
 describe("issue", () => {
@@ -40,9 +40,37 @@ describe("report", () => {
     report(issues, "EMPTY_INPUT", { span: { start: 0, end: 0 } });
     expect(issues.map(({ code }) => code)).toStrictEqual(["EMPTY_INPUT"]);
   });
+
+  it("stops adding one issue past the limit", () => {
+    const issues: LocatedIssue[] = [];
+    for (let index = 0; index < maxIssues + 5; index++) {
+      report(issues, "UNKNOWN_ESCAPE", { span: { start: index, end: index } });
+    }
+    expect(issues).toHaveLength(maxIssues + 1);
+  });
 });
 
-describe("inInputOrder", () => {
+describe("finishIssues", () => {
+  it("replaces the issues past the limit with one warning at the end of the input", () => {
+    const issues: LocatedIssue[] = [];
+    for (let index = maxIssues; index >= 0; index--) {
+      report(issues, "UNKNOWN_ESCAPE", { span: { start: index, end: index } });
+    }
+    const finished = finishIssues(issues, 50_000);
+    expect(finished).toHaveLength(maxIssues + 1);
+    expect(finished[maxIssues - 1]?.location.span.start).toBe(maxIssues - 1);
+    expect(finished.at(-1)).toStrictEqual(
+      issue("TOO_MANY_ISSUES", { span: { start: 50_000, end: 50_000 } }),
+    );
+  });
+
+  it("keeps a list of exactly the limit", () => {
+    const issues = Array.from({ length: maxIssues }, (_, index) =>
+      issue("UNKNOWN_ESCAPE", { span: { start: index, end: index } }),
+    );
+    expect(finishIssues(issues, 0).at(-1)?.code).toBe("UNKNOWN_ESCAPE");
+  });
+
   it("sorts by start and keeps the order of issues at the same position", () => {
     const at = (code: IssueCode, start: number) =>
       issue(code, { span: { start, end: start } });
@@ -51,7 +79,7 @@ describe("inInputOrder", () => {
       at("BLANK_LINE_REMOVED", 2),
       at("LOCAL_ESCAPE_KEPT", 5),
     ];
-    expect(inInputOrder(issues).map(({ code }) => code)).toStrictEqual([
+    expect(finishIssues(issues, 10).map(({ code }) => code)).toStrictEqual([
       "BLANK_LINE_REMOVED",
       "UNKNOWN_ESCAPE",
       "LOCAL_ESCAPE_KEPT",

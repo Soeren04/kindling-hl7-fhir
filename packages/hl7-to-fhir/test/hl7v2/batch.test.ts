@@ -392,4 +392,12 @@ describe("splitBatch", () => {
       expect(messages.join("")).not.toMatch(/^(?:FHS|BHS|BTS|FTS)\|/mu);
     });
   });
+
+  it("reports at most 10,000 issues for a stream of empty frames, then one warning", () => {
+    const input = "\u000B\u001C\r".repeat(20_000);
+    const { messages, issues } = splitBatch(input);
+    expect(messages).toStrictEqual([]);
+    expect(issues).toHaveLength(10_001);
+    expect(issues.at(-1)?.code).toBe("TOO_MANY_ISSUES");
+  });
 });

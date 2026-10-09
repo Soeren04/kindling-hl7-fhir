@@ -492,6 +492,36 @@ describe("parse", () => {
     });
   });
 
+  describe("inputs with many issues", () => {
+    it.each([
+      [
+        "escape issues in one value",
+        message(`NTE|1||${"\\Q\\".repeat(300_000)}`),
+      ],
+      ["blank lines", `${msh}${"\r".repeat(300_000)}PID|1`],
+      ["invalid segments", `${msh}\r${"pid|1\r".repeat(150_000)}`],
+    ])(
+      "reports at most 10,000 issues for %s, then one warning",
+      (_description, input) => {
+        const { issues } = parsed(input);
+        expect(issues).toHaveLength(10_001);
+        expect(issues.at(-1)).toStrictEqual({
+          code: "TOO_MANY_ISSUES",
+          severity: "warning",
+          message: expect.any(String) as string,
+          location: { span: { start: input.length, end: input.length } },
+        });
+      },
+    );
+
+    it("caps the issues of a failure before the one that stopped parsing", () => {
+      const result = parse(`${"\r".repeat(300_000)}PID|1`);
+      expect(
+        result.ok || result.error.issues.map(({ code }) => code).slice(-2),
+      ).toStrictEqual(["TOO_MANY_ISSUES", "MISSING_MSH"]);
+    });
+  });
+
   it("never puts message content into issue messages", () => {
     const input = [
       "\uFEFFMSH|^~|Everyman||||||||2.5.1",
