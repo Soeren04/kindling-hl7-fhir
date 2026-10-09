@@ -136,6 +136,9 @@ export type Severity = "error" | "warning" | "info";
  * - `INVALID_TIME` (error): a value of type TM is not `HH[MM[SS[.S[S[S[S]]]]]][+/-ZZZZ]` or names a time that does
  *   not exist.
  * - `MALFORMED_CODE` (error): a coded value (ID or IS) has whitespace at either end or a control character.
+ * - `UNKNOWN_CODE` (error): a coded value is not in the HL7-defined table its field or component refers to.
+ * - `UNKNOWN_USER_DEFINED_CODE` (warning): a coded value is not in the user-defined table its field or component refers
+ *   to, as HL7 suggests it; sites may add codes to such tables.
  *
  * Limits:
  *
@@ -193,6 +196,8 @@ export type IssueCode =
   | "INVALID_DATE_TIME"
   | "INVALID_TIME"
   | "MALFORMED_CODE"
+  | "UNKNOWN_CODE"
+  | "UNKNOWN_USER_DEFINED_CODE"
   | "TOO_MANY_ISSUES";
 
 /**

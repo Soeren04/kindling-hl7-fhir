@@ -27,3 +27,8 @@ export const valueFormats: ReadonlyMap<string, ValueFormat> = new Map([
   ["ID", { code: "MALFORMED_CODE", isValid: isCode }],
   ["IS", { code: "MALFORMED_CODE", isValid: isCode }],
 ]);
+
+/** Whether `text` has the format of `dataType`; a type without a format accepts every text. */
+export function hasFormat(dataType: string, text: string): boolean {
+  return valueFormats.get(dataType)?.isValid(text) ?? true;
+}

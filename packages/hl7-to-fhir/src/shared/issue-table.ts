@@ -244,6 +244,16 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "A coded value (ID or IS) has whitespace at its start or end or contains a control character, so it cannot match a table entry.",
   },
+  UNKNOWN_CODE: {
+    severity: "error",
+    message:
+      "The code is not in the HL7-defined table that its field or component refers to.",
+  },
+  UNKNOWN_USER_DEFINED_CODE: {
+    severity: "warning",
+    message:
+      "The code is not in the user-defined table that its field or component refers to, as HL7 suggests it; a site may have added it.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

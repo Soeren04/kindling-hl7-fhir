@@ -60,7 +60,10 @@ checker, and the set of segments and fields is only known once phase 2 adds the 
   when the file and the definitions differ, so the two cannot drift.
 - **Cost is a gated number.** `pnpm check:type-performance` compiles a fixture of about sixty path calls and fails when
   the instantiations exceed a budget (about 50 instantiations per checked literal; the budget is set slightly above the
-  measurement and ratcheted down when the types get cheaper).
+  measurement and ratcheted down when the types get cheaper). The budget is the last argument of the
+  `check:type-performance` script in `packages/hl7-to-fhir/package.json`. It went from 6500 to 6700 with the issue
+  codes of validation: the fixture imports the whole entry point, and the wider `IssueCode` union adds a few dozen
+  instantiations without changing the cost of a path literal. 6700 leaves 2 to 3 % above the measurement.
 
 ## Alternatives considered
 
