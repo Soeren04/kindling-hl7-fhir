@@ -107,17 +107,17 @@ export interface Location {
   /** The range of the input the issue refers to. */
   readonly span: Span;
   /** 0-based index of the segment in the message. */
-  readonly segmentIndex?: number;
+  readonly segmentIndex?: number | undefined;
   /** Identifier of the segment, such as `PID`; absent when the identifier is not valid. */
-  readonly segmentId?: string;
+  readonly segmentId?: string | undefined;
   /** 1-based field number (`PID-5` is field 5; `MSH-1` is the field separator). */
-  readonly field?: number;
+  readonly field?: number | undefined;
   /** 1-based repetition number within the field. */
-  readonly repetition?: number;
+  readonly repetition?: number | undefined;
   /** 1-based component number within the repetition. */
-  readonly component?: number;
+  readonly component?: number | undefined;
   /** 1-based subcomponent number within the component. */
-  readonly subcomponent?: number;
+  readonly subcomponent?: number | undefined;
 }
 
 /**
@@ -142,14 +142,14 @@ export interface Issue {
   /** A description of the problem that never contains message content. */
   readonly message: string;
   /** Where the issue was found. */
-  readonly location?: Location;
+  readonly location?: Location | undefined;
   /**
    * The raw input text the issue is about.
    *
    * This may contain protected health information (PHI). Do not log it unless your logs are allowed to hold
    * patient data.
    */
-  readonly value?: string;
+  readonly value?: string | undefined;
 }
 
 /**
