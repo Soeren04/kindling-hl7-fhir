@@ -3,7 +3,7 @@
 // Source of record: HL7 Version 2 to FHIR Implementation Guide 1.0.0 (CC0-1.0), https://github.com/HL7/v2-to-fhir at
 // commit 873b331b3890c8bc5d62ef9b4dabb41801aac70d. Component identifiers, names and data types come from the data
 // type maps in mappings/datatypes/ ("HL7 Data Type - FHIR R4_ <TYPE>[...] - Sheet1.csv" for XPN, CX, XAD, XTN, CWE,
-// CE, CNE, HD, PL, XCN, TS, DTM, EI, EIP, MSG, PT, CQ, SN, XON, FN, DR, SAD, TQ, SPS, NDL, CNN, DLD and OG). Names
+// CE, CNE, HD, PL, XCN, TS, DTM, EI, EIP, MSG, PT, CQ, SN, XON, FN, DR, SAD, TQ, SPS, NDL, CNN, DLD and DLN). Names
 // are shortened to identifiers. The guide has no maps for RI, OSD, MO, MOC, PRL, FC and VID; for those the structure
 // is the one HL7 v2.5.1 defines. Only identifiers, names, types and table numbers are recorded, never descriptions
 // (ADR 0005).
@@ -19,6 +19,7 @@
 //   at 14 and XTN at 12. PL has the 11 components that 2.5.1 defines.
 // - XTN.5 to XTN.8 are NM (the guide has SNM), PL.1 to PL.3 are IS (the guide has HD), and EIP is made of two EI
 //   components (the guide flattens them).
+// - DLN.2 is IS (the guide has CWE).
 // - Components carry no optionality (the guide's CX.1 and CX.5 are required); only fields do.
 
 import { component, composite, primitive } from "./define";
@@ -91,6 +92,11 @@ const composites = [
   composite("DLD", [
     component(1, "dischargeToLocation", "IS", "0113"),
     component(2, "effectiveDate", "TS"),
+  ]),
+  composite("DLN", [
+    component(1, "licenseNumber", "ST"),
+    component(2, "issuingStateProvinceCountry", "IS", "0333"),
+    component(3, "expirationDate", "DT"),
   ]),
   composite("DR", [
     component(1, "rangeStartDateTime", "TS"),
