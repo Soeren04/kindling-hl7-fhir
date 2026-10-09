@@ -145,7 +145,11 @@ export interface Component {
  * sequences that cannot be interpreted stay verbatim. Each of these cases except plain delimiter escapes is reported
  * as an issue. The raw text is `input.slice(span.start, span.end)`.
  *
- * `value` is empty only when the raw text consists of removed formatting commands.
+ * A value that ends with the truncation character MSH-2 declares (version 2.7 and later), outside an escape sequence,
+ * was cut off by the sender: `truncated` is `true`, the character is not part of `value`, and an info issue
+ * (`VALUE_TRUNCATED`) reports it. `\P\` stands for the truncation character as content.
+ *
+ * `value` is empty only when the raw text consists of removed formatting commands or of the truncation character.
  *
  * @example
  * ```ts
@@ -157,6 +161,8 @@ export interface ValueSubcomponent {
   readonly kind: "value";
   /** The decoded text. */
   readonly value: string;
+  /** `true` when the sender truncated the value; absent otherwise. */
+  readonly truncated?: true | undefined;
   /** The raw text, escape sequences included. */
   readonly span: Span;
 }

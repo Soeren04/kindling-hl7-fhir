@@ -14,8 +14,9 @@ export interface DecodeContext {
 }
 
 /** The issues decoding can find. */
-export type EscapeIssueCode = Extract<
+export type DecodeIssueCode = Extract<
   IssueCode,
+  | "VALUE_TRUNCATED"
   | "UNKNOWN_ESCAPE"
   | "UNTERMINATED_ESCAPE"
   | "FORMATTING_REMOVED"
@@ -25,8 +26,16 @@ export type EscapeIssueCode = Extract<
   | "UNSUPPORTED_CHARACTER_SET"
 >;
 
-/** Receives an issue about the escape sequence at `span`, delimiters included. */
-export type EscapeIssueReporter = (code: EscapeIssueCode, span: Span) => void;
+/** Receives an issue about the escape sequence (delimiters included) or truncation character at `span`. */
+export type DecodeIssueReporter = (code: DecodeIssueCode, span: Span) => void;
+
+/** A decoded value. */
+export interface DecodedText {
+  /** The text a reader sees, without the truncation character. */
+  readonly value: string;
+  /** Whether the raw text ends with the truncation character outside an escape sequence. */
+  readonly truncated: boolean;
+}
 
 /**
  * Decodes the escape sequences in `input` between `span.start` and `span.end`.
@@ -38,25 +47,36 @@ export type EscapeIssueReporter = (code: EscapeIssueCode, span: Span) => void;
  * - Character set switches (`\C…\`, `\M…\`), locally defined (`\Z…\`), unknown, malformed and unterminated
  *   sequences are kept as written.
  *
- * Every case except the delimiter escapes and line breaks is reported, located in the input.
+ * - The truncation character, when the message declares one (version 2.7 and later), marks a value the sender cut
+ *   off if it is the last character and not inside an escape sequence. It is left out of the value; written as
+ *   `\P\`, it is a literal character instead.
  *
- * @returns The decoded text.
+ * Every case except the delimiter escapes and line breaks is reported, located in the input.
  */
 export function decodeText(
   input: string,
   span: Span,
   context: DecodeContext,
-  report: EscapeIssueReporter,
-): string {
-  const { escape } = context.delimiters;
-  if (escape === undefined) return input.slice(span.start, span.end);
+  report: DecodeIssueReporter,
+): DecodedText {
+  const { escape, truncation } = context.delimiters;
+  const truncated =
+    truncation !== undefined &&
+    span.end > span.start &&
+    input.charAt(span.end - 1) === truncation &&
+    !endsInsideEscape(input, span, escape);
+  const end = truncated ? span.end - 1 : span.end;
+  if (truncated) report("VALUE_TRUNCATED", { start: end, end: span.end });
+  if (escape === undefined) {
+    return { value: input.slice(span.start, end), truncated };
+  }
   const parts: string[] = [];
   let copied = span.start;
-  let open = indexOfOrEnd(input, escape, span.start, span.end);
-  while (open < span.end) {
-    const close = indexOfOrEnd(input, escape, open + 1, span.end);
-    if (close === span.end) {
-      report("UNTERMINATED_ESCAPE", { start: open, end: span.end });
+  let open = indexOfOrEnd(input, escape, span.start, end);
+  while (open < end) {
+    const close = indexOfOrEnd(input, escape, open + 1, end);
+    if (close === end) {
+      report("UNTERMINATED_ESCAPE", { start: open, end });
       break;
     }
     const content = input.slice(open + 1, close);
@@ -64,10 +84,27 @@ export function decodeText(
     parts.push(input.slice(copied, open), text ?? input.slice(open, close + 1));
     if (issue !== undefined) report(issue, { start: open, end: close + 1 });
     copied = close + 1;
-    open = indexOfOrEnd(input, escape, copied, span.end);
+    open = indexOfOrEnd(input, escape, copied, end);
   }
-  parts.push(input.slice(copied, span.end));
-  return parts.join("");
+  parts.push(input.slice(copied, end));
+  return { value: parts.join(""), truncated };
+}
+
+/**
+ * Whether the last character of the span lies inside an escape sequence: escape characters open and close sequences
+ * in turn, so an odd number of them leaves the last sequence open.
+ */
+function endsInsideEscape(
+  input: string,
+  span: Span,
+  escape: string | undefined,
+): boolean {
+  if (escape === undefined) return false;
+  let open = false;
+  for (let index = span.start; index < span.end; index++) {
+    if (input.charAt(index) === escape) open = !open;
+  }
+  return open;
 }
 
 /**
@@ -143,7 +180,7 @@ function usesPeriod(delimiters: Delimiters): boolean {
 /** The replacement for one escape sequence; `text` is absent when the sequence is kept as written. */
 interface Interpretation {
   readonly text?: string;
-  readonly issue?: EscapeIssueCode;
+  readonly issue?: DecodeIssueCode;
 }
 
 const unknown: Interpretation = { issue: "UNKNOWN_ESCAPE" };

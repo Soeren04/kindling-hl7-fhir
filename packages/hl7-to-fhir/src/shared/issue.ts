@@ -75,6 +75,8 @@ export type IssueCode =
   | "ENCODING_CHARACTERS_OMITTED"
   /** MSH-2 has a fifth character, but the message version is older than 2.7, which introduced it. */
   | "TRUNCATION_CHARACTER_IGNORED"
+  /** A value ends with the truncation character (version 2.7 and later): the sender cut it off. */
+  | "VALUE_TRUNCATED"
   /** An escape sequence the standard does not define; it is kept as written. */
   | "UNKNOWN_ESCAPE"
   /** An escape sequence without its closing escape character; the rest of the value is kept as written. */
@@ -95,6 +97,8 @@ export type IssueCode =
   | "SUBCOMPONENT_SEPARATOR_REQUIRED"
   /** `stringify`: a subcomponent is the HL7 null `""`, but the quote is one of the delimiters. */
   | "NULL_NOT_REPRESENTABLE"
+  /** `stringify`: a value is marked as truncated, but MSH-2 declares no truncation character. */
+  | "TRUNCATION_CHARACTER_REQUIRED"
   /** More issues were found than are reported (10,000); this issue, at the end of the input, replaces the rest. */
   | "TOO_MANY_ISSUES";
 
@@ -276,6 +280,11 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "MSH-2 declares a truncation character, which only versions 2.7 and later define; it has no special meaning in this message.",
   },
+  VALUE_TRUNCATED: {
+    severity: "info",
+    message:
+      "The value ends with the truncation character from MSH-2: the sender cut it off. The character is not part of the value.",
+  },
   UNKNOWN_ESCAPE: {
     severity: "warning",
     message: "Unknown escape sequence; it is kept as written.",
@@ -324,6 +333,11 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     severity: "error",
     message:
       'A subcomponent is the HL7 null, but the quote is one of the delimiters, so "" would not read back as the null.',
+  },
+  TRUNCATION_CHARACTER_REQUIRED: {
+    severity: "error",
+    message:
+      "A value is marked as truncated, but MSH-2 declares no truncation character.",
   },
   TOO_MANY_ISSUES: {
     severity: "warning",

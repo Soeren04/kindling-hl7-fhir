@@ -67,6 +67,12 @@ mapping build on, and that the playground sends from a Web Worker. Several force
 - **`ParseFailure` is one interface with a code union** (`ParseFailureCode`), not a union of one interface per code.
   Every failure carries the same data (code, message, issues, the last of which locates the cause), so per-code
   interfaces would repeat one shape without giving callers anything more to narrow on than `code`.
+- **Truncated values are flagged, not kept with their marker.** From version 2.7, a value that ends with the
+  truncation character of MSH-2 (outside an escape sequence) was cut off by the sender (HL7 v2.7 section 2.5.5.2).
+  The marker is left out of `value`, the subcomponent gets `truncated: true`, and an info issue (`VALUE_TRUNCATED`)
+  locates the marker. `\P\` remains the escaped character as content. `stringify` writes the marker back after the
+  value, so the round trip keeps it. Keeping the marker in `value` would make every consumer strip it; a separate
+  node kind would break every `kind === "value"` check for a property most code can ignore.
 - **Locations never carry content.** `Location.segmentId` is set only for a valid segment identifier; the raw text of
   an invalid one is in `Issue.value`, like every other raw value.
 

@@ -118,8 +118,17 @@ function subcomponents(
       maxLength: 6,
     })
     .filter((value) => escape !== undefined || value !== '""');
+  // Values may be marked as truncated where the message declares a truncation character.
+  const truncated =
+    truncation === undefined ? fc.constant(false) : fc.boolean();
   const filled = fc.oneof(
-    text.map((value): Subcomponent => ({ kind: "value", value, span: noSpan })),
+    fc
+      .tuple(text, truncated)
+      .map(([value, cut]): Subcomponent =>
+        cut
+          ? { kind: "value", value, truncated: true, span: noSpan }
+          : { kind: "value", value, span: noSpan },
+      ),
     fc.constant<Subcomponent>({ kind: "null", span: noSpan }),
   );
   const any = fc.oneof(

@@ -126,8 +126,8 @@ interface OpenNodes {
   repetitionStart: number;
   componentStart: number;
   subcomponentStart: number;
-  /** Whether the open subcomponent contains an escape character. */
-  escaped: boolean;
+  /** Whether the open subcomponent contains an escape or truncation character, so that it needs decoding. */
+  special: boolean;
 }
 
 /**
@@ -145,8 +145,10 @@ function parseFields(
 ): Field[] {
   const { input } = parser;
   const levelOf = createLevelLookup(parser.context);
-  // Without an escape character (MSH-2 may omit it), no character starts an escape sequence.
-  const escapeCode = parser.context.delimiters.escape?.charCodeAt(0);
+  // Omitted delimiters (MSH-2 may omit them) match no character.
+  const { escape, truncation } = parser.context.delimiters;
+  const escapeCode = escape?.charCodeAt(0);
+  const truncationCode = truncation?.charCodeAt(0);
   const open: OpenNodes = {
     fields: [],
     repetitions: [],
@@ -156,12 +158,12 @@ function parseFields(
     repetitionStart: from,
     componentStart: from,
     subcomponentStart: from,
-    escaped: false,
+    special: false,
   };
   for (let index = from; index < end; index++) {
     const code = input.charCodeAt(index);
-    if (code === escapeCode) {
-      open.escaped = true;
+    if (code === escapeCode || code === truncationCode) {
+      open.special = true;
       continue;
     }
     const level = levelOf(code);
@@ -182,7 +184,7 @@ function close(
 ): void {
   const span = { start: open.subcomponentStart, end: index };
   open.subcomponents.push(
-    open.escaped
+    open.special
       ? decodedValue(parser, span, {
           field: firstFieldNumber + open.fields.length,
           repetition: open.repetitions.length + 1,
@@ -192,7 +194,7 @@ function close(
       : plainSubcomponent(parser.input, span),
   );
   open.subcomponentStart = index + 1;
-  open.escaped = false;
+  open.special = false;
   if (level === "subcomponent") return;
 
   open.components.push({
@@ -269,7 +271,7 @@ type Position = Required<
   Pick<Location, "field" | "repetition" | "component" | "subcomponent">
 >;
 
-/** A subcomponent without escape sequences: empty, the HL7 null `""`, or a value taken as written. */
+/** A subcomponent without escape and truncation characters: empty, the HL7 null `""`, or a value as written. */
 function plainSubcomponent(input: string, span: Span): Subcomponent {
   if (span.start === span.end) return { kind: "empty", span };
   if (span.end - span.start === 2 && input.startsWith('""', span.start)) {
@@ -278,16 +280,23 @@ function plainSubcomponent(input: string, span: Span): Subcomponent {
   return { kind: "value", value: input.slice(span.start, span.end), span };
 }
 
-/** A subcomponent with escape sequences, decoded; issues are reported at the position of their sequence. */
+/** A subcomponent with escape or truncation characters, decoded; issues are reported where they were found. */
 function decodedValue(
   parser: FieldParser,
   span: Span,
   position: Position,
 ): Subcomponent {
   const { input } = parser;
-  const value = decodeText(input, span, parser.context, (code, at) => {
-    const location = { span: at, ...parser.location, ...position };
-    report(parser.issues, code, location, input.slice(at.start, at.end));
-  });
-  return { kind: "value", value, span };
+  const { value, truncated } = decodeText(
+    input,
+    span,
+    parser.context,
+    (code, at) => {
+      const location = { span: at, ...parser.location, ...position };
+      report(parser.issues, code, location, input.slice(at.start, at.end));
+    },
+  );
+  return truncated
+    ? { kind: "value", value, truncated, span }
+    : { kind: "value", value, span };
 }
