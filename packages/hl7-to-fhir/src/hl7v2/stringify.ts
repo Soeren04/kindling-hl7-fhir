@@ -64,7 +64,7 @@ export type {
  * if (result.ok) {
  *   const text = stringify(result.value.message);
  *   if (text.ok) console.log(text.value);
- *   // "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
+ *   // => "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
  * }
  * ```
  */

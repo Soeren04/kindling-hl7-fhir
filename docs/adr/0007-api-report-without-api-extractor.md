@@ -18,7 +18,8 @@ typically lags new TypeScript versions.
   `packages/hl7-to-fhir/api/`. CI builds the package and fails if the declarations differ from the committed ones,
   so every API change shows up in the pull request diff and needs a deliberate update of the snapshot.
 - TypeDoc with `validation.notDocumented` and `treatValidationWarningsAsErrors` fails on undocumented exports.
-- A small script fails when an exported function lacks an `@example` block.
+- A small script fails when an exported function lacks an `@example` block, when an example does not compile, and when
+  an output an example claims with `// => <expression>` differs from what the built library produces.
 
 ## Alternatives considered
 

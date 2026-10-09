@@ -3,12 +3,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
+
+import { pathToFileURL } from "node:url";
 
 import {
   extractExamples,
   findBrokenExamples,
   findFunctionsWithoutExample,
+  findWrongClaims,
+  instrumentClaims,
 } from "./check-examples.mjs";
 
 /** A TSDoc comment whose `@example` holds the given lines as one `ts` block. */
@@ -352,5 +356,112 @@ describe("check-examples command", () => {
     const { status, stderr } = run({ "README.md": "nothing" });
     expect(status).toBe(1);
     expect(stderr).toContain("no .d.ts files");
+  });
+});
+
+describe("findWrongClaims", () => {
+  // A stand-in for the built library: a module the snippets import by its package name.
+  const library = mkdtempSync(path.join(tmpdir(), "claims-"));
+  writeFileSync(
+    path.join(library, "index.js"),
+    'export const answer = () => 42;\nexport const person = () => ({ name: "Adam", age: undefined });\n',
+  );
+  const modules = {
+    "hl7-to-fhir": pathToFileURL(path.join(library, "index.js")).href,
+  };
+  afterAll(() => {
+    rmSync(library, { recursive: true, force: true });
+  });
+
+  function wrong(...code: string[]): Promise<string[]> {
+    const declarations = new Map([
+      ["api.d.ts", `${documented(...code)}\ndeclare function run(): void;`],
+    ]);
+    return findWrongClaims(declarations, modules);
+  }
+
+  const imports = 'import { answer, person } from "hl7-to-fhir";';
+
+  it("accepts a claim that holds", async () => {
+    expect(
+      await wrong(
+        imports,
+        "answer(); // => 42",
+        "person(); // => { name: 'Adam', age: undefined }",
+      ),
+    ).toStrictEqual([]);
+  });
+
+  it("reports a claim that does not hold, with both values", async () => {
+    expect(await wrong(imports, "answer(); // => 41")).toStrictEqual([
+      "api.d.ts: the @example of run claims 41 on line 2, but the result is 42",
+    ]);
+  });
+
+  it("compares objects by value and by their undefined properties", async () => {
+    expect(
+      await wrong(imports, "person(); // => { name: 'Adam' }"),
+    ).toHaveLength(1);
+  });
+
+  it("compares the arguments of a console call with the claimed expressions", async () => {
+    expect(
+      await wrong(imports, "console.log(answer(), 'a'); // => 42, 'a'"),
+    ).toStrictEqual([]);
+    expect(
+      await wrong(imports, "console.error(answer()); // => 41"),
+    ).toHaveLength(1);
+  });
+
+  it("checks a claim every time its statement runs", async () => {
+    expect(
+      await wrong(imports, "for (const n of [42, 1]) console.log(n); // => 42"),
+    ).toStrictEqual([
+      "api.d.ts: the @example of run claims [ 42 ] on line 2, but the result is [ 1 ]",
+    ]);
+  });
+
+  it("reports a claim whose statement never runs", async () => {
+    expect(
+      await wrong(imports, "if (answer() > 100) answer(); // => 42"),
+    ).toStrictEqual([
+      "api.d.ts: the @example of run claims an output on line 2 that is never reached",
+    ]);
+  });
+
+  it("reports an example that throws", async () => {
+    const problems = await wrong(
+      imports,
+      "throw new Error('boom');",
+      "answer(); // => 42",
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("the @example of run throws: Error: boom");
+  });
+
+  it("does not run an example without claims", async () => {
+    expect(await wrong("throw new Error('not run');")).toStrictEqual([]);
+  });
+
+  it("ignores comments that do not start with an arrow", async () => {
+    expect(
+      await wrong(imports, "answer(); // 41", "answer(); // =>"),
+    ).toStrictEqual([]);
+  });
+});
+
+describe("instrumentClaims", () => {
+  it("finds no claims in a snippet without any", () => {
+    expect(instrumentClaims("const a = 1; // one", {}).lines).toStrictEqual([]);
+  });
+
+  it("points the imports of the package at the built modules", () => {
+    const { program } = instrumentClaims(
+      'import { a } from "pkg";\na; // => 1',
+      {
+        pkg: "file:///built.js",
+      },
+    );
+    expect(program).toContain('from "file:///built.js"');
   });
 });

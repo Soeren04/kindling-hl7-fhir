@@ -32,8 +32,8 @@ import type { Hl7Path } from "./path-type";
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||12345^^^HOSP^MR||Everyman^Adam");
  * if (result.ok) {
- *   get(result.value.message, "PID.5.1"); // "Everyman"
- *   get(result.value.message, "MSH.9.2"); // "A01"
+ *   get(result.value.message, "PID.5.1"); // => "Everyman"
+ *   get(result.value.message, "MSH.9.2"); // => "A01"
  * }
  * ```
  */
@@ -70,7 +70,7 @@ export function get<P extends string>(
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||111^^^HOSP^MR~222^^^HOSP^PI");
  * if (result.ok) {
- *   getAll(result.value.message, "PID.3.1"); // ["111", "222"]
+ *   getAll(result.value.message, "PID.3.1"); // => ["111", "222"]
  * }
  * ```
  */
@@ -118,10 +118,11 @@ export function getAll<P extends string>(
  *
  * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||""^Adam||""|');
  * if (result.ok) {
- *   isNull(result.value.message, "PID.7"); // true
- *   isNull(result.value.message, "PID.8"); // false: empty, not null
- *   isNull(result.value.message, "PID.5"); // false: only the first component is null
- *   isNull(result.value.message, "PID.5.1"); // true
+ *   isNull(result.value.message, "PID.7"); // => true
+ *   // PID.8 is empty, not null, and only the first component of PID.5 is null.
+ *   isNull(result.value.message, "PID.8"); // => false
+ *   isNull(result.value.message, "PID.5"); // => false
+ *   isNull(result.value.message, "PID.5.1"); // => true
  * }
  * ```
  */

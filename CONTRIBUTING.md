@@ -74,7 +74,10 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 The bundled declarations of both entry points are committed in `packages/hl7-to-fhir/api/` as an API report
 ([ADR 0007](docs/adr/0007-api-report-without-api-extractor.md)). When a change alters the public API on purpose, run
 `pnpm update:api` and commit the updated report with the change, so reviewers see the API difference. Every exported
-function needs an `@example` in its TSDoc; `pnpm check:api` fails otherwise.
+function needs an `@example` in its TSDoc; `pnpm check:api` fails otherwise. It also compiles every example and runs
+the ones that state an output: a comment `// => <expression>` after an expression statement must equal what the
+statement evaluates to, and after a `console` call it must equal the comma-separated arguments, as in
+`console.log(get(message, "PID.5.1")); // => "Everyman"`. A comment without the arrow is not checked, so it states no output.
 
 ## Commits
 

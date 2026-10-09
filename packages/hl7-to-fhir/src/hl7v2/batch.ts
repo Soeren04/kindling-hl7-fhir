@@ -87,10 +87,10 @@ export interface BatchSplit {
  * ].join("\r");
  *
  * const { messages } = splitBatch(input);
- * console.log(messages.length); // 2
+ * console.log(messages.length); // => 2
  * for (const message of messages) {
  *   const result = parse(message);
- *   if (result.ok) console.log(result.value.message.segments.length); // 2
+ *   if (result.ok) console.log(result.value.message.segments.length); // => 2
  * }
  * ```
  */

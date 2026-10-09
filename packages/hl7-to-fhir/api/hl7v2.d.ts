@@ -320,8 +320,8 @@ type OnlyDigits<N extends string> = N extends `${infer Digit}${infer Remainder}`
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||12345^^^HOSP^MR||Everyman^Adam");
  * if (result.ok) {
- *   get(result.value.message, "PID.5.1"); // "Everyman"
- *   get(result.value.message, "MSH.9.2"); // "A01"
+ *   get(result.value.message, "PID.5.1"); // => "Everyman"
+ *   get(result.value.message, "MSH.9.2"); // => "A01"
  * }
  * ```
  */
@@ -349,7 +349,7 @@ export declare function get<P extends string>(message: Hl7Message, path: Hl7Path
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||111^^^HOSP^MR~222^^^HOSP^PI");
  * if (result.ok) {
- *   getAll(result.value.message, "PID.3.1"); // ["111", "222"]
+ *   getAll(result.value.message, "PID.3.1"); // => ["111", "222"]
  * }
  * ```
  */
@@ -380,10 +380,11 @@ export declare function getAll<P extends string>(message: Hl7Message, path: Hl7P
  *
  * const result = parse('MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\rPID|1||||""^Adam||""|');
  * if (result.ok) {
- *   isNull(result.value.message, "PID.7"); // true
- *   isNull(result.value.message, "PID.8"); // false: empty, not null
- *   isNull(result.value.message, "PID.5"); // false: only the first component is null
- *   isNull(result.value.message, "PID.5.1"); // true
+ *   isNull(result.value.message, "PID.7"); // => true
+ *   // PID.8 is empty, not null, and only the first component of PID.5 is null.
+ *   isNull(result.value.message, "PID.8"); // => false
+ *   isNull(result.value.message, "PID.5"); // => false
+ *   isNull(result.value.message, "PID.5.1"); // => true
  * }
  * ```
  */
@@ -456,10 +457,10 @@ interface BatchSplit {
  * ].join("\r");
  *
  * const { messages } = splitBatch(input);
- * console.log(messages.length); // 2
+ * console.log(messages.length); // => 2
  * for (const message of messages) {
  *   const result = parse(message);
- *   if (result.ok) console.log(result.value.message.segments.length); // 2
+ *   if (result.ok) console.log(result.value.message.segments.length); // => 2
  * }
  * ```
  */
@@ -511,7 +512,7 @@ type ParseFailureCode = "INVALID_INPUT" | "EMPTY_INPUT" | "MISSING_MSH" | "INVAL
  * import { parse } from "hl7-to-fhir/hl7v2";
  *
  * const result = parse("PID|1");
- * if (!result.ok) console.error(result.error.code, result.error.message); // "MISSING_MSH", ...
+ * if (!result.ok) console.error(result.error.code); // => "MISSING_MSH"
  * ```
  */
 interface ParseFailure {
@@ -556,7 +557,7 @@ interface ParseFailure {
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam");
  * if (result.ok) {
- *   console.log(get(result.value.message, "PID.5.1")); // "Everyman"
+ *   console.log(get(result.value.message, "PID.5.1")); // => "Everyman"
  *   const notable: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
  *   for (const { code, message } of notable) console.warn(code, message);
  * } else {
@@ -582,7 +583,8 @@ export declare function parse(input: string): Result<ParseSuccess, ParseFailure>
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("OBX[3].5.1");
- * // { segmentId: "OBX", segmentOccurrence: 3, field: 5, repetition: undefined, component: 1, subcomponent: undefined }
+ * if (result.ok) console.log(result.value);
+ * // => { segmentId: "OBX", segmentOccurrence: 3, field: 5, repetition: undefined, component: 1, subcomponent: undefined }
  * ```
  */
 interface ParsedPath {
@@ -620,7 +622,7 @@ type PathFailureCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("PID.x");
- * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
+ * if (!result.ok) console.error(result.error.code, result.error.span); // => "INVALID_NUMBER", { start: 4, end: 5 }
  * ```
  */
 interface PathFailure {
@@ -646,7 +648,7 @@ interface PathFailure {
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("PID.3[2].1");
- * if (result.ok) console.log(result.value.field, result.value.repetition); // 3 2
+ * if (result.ok) console.log(result.value.field, result.value.repetition); // => 3, 2
  * ```
  */
 export declare function parsePath(path: string): Result<ParsedPath, PathFailure>;
@@ -767,7 +769,7 @@ interface StringifyFailure {
  * if (result.ok) {
  *   const text = stringify(result.value.message);
  *   if (text.ok) console.log(text.value);
- *   // "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
+ *   // => "MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam\r"
  * }
  * ```
  */

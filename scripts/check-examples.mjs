@@ -4,10 +4,22 @@
 //   1. every exported function has an example, however it is exported (`export { … }`, `export … from`,
 //      `export default`, `export * as …`);
 //   2. every example compiles as a self-contained snippet against those declarations. A snippet may import from
-//      "hl7-to-fhir" and "hl7-to-fhir/hl7v2" and declare what it uses with `declare const x: T;`.
-// Usage: `node check-examples.mjs <directory with .d.ts files>`.
-import { readdirSync, readFileSync } from "node:fs";
+//      "hl7-to-fhir" and "hl7-to-fhir/hl7v2" and declare what it uses with `declare const x: T;`;
+//   3. every output an example claims is what the built library produces. A claim is a comment `// => <expression>` after
+//      an expression statement, which must evaluate to the value of the expression, or after a `console` call, whose
+//      arguments must equal the comma-separated expressions.
+// Usage: `node check-examples.mjs <directory with .d.ts and .js files>`.
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { inspect, isDeepStrictEqual } from "node:util";
 
 import ts from "typescript";
 
@@ -27,6 +39,13 @@ const packageEntries = {
  * @typedef {object} Example
  * @property {string} owner - The declaration the tag belongs to, such as `parse` or `Hl7Message.version`.
  * @property {string} code - The snippet.
+ */
+
+/**
+ * What an instrumented example exports after it ran: what every claim stated and what was true.
+ *
+ * @typedef {object} Run
+ * @property {{ line: number, actual: unknown, expected: unknown }[]} claims
  */
 
 /**
@@ -307,6 +326,161 @@ export function findBrokenExamples(declarations) {
   return problems;
 }
 
+/** A claim in an example: the statement it follows and the expression its comment gives. */
+const claimComment = /^\/\/ => (.+)$/u;
+
+/**
+ * Whether the expression is a call of a method of `console`, such as `console.log(…)`.
+ *
+ * @param {ts.Expression} expression
+ * @returns {expression is ts.CallExpression} Whether the expression is a console call.
+ */
+function isConsoleCall(expression) {
+  return (
+    ts.isCallExpression(expression) &&
+    ts.isPropertyAccessExpression(expression.expression) &&
+    ts.isIdentifier(expression.expression.expression) &&
+    expression.expression.expression.text === "console"
+  );
+}
+
+/**
+ * Rewrites the claims of a snippet into calls that record what is claimed and what is true, and appends the export of
+ * the records. The snippet's own imports of the package are pointed at the built modules.
+ *
+ * @param {string} code - The snippet.
+ * @param {Readonly<Record<string, string>>} modules - The URL of the built module by import specifier.
+ * @returns {{ program: string, lines: number[] }} The program as JavaScript and the line of every claim in the snippet;
+ *   `lines` is empty when the snippet claims nothing.
+ */
+export function instrumentClaims(code, modules) {
+  const source = ts.createSourceFile(
+    "snippet.ts",
+    code,
+    ts.ScriptTarget.ES2022,
+    true,
+  );
+  /** @type {{ start: number, end: number, text: string }[]} */
+  const edits = [];
+  /** @type {number[]} */
+  const lines = [];
+
+  /** @param {ts.Node} node */
+  const visit = (node) => {
+    if (ts.isExpressionStatement(node)) {
+      const claimed = ts
+        .getTrailingCommentRanges(code, node.end)
+        ?.map(({ pos, end }) => claimComment.exec(code.slice(pos, end))?.[1])
+        .find((text) => text !== undefined);
+      if (claimed !== undefined) {
+        const { expression } = node;
+        const line =
+          source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+        lines.push(line);
+        const consoleArguments = isConsoleCall(expression)
+          ? expression.arguments
+          : undefined;
+        const actual = consoleArguments
+          ? `[${consoleArguments.map((argument) => argument.getText(source)).join(", ")}]`
+          : expression.getText(source);
+        const expected = consoleArguments ? `[${claimed}]` : `(${claimed})`;
+        edits.push({
+          start: expression.getStart(),
+          end: expression.end,
+          text: `claim(${String(line)}, ${actual}, ${expected})`,
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  let instrumented = code;
+  for (const edit of edits.reverse()) {
+    instrumented =
+      instrumented.slice(0, edit.start) +
+      edit.text +
+      instrumented.slice(edit.end);
+  }
+  for (const [specifier, url] of Object.entries(modules)) {
+    instrumented = instrumented.replaceAll(
+      `"${specifier}"`,
+      JSON.stringify(url),
+    );
+  }
+  const javascript = ts.transpileModule(instrumented, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      verbatimModuleSyntax: true,
+    },
+  }).outputText;
+  const recorder =
+    "export const claims = [];\n" +
+    "function claim(line, actual, expected) { claims.push({ line, actual, expected }); return actual; }\n";
+  return { program: recorder + javascript, lines };
+}
+
+/**
+ * Runs the examples that claim outputs against the built library.
+ *
+ * @param {ReadonlyMap<string, string>} declarations - Declaration files by file name.
+ * @param {Readonly<Record<string, string>>} modules - The URL of the built module by import specifier.
+ * @returns {Promise<string[]>} A problem for every claim that is wrong, never reached, or whose example throws.
+ */
+export async function findWrongClaims(declarations, modules) {
+  /** @type {string[]} */
+  const problems = [];
+  const directory = mkdtempSync(path.join(tmpdir(), "examples-"));
+  try {
+    let count = 0;
+    for (const [file, text] of declarations) {
+      for (const { owner, code } of extractExamples(file, text).examples) {
+        const { program, lines } = instrumentClaims(code, modules);
+        if (lines.length === 0) continue;
+        const where = `${file}: the @example of ${owner}`;
+        const script = path.join(directory, `${String(count++)}.mjs`);
+        writeFileSync(script, program);
+        /** @type {Run} */
+        let run;
+        try {
+          /** @type {unknown} */
+          const loaded = await import(pathToFileURL(script).href);
+          run = /** @type {Run} */ (loaded);
+        } catch (error) {
+          problems.push(`${where} throws: ${String(error)}`);
+          continue;
+        }
+        for (const line of lines) {
+          const claims = run.claims.filter((claim) => claim.line === line);
+          if (claims.length === 0) {
+            problems.push(
+              `${where} claims an output on line ${String(line)} that is never reached`,
+            );
+          }
+          for (const { actual, expected } of claims) {
+            if (isDeepStrictEqual(actual, expected)) continue;
+            problems.push(
+              `${where} claims ${inspectValue(expected)} on line ${String(line)}, but the result is ${inspectValue(actual)}`,
+            );
+          }
+        }
+      }
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+  return problems;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string} The value as JSON-like text for a message.
+ */
+function inspectValue(value) {
+  return inspect(value, { depth: 4, breakLength: Infinity });
+}
+
 // Exercised by spawning the script in the tests and by `pnpm check:api`; V8 coverage cannot follow child processes.
 /* v8 ignore start */
 if (import.meta.main) {
@@ -318,11 +492,16 @@ if (import.meta.main) {
       readFileSync(path.join(directory, name), "utf8"),
     ]),
   );
+  const absolute = path.resolve(directory);
   const problems = [
     ...findFunctionsWithoutExample(declarations).map(
       (entry) => `${entry} has no @example in its TSDoc`,
     ),
     ...findBrokenExamples(declarations),
+    ...(await findWrongClaims(declarations, {
+      "hl7-to-fhir": pathToFileURL(path.join(absolute, "index.js")).href,
+      "hl7-to-fhir/hl7v2": pathToFileURL(path.join(absolute, "hl7v2.js")).href,
+    })),
   ];
   for (const problem of problems) console.error(`Examples: ${problem}`);
   if (names.length === 0)

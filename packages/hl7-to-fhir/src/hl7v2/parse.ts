@@ -62,7 +62,7 @@ export type ParseFailureCode =
  * import { parse } from "hl7-to-fhir/hl7v2";
  *
  * const result = parse("PID|1");
- * if (!result.ok) console.error(result.error.code, result.error.message); // "MISSING_MSH", ...
+ * if (!result.ok) console.error(result.error.code); // => "MISSING_MSH"
  * ```
  */
 export interface ParseFailure {
@@ -108,7 +108,7 @@ export interface ParseFailure {
  *
  * const result = parse("MSH|^~\\&|LAB|HOSP|||20240115103000||ADT^A01|MSG00001|P|2.5.1\rPID|1||12345||Everyman^Adam");
  * if (result.ok) {
- *   console.log(get(result.value.message, "PID.5.1")); // "Everyman"
+ *   console.log(get(result.value.message, "PID.5.1")); // => "Everyman"
  *   const notable: Issue[] = result.value.issues.filter((issue) => issue.severity !== "info");
  *   for (const { code, message } of notable) console.warn(code, message);
  * } else {

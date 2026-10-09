@@ -18,7 +18,8 @@ import { isValidSegmentId } from "./segment";
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("OBX[3].5.1");
- * // { segmentId: "OBX", segmentOccurrence: 3, field: 5, repetition: undefined, component: 1, subcomponent: undefined }
+ * if (result.ok) console.log(result.value);
+ * // => { segmentId: "OBX", segmentOccurrence: 3, field: 5, repetition: undefined, component: 1, subcomponent: undefined }
  * ```
  */
 export interface ParsedPath {
@@ -65,7 +66,7 @@ export type PathFailureCode =
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("PID.x");
- * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
+ * if (!result.ok) console.error(result.error.code, result.error.span); // => "INVALID_NUMBER", { start: 4, end: 5 }
  * ```
  */
 export interface PathFailure {
@@ -92,7 +93,7 @@ export interface PathFailure {
  * import { parsePath } from "hl7-to-fhir/hl7v2";
  *
  * const result = parsePath("PID.3[2].1");
- * if (result.ok) console.log(result.value.field, result.value.repetition); // 3 2
+ * if (result.ok) console.log(result.value.field, result.value.repetition); // => 3, 2
  * ```
  */
 export function parsePath(path: string): Result<ParsedPath, PathFailure> {
