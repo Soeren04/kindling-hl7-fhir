@@ -1,6 +1,6 @@
 import { configDefaults, defineConfig } from "vitest/config";
 
-// The scaling tests take about 40 seconds. They run in their own project, which
+// The scaling tests take about a minute. They run in their own project, which
 // `pnpm test` (and so `verify:fast`, once per commit in CI) leaves out; `pnpm test:scaling` and `pnpm test:coverage`
 // (and so `verify:ci`) run it.
 const scalingTests = "test/property/scaling.test.ts";

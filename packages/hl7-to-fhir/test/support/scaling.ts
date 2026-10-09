@@ -2,7 +2,8 @@ import { Worker } from "node:worker_threads";
 
 /** What a scaling worker is asked to time. */
 export interface ScalingTask {
-  readonly operation: "parse" | "splitBatch" | "stringify";
+  readonly operation:
+    "parse" | "splitBatch" | "stringify" | "validate" | "group";
   /** Text at the start of every input, such as the MSH segment. */
   readonly prefix: string;
   /** Text that is repeated to make the input grow. */

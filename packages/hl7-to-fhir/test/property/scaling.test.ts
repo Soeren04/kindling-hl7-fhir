@@ -43,6 +43,27 @@ const unterminatedEscape: Growth = [
   `${patient}\\`,
   "a",
 ];
+// Messages whose structure, fields and values the validation walks: matched and unexpected segments, observations
+// that open a group each, and long values of the types with a format.
+const oruHeader = "MSH|^~\\&|LAB|HOSP|||||ORU^R01|1|P|2.5.1\rOBR|1|||c\r";
+const observations: Growth = ["observations", oruHeader, "OBX|1|NM|c||5\r"];
+const zSegments: Growth = ["Z segments", header, "ZPI|1\r"];
+const identifiers: Growth = [
+  "patient identifiers",
+  `${patient}1||`,
+  "a^^^H&1&ISO^MR~",
+];
+const numberDigits: Growth = [
+  "digits of a number",
+  `${oruHeader}OBX|1|NM|c||`,
+  "1",
+];
+const codeCharacters: Growth = [
+  "characters of a code",
+  `${patient}1|||||||`,
+  "M",
+];
+
 // Lines that are dropped, so that only reading them grows. A segment follows them: blank lines at the end of the
 // input are trimmed in one step before the lines are read.
 const emptyLines: Growth = ["empty lines", header, "\r", "NTE|1\r"];
@@ -83,6 +104,21 @@ const scenarios: readonly (readonly [
       unknownEscapes,
     ],
   ],
+  [
+    "validate",
+    [
+      segments,
+      observations,
+      zSegments,
+      fields,
+      components,
+      subcomponents,
+      identifiers,
+      numberDigits,
+      codeCharacters,
+    ],
+  ],
+  ["group", [segments, observations, zSegments]],
   [
     "splitBatch",
     [

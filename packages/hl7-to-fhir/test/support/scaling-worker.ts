@@ -7,6 +7,7 @@
 import { registerHooks } from "node:module";
 import { parentPort, workerData } from "node:worker_threads";
 
+import type { Hl7Message } from "../../src/hl7v2";
 import type { ScalingTask, ScalingTimes } from "./scaling";
 
 const extensions = [".ts", "/index.ts"];
@@ -29,7 +30,8 @@ registerHooks({
   },
 });
 
-const { parse, splitBatch, stringify } = await import("../../src/hl7v2");
+const { group, parse, splitBatch, stringify, validate } =
+  await import("../../src/hl7v2");
 
 /** Builds an input of about `bytes` characters: the prefix once, then the unit repeated, then the suffix. */
 function inputOf(task: ScalingTask, bytes: number): string {
@@ -48,12 +50,25 @@ function operation(task: ScalingTask, input: string): () => unknown {
     case "splitBatch":
       return () => splitBatch(input);
     case "stringify": {
-      const result = parse(input);
-      if (!result.ok)
-        throw new Error("the input of a stringify task must parse");
-      return () => stringify(result.value.message);
+      const message = parsedMessage(input);
+      return () => stringify(message);
+    }
+    case "validate": {
+      const message = parsedMessage(input);
+      return () => validate(message);
+    }
+    case "group": {
+      const message = parsedMessage(input);
+      return () => group(message);
     }
   }
+}
+
+/** The message of an input that operations on messages take; such an input must parse. */
+function parsedMessage(input: string): Hl7Message {
+  const result = parse(input);
+  if (!result.ok) throw new Error("the input of a task on messages must parse");
+  return result.value.message;
 }
 
 /** The fastest of two runs after a warm-up run of an operation on an input of `bytes` characters; noise only makes a run slower. */
