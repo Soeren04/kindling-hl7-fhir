@@ -95,6 +95,15 @@ export type Severity = "error" | "warning" | "info";
  * - `NON_STANDARD_CHARACTER_SET` (info): MSH-18 names a character set with a spelling HL7 table 0211 does not use,
  *   such as `UTF-8`; it is recognized.
  *
+ * Message structure (validation):
+ *
+ * - `MESSAGE_STRUCTURE_UNKNOWN` (warning): MSH-9 identifies no message structure: MSH-9.3 is empty, and MSH-9.1 and
+ *   MSH-9.2 imply none; segment order is not checked. No `value`.
+ * - `MESSAGE_STRUCTURE_MISMATCH` (error): MSH-9.3 names another structure than the one MSH-9.1 and MSH-9.2 imply
+ *   (`ADT^A04^ORU_R01`); the segments are checked against the one MSH-9.3 names. `value` is MSH-9.3.
+ * - `MESSAGE_STRUCTURE_UNSUPPORTED` (info): the library has no definition of the message structure; segment order is
+ *   not checked. `value` is the structure, such as `ORM_O01`.
+ *
  * Limits:
  *
  * - `TOO_MANY_ISSUES` (warning): more issues were found than are reported (10,000); this issue, at the end of the
@@ -133,6 +142,9 @@ export type IssueCode =
   | "INVALID_HEX_ESCAPE"
   | "UNSUPPORTED_CHARACTER_SET"
   | "NON_STANDARD_CHARACTER_SET"
+  | "MESSAGE_STRUCTURE_UNKNOWN"
+  | "MESSAGE_STRUCTURE_MISMATCH"
+  | "MESSAGE_STRUCTURE_UNSUPPORTED"
   | "TOO_MANY_ISSUES";
 
 /**

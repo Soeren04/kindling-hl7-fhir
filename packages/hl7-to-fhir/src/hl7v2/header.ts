@@ -22,6 +22,18 @@ export const encodingCharactersField = 2;
 /** The first field of MSH that is split into repetitions and components; MSH-1 and MSH-2 are single values. */
 export const firstSplitHeaderField = 3;
 
+/** MSH-9, the message type, which identifies the message structure. */
+export const messageTypeField = 9;
+
+/** MSH-9.1, the message code, such as `ADT`. */
+export const messageCodeComponent = 1;
+
+/** MSH-9.2, the trigger event, such as `A01`. */
+export const triggerEventComponent = 2;
+
+/** MSH-9.3, the message structure, such as `ADT_A01`. */
+export const messageStructureComponent = 3;
+
 /** MSH-12, the version ID, which decides whether MSH-2 may declare a truncation character. */
 export const versionField = 12;
 

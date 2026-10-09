@@ -154,6 +154,21 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "MSH-18 names the character set with a spelling that HL7 table 0211 does not use; it was recognized anyway.",
   },
+  MESSAGE_STRUCTURE_UNKNOWN: {
+    severity: "warning",
+    message:
+      "MSH-9 identifies no message structure: MSH-9.3 is empty, and MSH-9.1 and MSH-9.2 imply none, as the message is no acknowledgment and HL7 table 0354 assigns no structure to its message code and trigger event. The order of the segments is not checked.",
+  },
+  MESSAGE_STRUCTURE_MISMATCH: {
+    severity: "error",
+    message:
+      "MSH-9.3 names another message structure than the one that the message code and trigger event in MSH-9.1 and MSH-9.2 imply; the segments are checked against the structure MSH-9.3 names.",
+  },
+  MESSAGE_STRUCTURE_UNSUPPORTED: {
+    severity: "info",
+    message:
+      "The library has no definition of the message structure that MSH-9 names; the order of the segments is not checked.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:
