@@ -111,7 +111,8 @@ Open the pull request from a branch whose prefix is a commit type: `feat/…`, `
 `refactor/…`, `perf/…`, `build/…`, `ci/…` or `chore/…`. Fill in the template. A pull request is merged when these
 checks are green and the review gate is completed:
 
-- `Verify (Node 22)` and `Verify (Node 24)`: the full gates on both Node versions
+- `Verify (Node 22)` and `Verify (Node 24)`: the full gates on both Node versions, including the scaling tests, which
+  `pnpm test:coverage` runs; a quadratic running time fails these required checks, not `Every commit passes`
 - `Consumer (Node 22.12)`: the packed library installs and imports on its minimum Node version
 - `Every commit passes`: commit messages and `pnpm verify:fast` on each commit
 - `Changeset`: a changeset exists when the library changed
