@@ -15,3 +15,4 @@ rewritten, they are superseded.
 | [0007](0007-api-report-without-api-extractor.md)       | API report without API Extractor                      |
 | [0008](0008-message-model-and-indexing.md)             | Message model and field indexing                      |
 | [0009](0009-paths-and-their-types.md)                  | Paths and their types                                 |
+| [0010](0010-public-result-and-failure-shapes.md)       | Public result and failure shapes                      |
