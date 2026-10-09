@@ -62,7 +62,7 @@
     "check:attw": "attw --pack --profile node16",
     "check:contents": "node ../../scripts/check-package-contents.mjs",
     "check:type-performance": "node ../../scripts/check-type-performance.mjs tsconfig.perf.json 6500",
-    "check:api": "node ../../scripts/check-api-report.mjs && node ../../scripts/check-examples.mjs dist",
+    "check:api": "node ../../scripts/check-api-report.mjs && node ../../scripts/check-declarations.mjs dist && node ../../scripts/check-examples.mjs dist",
     "update:api": "node ../../scripts/check-api-report.mjs --update",
     "publish:dry-run": "npm publish --dry-run"
   },

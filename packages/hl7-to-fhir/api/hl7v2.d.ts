@@ -61,7 +61,7 @@ interface Hl7Message {
    */
   readonly version?: string | undefined;
   /** Every segment in input order, including Z segments and segments with unknown identifiers. */
-  readonly segments: readonly Segment$1[];
+  readonly segments: readonly Segment[];
 }
 /**
  * One segment: a line of the message such as `PID|1||...`.
@@ -82,14 +82,14 @@ interface Hl7Message {
  * const name = pid.fields[5 - 1];
  * ```
  */
-interface Segment$1 {
+interface Segment {
   /**
    * The segment identifier, such as `PID` or `ZPI`, as written: the text before the first field separator. For a line
    * without a field separator, it is the whole line (reported as `INVALID_SEGMENT_ID` unless it is a valid identifier).
    */
   readonly id: string;
   /** The fields after the identifier; `fields[n - 1]` is field `n`. */
-  readonly fields: readonly Field$1[];
+  readonly fields: readonly Field[];
   /** The segment text without its terminator. */
   readonly span: Span;
 }
@@ -108,7 +108,7 @@ interface Segment$1 {
  * for (const identifier of pid.fields[3 - 1]?.repetitions ?? []) console.log(identifier.components.length);
  * ```
  */
-interface Field$1 {
+interface Field {
   /** The repetitions in input order. */
   readonly repetitions: readonly Repetition[];
   /** The field text between its field delimiters. */
@@ -131,7 +131,7 @@ interface Field$1 {
  */
 interface Repetition {
   /** The components in input order; `components[n - 1]` is component `n`. */
-  readonly components: readonly Component$1[];
+  readonly components: readonly Component[];
   /** The repetition text between its delimiters. */
   readonly span: Span;
 }
@@ -151,9 +151,9 @@ interface Repetition {
  * if (first?.kind === "value") console.log(first.value);
  * ```
  */
-interface Component$1 {
+interface Component {
   /** The subcomponents in input order; `subcomponents[n - 1]` is subcomponent `n`. */
-  readonly subcomponents: readonly Subcomponent$1[];
+  readonly subcomponents: readonly Subcomponent[];
   /** The component text between its delimiters. */
   readonly span: Span;
 }
@@ -245,7 +245,7 @@ interface EmptySubcomponent {
  * }
  * ```
  */
-type Subcomponent$1 = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
+type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
 //#endregion
 //#region src/hl7v2/path-type.d.ts
 /**
@@ -274,27 +274,27 @@ type Subcomponent$1 = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
  * // const broken: Hl7Path<"PID..5"> = "PID..5"; // error: Invalid HL7 path: ...
  * ```
  */
-type Hl7Path<P extends string = string> = string extends P ? string : Problem<P> extends (infer Reason extends string) ? [Reason] extends [""] ? P : `Invalid HL7 path: ${Reason}` : never;
+type Hl7Path<P extends string = string> = string extends P ? string : Invalid<P> extends (infer Reason extends string) ? [Reason] extends [""] ? P : `Invalid HL7 path: ${Reason}` : never;
 /** What is wrong with a path literal: the empty string when nothing is. */
-type Problem<P extends string> = P extends `${infer Segment}.${infer Rest}` ? SegmentProblem<Segment> extends "" ? FieldProblem<Rest> : SegmentProblem<Segment> : "a field number must follow the segment, as in PID.5";
-type SegmentProblem<S extends string> = S extends `${infer Id}[${infer Index}]` ? IdProblem<Id> extends "" ? IndexProblem<Index> : IdProblem<Id> : IdProblem<S>;
+type Invalid<P extends string> = P extends `${infer SegmentText}.${infer Remainder}` ? InvalidSegment<SegmentText> extends "" ? InvalidField<Remainder> : InvalidSegment<SegmentText> : "a field number must follow the segment, as in PID.5";
+type InvalidSegment<S extends string> = S extends `${infer IdText}[${infer IndexText}]` ? InvalidId<IdText> extends "" ? InvalidIndex<IndexText> : InvalidId<IdText> : InvalidId<S>;
 /** An identifier has three characters and no lower-case letters. */
-type IdProblem<Id extends string> = string extends Id ? "" : Id extends `${string}${string}${string}${infer Rest}` ? Rest extends "" ? Id extends Uppercase<Id> ? "" : "the segment identifier must be upper case" : "the segment identifier has three characters" : "the segment identifier has three characters";
-type FieldProblem<R extends string> = R extends `${infer Field}.${infer Rest}` ? NumberedProblem<Field, "field"> extends "" ? ComponentProblem<Rest> : NumberedProblem<Field, "field"> : NumberedProblem<R, "field">;
-type ComponentProblem<R extends string> = R extends `${infer Component}.${infer Subcomponent}` ? NumberProblem<Component, "component"> extends "" ? NumberProblem<Subcomponent, "subcomponent"> : NumberProblem<Component, "component"> : NumberProblem<R, "component">;
-/** A field with an optional repetition index in brackets. */
-type NumberedProblem<F extends string, What extends string> = F extends `${infer Number}[${infer Index}]` ? NumberProblem<Number, What> extends "" ? IndexProblem<Index> : NumberProblem<Number, What> : NumberProblem<F, What>;
-type IndexProblem<Index extends string> = NumberProblem<Index, "repetition index">;
+type InvalidId<Id extends string> = string extends Id ? "" : Id extends `${string}${string}${string}${infer Remainder}` ? Remainder extends "" ? Id extends Uppercase<Id> ? "" : "the segment identifier must be upper case" : "the segment identifier has three characters" : "the segment identifier has three characters";
+type InvalidField<R extends string> = R extends `${infer FieldText}.${infer Remainder}` ? InvalidNumbered<FieldText, "field"> extends "" ? InvalidComponent<Remainder> : InvalidNumbered<FieldText, "field"> : InvalidNumbered<R, "field">;
+type InvalidComponent<R extends string> = R extends `${infer ComponentText}.${infer SubcomponentText}` ? InvalidNumber<ComponentText, "component"> extends "" ? InvalidNumber<SubcomponentText, "subcomponent"> : InvalidNumber<ComponentText, "component"> : InvalidNumber<R, "component">;
+/** A number with an optional repetition index in brackets. */
+type InvalidNumbered<N extends string, What extends string> = N extends `${infer NumberText}[${infer IndexText}]` ? InvalidNumber<NumberText, What> extends "" ? InvalidIndex<IndexText> : InvalidNumber<NumberText, What> : InvalidNumber<N, What>;
+type InvalidIndex<Index extends string> = InvalidNumber<Index, "repetition index">;
 /** A positive whole number: digits only, not starting with zero. */
-type NumberProblem<N extends string, What extends string> = string extends N ? "" : N extends `0${string}` ? `a ${What} is a positive number without leading zeros` : DigitsOnly<N> extends true ? "" : `a ${What} is a positive number`;
-type DigitsOnly<N extends string> = N extends `${infer Head}${infer Tail}` ? Head extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ? Tail extends "" ? true : DigitsOnly<Tail> : false : false;
+type InvalidNumber<N extends string, What extends string> = string extends N ? "" : N extends `0${string}` ? `a ${What} is a positive number without leading zeros` : OnlyDigits<N> extends true ? "" : `a ${What} is a positive number`;
+type OnlyDigits<N extends string> = N extends `${infer Digit}${infer Remainder}` ? Digit extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ? Remainder extends "" ? true : OnlyDigits<Remainder> : false : false;
 //#endregion
 //#region src/hl7v2/access.d.ts
 /**
  * Reads the text at a path, or `undefined` when there is none.
  *
  * Paths use HL7 notation, so `PID.5.1` is component 1 of field 5 of the `PID` segment, the same position as
- * `segment.fields[5 - 1]` (ADR 0008). `MSH.1` is the field separator and `MSH.2` the encoding characters. The rules:
+ * `segment.fields[5 - 1]`. `MSH.1` is the field separator and `MSH.2` the encoding characters. The rules:
  *
  * - A segment without an index (`PID.5`) is the first segment with that identifier; `OBX[3]` is the third `OBX`
  *   counted over the whole message, not within a group.
@@ -422,8 +422,7 @@ interface BatchSplit {
  *
  * Unlike `parse`, this function cannot fail and never throws: it returns what it found, possibly no message. An input
  * that is not a string, such as an undecoded `Buffer` passed from plain JavaScript, yields no messages and one
- * `INVALID_INPUT` error issue. Everything else it removes or doubts is reported in `issues`, as `parse` does
- * (ADR 0003):
+ * `INVALID_INPUT` error issue. Everything else it removes or doubts is reported in `issues`, as `parse` does:
  *
  * - info: the byte order mark and MLLP framing that were removed;
  * - warning: an MLLP frame without end block, malformed MLLP framing (an end block without start block or without
@@ -526,14 +525,14 @@ interface ParseFailure {
 /**
  * Parses an HL7 v2 message.
  *
- * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n` (when MSH ends with `\r` or `\r\n`, a
+ * Parsing is lenient: segments may end with `\r`, `\n` or `\r\n` (when MSH ends with `\r` or `\r\n`, a
  * line feed on its own is data and stays in its value); a byte order mark, MLLP framing and whitespace after the last
  * segment are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
  * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
  * declares unusable delimiters; it never throws.
  *
  * Every node carries a span into `input`, the string passed in, even when framing was removed. Read values with
- * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n` (ADR 0008).
+ * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n`.
  * The types of the issues are exported from the main entry point, `hl7-to-fhir`.
  *
  * A later MSH segment starts a second message; `parse` keeps it as a segment and reports it (`UNEXPECTED_MSH`, or the
@@ -568,7 +567,7 @@ export declare function parse(input: string): Result<ParseSuccess, ParseFailure>
 //#region src/hl7v2/path.d.ts
 /**
  * A path split into its parts. Numbers are 1-based, as written in HL7 notation (`PID.5.1` has `field: 5` and
- * `component: 1`); {@link get} applies the `n - 1` that ADR 0008 prescribes for the arrays.
+ * `component: 1`); {@link get} reads `fields[field - 1]`.
  *
  * @example
  * ```ts
@@ -766,4 +765,4 @@ interface StringifyFailure {
  */
 export declare function stringify(message: Hl7Message): Result<string, StringifyFailure>;
 //#endregion
-export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathFailure, PathFailureCode, Repetition, Segment$1 as Segment, StringifyFailure, StringifyFailureCode, Subcomponent$1 as Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component, Delimiters, EmptySubcomponent, Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathFailure, PathFailureCode, Repetition, Segment, StringifyFailure, StringifyFailureCode, Subcomponent, ValueSubcomponent };

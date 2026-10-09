@@ -78,14 +78,14 @@ export interface ParseFailure {
 /**
  * Parses an HL7 v2 message.
  *
- * Parsing is lenient (ADR 0003): segments may end with `\r`, `\n` or `\r\n` (when MSH ends with `\r` or `\r\n`, a
+ * Parsing is lenient: segments may end with `\r`, `\n` or `\r\n` (when MSH ends with `\r` or `\r\n`, a
  * line feed on its own is data and stays in its value); a byte order mark, MLLP framing and whitespace after the last
  * segment are removed; unknown, Z and malformed segments are kept in order. Each deviation is reported in
  * `issues`. Parsing fails only when the input is not a string, has no `MSH` segment first or
  * declares unusable delimiters; it never throws.
  *
  * Every node carries a span into `input`, the string passed in, even when framing was removed. Read values with
- * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n` (ADR 0008).
+ * `get` and `getAll` in HL7 notation (`PID.5.1`), or walk the tree, where `fields[n - 1]` is field `n`.
  * The types of the issues are exported from the main entry point, `hl7-to-fhir`.
  *
  * A later MSH segment starts a second message; `parse` keeps it as a segment and reports it (`UNEXPECTED_MSH`, or the

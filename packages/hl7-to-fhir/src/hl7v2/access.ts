@@ -6,7 +6,7 @@ import type { Hl7Path } from "./path-type";
  * Reads the text at a path, or `undefined` when there is none.
  *
  * Paths use HL7 notation, so `PID.5.1` is component 1 of field 5 of the `PID` segment, the same position as
- * `segment.fields[5 - 1]` (ADR 0008). `MSH.1` is the field separator and `MSH.2` the encoding characters. The rules:
+ * `segment.fields[5 - 1]`. `MSH.1` is the field separator and `MSH.2` the encoding characters. The rules:
  *
  * - A segment without an index (`PID.5`) is the first segment with that identifier; `OBX[3]` is the third `OBX`
  *   counted over the whole message, not within a group.

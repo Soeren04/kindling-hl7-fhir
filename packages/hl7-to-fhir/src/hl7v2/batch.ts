@@ -48,8 +48,7 @@ export interface BatchSplit {
  *
  * Unlike `parse`, this function cannot fail and never throws: it returns what it found, possibly no message. An input
  * that is not a string, such as an undecoded `Buffer` passed from plain JavaScript, yields no messages and one
- * `INVALID_INPUT` error issue. Everything else it removes or doubts is reported in `issues`, as `parse` does
- * (ADR 0003):
+ * `INVALID_INPUT` error issue. Everything else it removes or doubts is reported in `issues`, as `parse` does:
  *
  * - info: the byte order mark and MLLP framing that were removed;
  * - warning: an MLLP frame without end block, malformed MLLP framing (an end block without start block or without

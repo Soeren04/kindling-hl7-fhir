@@ -5,7 +5,7 @@ import { isValidSegmentId } from "./segment";
 
 /**
  * A path split into its parts. Numbers are 1-based, as written in HL7 notation (`PID.5.1` has `field: 5` and
- * `component: 1`); {@link get} applies the `n - 1` that ADR 0008 prescribes for the arrays.
+ * `component: 1`); {@link get} reads `fields[field - 1]`.
  *
  * @example
  * ```ts

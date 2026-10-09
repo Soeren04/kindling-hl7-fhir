@@ -26,77 +26,84 @@
  */
 export type Hl7Path<P extends string = string> = string extends P
   ? string
-  : Problem<P> extends infer Reason extends string
+  : Invalid<P> extends infer Reason extends string
     ? [Reason] extends [""]
       ? P
       : `Invalid HL7 path: ${Reason}`
     : never;
 
-/** What is wrong with a path literal: the empty string when nothing is. */
-type Problem<P extends string> = P extends `${infer Segment}.${infer Rest}`
-  ? SegmentProblem<Segment> extends ""
-    ? FieldProblem<Rest>
-    : SegmentProblem<Segment>
-  : "a field number must follow the segment, as in PID.5";
+// The names after `infer` are local to each type, but the declaration bundler puts every type of the package into
+// one scope and renames a clash to `Name$1`. The names below therefore end in `Text`, `Digit` or `Remainder`, which
+// no declaration of the package uses (`check:api` fails on a `$1` in the declarations).
 
-type SegmentProblem<S extends string> = S extends `${infer Id}[${infer Index}]`
-  ? IdProblem<Id> extends ""
-    ? IndexProblem<Index>
-    : IdProblem<Id>
-  : IdProblem<S>;
+/** What is wrong with a path literal: the empty string when nothing is. */
+type Invalid<P extends string> =
+  P extends `${infer SegmentText}.${infer Remainder}`
+    ? InvalidSegment<SegmentText> extends ""
+      ? InvalidField<Remainder>
+      : InvalidSegment<SegmentText>
+    : "a field number must follow the segment, as in PID.5";
+
+type InvalidSegment<S extends string> =
+  S extends `${infer IdText}[${infer IndexText}]`
+    ? InvalidId<IdText> extends ""
+      ? InvalidIndex<IndexText>
+      : InvalidId<IdText>
+    : InvalidId<S>;
 
 /** An identifier has three characters and no lower-case letters. */
-type IdProblem<Id extends string> = string extends Id
+type InvalidId<Id extends string> = string extends Id
   ? ""
-  : Id extends `${string}${string}${string}${infer Rest}`
-    ? Rest extends ""
+  : Id extends `${string}${string}${string}${infer Remainder}`
+    ? Remainder extends ""
       ? Id extends Uppercase<Id>
         ? ""
         : "the segment identifier must be upper case"
       : "the segment identifier has three characters"
     : "the segment identifier has three characters";
 
-type FieldProblem<R extends string> = R extends `${infer Field}.${infer Rest}`
-  ? NumberedProblem<Field, "field"> extends ""
-    ? ComponentProblem<Rest>
-    : NumberedProblem<Field, "field">
-  : NumberedProblem<R, "field">;
+type InvalidField<R extends string> =
+  R extends `${infer FieldText}.${infer Remainder}`
+    ? InvalidNumbered<FieldText, "field"> extends ""
+      ? InvalidComponent<Remainder>
+      : InvalidNumbered<FieldText, "field">
+    : InvalidNumbered<R, "field">;
 
-type ComponentProblem<R extends string> =
-  R extends `${infer Component}.${infer Subcomponent}`
-    ? NumberProblem<Component, "component"> extends ""
-      ? NumberProblem<Subcomponent, "subcomponent">
-      : NumberProblem<Component, "component">
-    : NumberProblem<R, "component">;
+type InvalidComponent<R extends string> =
+  R extends `${infer ComponentText}.${infer SubcomponentText}`
+    ? InvalidNumber<ComponentText, "component"> extends ""
+      ? InvalidNumber<SubcomponentText, "subcomponent">
+      : InvalidNumber<ComponentText, "component">
+    : InvalidNumber<R, "component">;
 
-/** A field with an optional repetition index in brackets. */
-type NumberedProblem<
-  F extends string,
+/** A number with an optional repetition index in brackets. */
+type InvalidNumbered<
+  N extends string,
   What extends string,
-> = F extends `${infer Number}[${infer Index}]`
-  ? NumberProblem<Number, What> extends ""
-    ? IndexProblem<Index>
-    : NumberProblem<Number, What>
-  : NumberProblem<F, What>;
+> = N extends `${infer NumberText}[${infer IndexText}]`
+  ? InvalidNumber<NumberText, What> extends ""
+    ? InvalidIndex<IndexText>
+    : InvalidNumber<NumberText, What>
+  : InvalidNumber<N, What>;
 
-type IndexProblem<Index extends string> = NumberProblem<
+type InvalidIndex<Index extends string> = InvalidNumber<
   Index,
   "repetition index"
 >;
 
 /** A positive whole number: digits only, not starting with zero. */
-type NumberProblem<N extends string, What extends string> = string extends N
+type InvalidNumber<N extends string, What extends string> = string extends N
   ? ""
   : N extends `0${string}`
     ? `a ${What} is a positive number without leading zeros`
-    : DigitsOnly<N> extends true
+    : OnlyDigits<N> extends true
       ? ""
       : `a ${What} is a positive number`;
 
-type DigitsOnly<N extends string> = N extends `${infer Head}${infer Tail}`
-  ? Head extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-    ? Tail extends ""
+type OnlyDigits<N extends string> = N extends `${infer Digit}${infer Remainder}`
+  ? Digit extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+    ? Remainder extends ""
       ? true
-      : DigitsOnly<Tail>
+      : OnlyDigits<Remainder>
     : false
   : false;
