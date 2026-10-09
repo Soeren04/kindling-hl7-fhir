@@ -274,6 +274,16 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       'An explicit null "" was left out: a transaction bundle cannot express that the receiver should delete the value.',
   },
+  UNKNOWN_IDENTIFIER_SYSTEM: {
+    severity: "warning",
+    message:
+      "The assigning authority of an identifier is named but is no ISO OID, UUID or URI and is not in the identifierSystems option, so the identifier has no system.",
+  },
+  UNMAPPED_CODE: {
+    severity: "warning",
+    message:
+      "The code has no equivalent in the FHIR value set of the element it maps to; the element was left out or holds a generic value.",
+  },
   DATE_TIME_PRECISION_ADJUSTED: {
     severity: "info",
     message:

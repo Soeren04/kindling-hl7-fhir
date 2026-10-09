@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { cxCitation } from "../../../src/fhir/datatypes/cx";
 import { drCitation, tsCitations } from "../../../src/fhir/datatypes/date-time";
+import { hdCitation } from "../../../src/fhir/datatypes/hd";
 import { nmCitation } from "../../../src/fhir/datatypes/nm";
 import { snCitations } from "../../../src/fhir/datatypes/sn";
 import {
@@ -25,7 +27,9 @@ const guideMaps = JSON.parse(
 /** The citations of every data type mapper, by the data types they map. */
 const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   "TS, DTM": tsCitations,
+  CX: [cxCitation],
   DR: [drCitation],
+  HD: [hdCitation],
   NM: [nmCitation],
   SN: snCitations,
 };

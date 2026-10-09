@@ -154,6 +154,13 @@ type Severity = "error" | "warning" | "info";
  *
  * - `HL7_NULL_IGNORED` (info): an explicit null `""` was left out of a transaction bundle, which has no way to say
  *   "delete this value"; reported only for transaction bundles. No `value`.
+ * - `UNKNOWN_IDENTIFIER_SYSTEM` (warning): the assigning authority of an identifier is named but gives no system: it is
+ *   not in the `identifierSystems` option and no ISO OID, UUID or URI. The identifier has no system. `value` is the
+ *   namespace ID (HD.1), or the universal ID (HD.2) when there is none. An identifier without any assigning authority
+ *   is not reported.
+ * - `UNMAPPED_CODE` (warning): a code has no equivalent in the FHIR value set of the element it maps to and is not one
+ *   the HL7 to FHIR guide lists as deliberately without equivalent, which are left out silently; the element is left
+ *   out or holds a generic value instead.
  * - `DATE_TIME_PRECISION_ADJUSTED` (info): a date and time or a time stops at the hour or minute, which FHIR cannot
  *   write; zeros were added for the missing minutes and seconds.
  * - `DATE_TIME_OFFSET_ASSUMED` (info): a date and time has a time of day but no offset from UTC, so the offset of the
@@ -236,6 +243,8 @@ type IssueCode =
   | "UNKNOWN_CODE"
   | "UNKNOWN_USER_DEFINED_CODE"
   | "HL7_NULL_IGNORED"
+  | "UNKNOWN_IDENTIFIER_SYSTEM"
+  | "UNMAPPED_CODE"
   | "DATE_TIME_PRECISION_ADJUSTED"
   | "DATE_TIME_OFFSET_ASSUMED"
   | "DATE_TIME_OFFSET_MISSING"
