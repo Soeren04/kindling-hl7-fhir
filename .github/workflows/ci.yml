@@ -91,6 +91,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: node scripts/check-commit-messages.mjs "origin/$BASE_REF"
       # Replays the commits onto the base branch, as the rebase merge will, and runs the fast gates on each one.
+      # The checkout has no dist/, so a fast gate that needs a build fails here, as it would on a fresh clone.
       # The throwaway committer identity only exists in this checkout; nothing is pushed.
       - name: Run the fast gates on every commit
         env:

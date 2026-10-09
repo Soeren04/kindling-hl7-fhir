@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 
 import { expect, it } from "vitest";
 
-import { type Hl7Message, parse } from "../dist/hl7v2.js";
+import { type Hl7Message, parse } from "hl7-to-fhir/hl7v2";
 import {
   adtA01,
   emptyNodesOfOneMegabyte,

@@ -1,7 +1,7 @@
 // Throughput of the parser and the batch splitter. Run with `pnpm bench`; the numbers are in bench/README.md.
 import { describe, test } from "vitest";
 
-import { parse, splitBatch } from "../dist/hl7v2.js";
+import { parse, splitBatch } from "hl7-to-fhir/hl7v2";
 import {
   adtA01,
   batchOfOneMegabyte,

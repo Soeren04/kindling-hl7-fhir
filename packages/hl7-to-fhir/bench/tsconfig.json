@@ -1,9 +1,10 @@
 {
-  // The benchmarks import the built library (dist/), which does not exist before `pnpm build`, so this project is
-  // checked by `pnpm bench` and not by `pnpm typecheck`.
+  // The benchmarks import the library by its public name. Types come from the sources, so the project can be checked
+  // without a build; bench.config.ts maps the same name to dist/, the code consumers run, when they execute.
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "paths": { "hl7-to-fhir/hl7v2": ["../src/hl7v2.ts"] }
   },
   "include": ["."]
 }
