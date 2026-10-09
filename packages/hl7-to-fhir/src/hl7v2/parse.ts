@@ -9,11 +9,11 @@ import {
   type Span,
 } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
-import { resolveCharset } from "./charset";
+import { type Charset, resolveCharset } from "./charset";
 import { isDelimiterCharacter, readDelimiters } from "./delimiters";
 import { characterSetField, findHeaderValue, versionField } from "./header";
 import { locateContent, splitLines } from "./input";
-import type { Hl7Message } from "./model";
+import type { Delimiters, Hl7Message } from "./model";
 import { parseSegment } from "./segment";
 
 /**
@@ -135,14 +135,13 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
   if (!reading.ok) return fail(input, issues, reading.error);
 
   const { delimiters } = reading.value;
-  const headerValue = (field: number) => {
-    const span = findHeaderValue(input, msh, delimiters, field);
-    return span && input.slice(span.start, span.end);
-  };
-  const version = headerValue(versionField);
+  // Both are read from the raw header text: the first component of the first repetition, without unescaping.
+  const versionSpan = findHeaderValue(input, msh, delimiters, versionField);
+  const version =
+    versionSpan && input.slice(versionSpan.start, versionSpan.end);
   const context = {
     delimiters,
-    charset: resolveCharset(headerValue(characterSetField)),
+    charset: readCharset(input, msh, delimiters, issues),
   };
   const declaration = { start: msh.start, end: reading.value.encoding.end };
   const segments = lines.map((span, index) => {
@@ -156,6 +155,28 @@ export function parse(input: string): Result<ParseSuccess, ParseFailure> {
     segments,
   };
   return ok({ message, issues: finishIssues(issues, input.length) });
+}
+
+/** Reads MSH-18 and reports a character set named in a spelling HL7 table 0211 does not use. */
+function readCharset(
+  input: string,
+  msh: Span,
+  delimiters: Delimiters,
+  issues: LocatedIssue[],
+): Charset {
+  const span = findHeaderValue(input, msh, delimiters, characterSetField);
+  const name = span && input.slice(span.start, span.end);
+  const { charset, nonStandard } = resolveCharset(name);
+  if (span !== undefined && nonStandard) {
+    const location = {
+      span,
+      segmentIndex: 0,
+      segmentId: "MSH",
+      field: characterSetField,
+    };
+    report(issues, "NON_STANDARD_CHARACTER_SET", location, name);
+  }
+  return charset;
 }
 
 /**

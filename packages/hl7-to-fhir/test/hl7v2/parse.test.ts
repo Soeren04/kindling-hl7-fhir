@@ -370,6 +370,9 @@ describe("parse", () => {
       ["8859/1", "\\XE9\\", "é", []],
       ["", "\\X41\\", "A", []],
       ["UNICODE", "\\X41\\", "\\X41\\", ["UNSUPPORTED_CHARACTER_SET"]],
+      ["8859/2", "\\X41\\", "A", []],
+      ["8859/2", "\\XE9\\", "\\XE9\\", ["UNSUPPORTED_CHARACTER_SET"]],
+      ["ISO IR6", "\\X41\\", "A", []],
     ])(
       "decodes hexadecimal escapes with MSH-18 %j",
       (charset, raw, value, issueCodes) => {
@@ -381,6 +384,29 @@ describe("parse", () => {
         expect(result.issues.map(({ code }) => code)).toStrictEqual(issueCodes);
       },
     );
+  });
+
+  it("reports a character set named with a non-standard spelling and decodes with it", () => {
+    const header = `MSH|^~\\&${"|".repeat(16)}UTF-8~8859/1`;
+    const result = parsed(`${header}\rNTE|1||\\XC3A9\\`);
+    expect(fieldShape(result.message.segments[1]?.fields[2])).toStrictEqual([
+      [["é"]],
+    ]);
+    const start = header.indexOf("UTF-8");
+    expect(result.issues).toStrictEqual([
+      {
+        code: "NON_STANDARD_CHARACTER_SET",
+        severity: "info",
+        message: expect.any(String) as string,
+        location: {
+          span: { start, end: start + 5 },
+          segmentIndex: 0,
+          segmentId: "MSH",
+          field: 18,
+        },
+        value: "UTF-8",
+      },
+    ]);
   });
 
   describe("segment identifiers", () => {

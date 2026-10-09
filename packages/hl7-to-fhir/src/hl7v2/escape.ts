@@ -282,9 +282,8 @@ const invalidHex: Interpretation = { issue: "INVALID_HEX_ESCAPE" };
 function decodeHex(digits: string, charset: Charset): Interpretation {
   const bytes = parseHexBytes(digits);
   if (bytes === undefined) return invalidHex;
-  if (charset === "unsupported") return { issue: "UNSUPPORTED_CHARACTER_SET" };
   const text = decodeBytes(bytes, charset);
-  return text === undefined ? invalidHex : { text };
+  return text.ok ? { text: text.value } : { issue: text.error };
 }
 
 function parseHexBytes(digits: string): Uint8Array | undefined {

@@ -89,8 +89,10 @@ export type IssueCode =
   | "LOCAL_ESCAPE_KEPT"
   /** A hexadecimal escape sequence that is malformed or not valid in the message character set; kept as written. */
   | "INVALID_HEX_ESCAPE"
-  /** A hexadecimal escape sequence in a message whose character set (MSH-18) is not supported; kept as written. */
+  /** A hexadecimal escape sequence in a character set (MSH-18) the library cannot decode; kept as written. */
   | "UNSUPPORTED_CHARACTER_SET"
+  /** MSH-18 names a character set with a spelling HL7 table 0211 does not use, such as `UTF-8`; it is recognized. */
+  | "NON_STANDARD_CHARACTER_SET"
   /** `stringify`: a value needs an escape sequence, but MSH-2 declares no escape character. */
   | "ESCAPE_CHARACTER_REQUIRED"
   /** `stringify`: a component has several subcomponents, but MSH-2 declares no subcomponent separator. */
@@ -317,7 +319,12 @@ const definitions: Readonly<Record<IssueCode, IssueDefinition>> = {
   UNSUPPORTED_CHARACTER_SET: {
     severity: "warning",
     message:
-      "The character set in MSH-18 is not supported for hexadecimal escape sequences; the sequence is kept as written.",
+      "A hexadecimal escape sequence encodes bytes that the library cannot decode in the character set of MSH-18; the sequence is kept as written.",
+  },
+  NON_STANDARD_CHARACTER_SET: {
+    severity: "info",
+    message:
+      "MSH-18 names the character set with a spelling that HL7 table 0211 does not use; it was recognized anyway.",
   },
   ESCAPE_CHARACTER_REQUIRED: {
     severity: "error",
