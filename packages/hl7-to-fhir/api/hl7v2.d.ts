@@ -604,7 +604,7 @@ interface ParsedPath {
  * - `INVALID_INDEX`: a bracketed repetition index is not a positive whole number, or its brackets are malformed.
  * - `TOO_MANY_PARTS`: the path has more than four parts (segment, field, component, subcomponent).
  */
-type PathErrorCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MISSING_FIELD" | "INVALID_NUMBER" | "INVALID_INDEX" | "TOO_MANY_PARTS";
+type PathFailureCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MISSING_FIELD" | "INVALID_NUMBER" | "INVALID_INDEX" | "TOO_MANY_PARTS";
 /**
  * The reason {@link parsePath} rejected a path.
  *
@@ -616,9 +616,9 @@ type PathErrorCode = "INVALID_INPUT" | "EMPTY_PATH" | "INVALID_SEGMENT_ID" | "MI
  * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
  * ```
  */
-interface PathError {
+interface PathFailure {
   /** Discriminant: what is wrong with the path. */
-  readonly code: PathErrorCode;
+  readonly code: PathFailureCode;
   /** A description of the problem. */
   readonly message: string;
   /** The offending part of the path, as offsets into the string passed to `parsePath`. */
@@ -642,7 +642,7 @@ interface PathError {
  * if (result.ok) console.log(result.value.field, result.value.fieldIndex); // 3 2
  * ```
  */
-export declare function parsePath(path: string): Result<ParsedPath, PathError>;
+export declare function parsePath(path: string): Result<ParsedPath, PathFailure>;
 //#endregion
 //#region src/hl7v2/stringify-failure.d.ts
 /**
@@ -766,4 +766,4 @@ interface StringifyFailure {
  */
 export declare function stringify(message: Hl7Message): Result<string, StringifyFailure>;
 //#endregion
-export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathError, PathErrorCode, Repetition, Segment$1 as Segment, StringifyFailure, StringifyFailureCode, Subcomponent$1 as Subcomponent, ValueSubcomponent };
+export type { BatchSplit, Component$1 as Component, Delimiters, EmptySubcomponent, Field$1 as Field, Hl7Message, Hl7Path, NullSubcomponent, ParseFailure, ParseFailureCode, ParseSuccess, ParsedPath, PathFailure, PathFailureCode, Repetition, Segment$1 as Segment, StringifyFailure, StringifyFailureCode, Subcomponent$1 as Subcomponent, ValueSubcomponent };

@@ -17,7 +17,7 @@ checker, and the set of segments and fields is only known once phase 2 adds the 
 
 - **Grammar:** `SEG[n].F[r].C.S`. The segment and the field may carry a 1-based repetition index in brackets; the
   component and subcomponent may not. A path names at least a field. Numbers are positive whole numbers without leading
-  zeros. `parsePath` returns a `Result` with a `PathError` (`code`, `message`, `span` into the path) and never throws.
+  zeros. `parsePath` returns a `Result` with a `PathFailure` (`code`, `message`, `span` into the path) and never throws.
 - **Indexing:** `SEG-n` is `fields[n - 1]`, as in ADR 0008, so `MSH.1` is the field separator and `MSH.2` the encoding
   characters. `OBX[3]` is the third `OBX` segment counted over the whole message, not within a group.
 - **`get`:** a segment without index is the first segment of that identifier; a field without index is its first

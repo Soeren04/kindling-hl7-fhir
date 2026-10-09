@@ -30,8 +30,8 @@ export {
 export {
   parsePath,
   type ParsedPath,
-  type PathError,
-  type PathErrorCode,
+  type PathFailure,
+  type PathFailureCode,
 } from "./hl7v2/path";
 export type { Hl7Path } from "./hl7v2/path-type";
 export {

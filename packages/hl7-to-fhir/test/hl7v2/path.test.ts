@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parsePath, type PathErrorCode } from "../../src/hl7v2/path";
+import { parsePath, type PathFailureCode } from "../../src/hl7v2/path";
 
 describe("parsePath", () => {
   it.each([
@@ -85,7 +85,7 @@ describe("parsePath", () => {
     expect(parsePath(path)).toStrictEqual({ ok: true, value: expected });
   });
 
-  it.each<[string, string, PathErrorCode, number, number]>([
+  it.each<[string, string, PathFailureCode, number, number]>([
     ["the empty path", "", "EMPTY_PATH", 0, 0],
     ["a lower-case segment", "pid.5", "INVALID_SEGMENT_ID", 0, 3],
     ["a short segment", "PI.5", "INVALID_SEGMENT_ID", 0, 2],

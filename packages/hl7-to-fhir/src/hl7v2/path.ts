@@ -41,7 +41,7 @@ export interface ParsedPath {
  * - `INVALID_INDEX`: a bracketed repetition index is not a positive whole number, or its brackets are malformed.
  * - `TOO_MANY_PARTS`: the path has more than four parts (segment, field, component, subcomponent).
  */
-export type PathErrorCode =
+export type PathFailureCode =
   | "INVALID_INPUT"
   | "EMPTY_PATH"
   | "INVALID_SEGMENT_ID"
@@ -61,9 +61,9 @@ export type PathErrorCode =
  * if (!result.ok) console.error(result.error.code, result.error.span); // "INVALID_NUMBER", { start: 4, end: 5 }
  * ```
  */
-export interface PathError {
+export interface PathFailure {
   /** Discriminant: what is wrong with the path. */
-  readonly code: PathErrorCode;
+  readonly code: PathFailureCode;
   /** A description of the problem. */
   readonly message: string;
   /** The offending part of the path, as offsets into the string passed to `parsePath`. */
@@ -88,7 +88,7 @@ export interface PathError {
  * if (result.ok) console.log(result.value.field, result.value.fieldIndex); // 3 2
  * ```
  */
-export function parsePath(path: string): Result<ParsedPath, PathError> {
+export function parsePath(path: string): Result<ParsedPath, PathFailure> {
   if (!isString(path)) return fail("INVALID_INPUT", { start: 0, end: 0 });
   const parts = splitParts(path);
   const [segmentPart, fieldPart, componentPart, subcomponentPart] = parts;
@@ -155,7 +155,7 @@ interface Indexed {
 }
 
 /** Splits `name[3]` into the name and the index; a part without brackets has no index. */
-function readIndexed(part: Part): Result<Indexed, PathError> {
+function readIndexed(part: Part): Result<Indexed, PathFailure> {
   if (!/[[\]]/u.test(part.text))
     return ok({ name: part.text, index: undefined });
   const match = /^([^[\]]*)\[([^[\]]*)\]$/u.exec(part.text);
@@ -168,11 +168,11 @@ function readIndexed(part: Part): Result<Indexed, PathError> {
 
 function readOptionalNumber(
   part: Part | undefined,
-): Result<number | undefined, PathError> {
+): Result<number | undefined, PathFailure> {
   return part === undefined ? ok(undefined) : readNumber(part.text, part.span);
 }
 
-function readNumber(text: string, span: Span): Result<number, PathError> {
+function readNumber(text: string, span: Span): Result<number, PathFailure> {
   const number = toPositiveInteger(text);
   return number === undefined ? fail("INVALID_NUMBER", span) : ok(number);
 }
@@ -185,7 +185,7 @@ function toPositiveInteger(text: string): number | undefined {
 }
 
 // One message per code, like the issue messages; a message never repeats the path, which may come from data.
-const messages: Readonly<Record<PathErrorCode, string>> = {
+const messages: Readonly<Record<PathFailureCode, string>> = {
   INVALID_INPUT: "The path is not a string.",
   EMPTY_PATH: "The path is empty.",
   INVALID_SEGMENT_ID:
@@ -198,6 +198,6 @@ const messages: Readonly<Record<PathErrorCode, string>> = {
   TOO_MANY_PARTS: "A path has at most four parts.",
 };
 
-function fail(code: PathErrorCode, span: Span): Err<PathError> {
+function fail(code: PathFailureCode, span: Span): Err<PathFailure> {
   return err({ code, message: messages[code], span });
 }
