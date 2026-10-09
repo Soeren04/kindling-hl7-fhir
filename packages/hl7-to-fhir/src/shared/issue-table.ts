@@ -14,6 +14,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       'The input is not a string. Decode bytes first, for example with buffer.toString("latin1") for ASCII and ISO-8859-1 messages or buffer.toString("utf8") for UTF-8 ones.',
   },
+  INVALID_TREE: {
+    severity: "error",
+    message:
+      "The message does not have the shape of the tree that parse returns: a node is missing, null or of the wrong type, or has no valid span.",
+  },
   INVALID_DEFINITION: {
     severity: "error",
     message:

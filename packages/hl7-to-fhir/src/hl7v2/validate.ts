@@ -5,6 +5,7 @@ import { segmentDefinitions } from "./definitions/segment-definitions";
 import type { SegmentDefinition } from "./definitions/types";
 import { groupSegments } from "./group";
 import type { Hl7Message } from "./model";
+import { shapeIssue } from "./tree-check";
 import { segmentRules } from "./validate/rules/segment-rules";
 import { checkVersion } from "./validate/rules/version";
 
@@ -13,12 +14,15 @@ import { checkVersion } from "./validate/rules/version";
  *
  * @param message - A message from `parse`.
  * @param options - Definitions of further segments.
- * @returns Every finding in message order; empty when the message is valid. Never throws.
+ * @returns Every finding in message order; empty when the message is valid. Never throws: a tree that does not
+ *   have the shape of a message yields one `INVALID_TREE` issue.
  */
 export function validate(
   message: Hl7Message,
   options: DefinitionOptions = {},
 ): readonly Issue[] {
+  const problem = shapeIssue(message);
+  if (problem !== undefined) return [problem];
   const issues: Issue[] = [];
   const callers = definitionsOf(options, issues);
   const builtIn = checkVersion(message, issues);

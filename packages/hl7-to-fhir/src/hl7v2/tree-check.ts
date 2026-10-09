@@ -1,6 +1,9 @@
-// Plain JavaScript callers and hand-built trees can hand `stringify` anything. This module checks that a tree has
-// the shape of `Hl7Message` before anything is written, so that writing never meets a missing node and never throws.
-import type { Location, Span } from "../shared/issue";
+// Plain JavaScript callers and hand-built trees can hand `stringify`, `validate` and `group` anything. This module
+// checks that a tree has the shape of `Hl7Message` before anything reads it, so that writing and validating never meet
+// a missing node and never throw.
+import type { Issue, Location, Span } from "../shared/issue";
+import { issue } from "../shared/issue-table";
+import { emptySpanAt } from "../shared/span";
 import { isDelimiterCharacter } from "./header";
 import { isValidSegmentId } from "./segment";
 import { type StringifyFailure, stringifyFailure } from "./stringify-failure";
@@ -12,16 +15,20 @@ function isObject(value: unknown): value is Unchecked {
   return typeof value === "object" && value !== null;
 }
 
-const noSpan: Span = { start: 0, end: 0 };
+const noSpan = emptySpanAt(0);
 
 /**
  * The span a node gives itself, or `fallback` when it has none that could locate it: the span is not part of what
  * `stringify` writes, so a tree without spans is still written, and a failure in it is located by its numbers.
  */
 export function spanOf(node: unknown, fallback: Span = noSpan): Span {
-  if (!isObject(node)) return fallback;
+  return (isObject(node) ? ownSpan(node) : undefined) ?? fallback;
+}
+
+/** The span of a node: whole, non-negative offsets in order, or `undefined` when it has no such span. */
+function ownSpan(node: Unchecked): Span | undefined {
   const { span } = node;
-  if (!isObject(span)) return fallback;
+  if (!isObject(span)) return undefined;
   const { start, end } = span;
   return typeof start === "number" &&
     typeof end === "number" &&
@@ -30,7 +37,7 @@ export function spanOf(node: unknown, fallback: Span = noSpan): Span {
     start >= 0 &&
     start <= end
     ? { start, end }
-    : fallback;
+    : undefined;
 }
 
 /**
@@ -44,19 +51,58 @@ export function checkTree(message: unknown): StringifyFailure | undefined {
   if (!isObject(message)) {
     return stringifyFailure("INVALID_TREE", { span: noSpan });
   }
-  const { delimiters, segments, version } = message;
+  const { delimiters } = message;
   if (!isDeclarable(delimiters)) {
     return stringifyFailure("INVALID_DELIMITERS", { span: noSpan });
   }
+  return checkShape(message, {
+    spanOf: (node, parent) => ownSpan(node) ?? parent,
+    checkId: (id, location) =>
+      // `parse` cuts the identifier at the first field separator and every segment at a carriage return; any other
+      // identifier, valid or not, reads back as written.
+      id.includes(delimiters.field) || id.includes("\r")
+        ? stringifyFailure("INVALID_SEGMENT_ID", location)
+        : undefined,
+  });
+}
+
+/**
+ * Checks that a tree has the shape of `Hl7Message` for the functions that read a tree without writing it, `validate`
+ * and `group`: every node has a valid span, which their issues point to, while delimiters and segment identifiers only
+ * matter to writing and are not checked.
+ *
+ * @returns One `INVALID_TREE` issue at the first node that is missing, of the wrong type or without a valid span, or
+ *   `undefined` when the tree has the shape of a message.
+ */
+export function shapeIssue(message: unknown): Issue | undefined {
+  const failure = isObject(message)
+    ? checkShape(message, { spanOf: ownSpan, checkId: () => undefined })
+    : stringifyFailure("INVALID_TREE", { span: noSpan });
+  return failure && issue("INVALID_TREE", failure.location);
+}
+
+/** What writing and reading a tree need differently from the walk over its shape. */
+interface ShapeRules {
+  /** The span of a node, given the span of its parent; `undefined` when the node has none it can be used with. */
+  readonly spanOf: (node: Unchecked, parent: Span) => Span | undefined;
+  /** A problem with a segment identifier beyond its type, found before the fields of the segment are checked. */
+  readonly checkId: (
+    id: string,
+    location: Location,
+  ) => StringifyFailure | undefined;
+}
+
+/** Walks the segments and everything below them, in order, and returns the first node that does not fit. */
+function checkShape(
+  message: Unchecked,
+  rules: ShapeRules,
+): StringifyFailure | undefined {
+  const { segments, version } = message;
   if (!Array.isArray(segments) || !isOptionalString(version)) {
     return stringifyFailure("INVALID_TREE", { span: noSpan });
   }
   for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
-    const failure = checkSegment(
-      segments[segmentIndex],
-      segmentIndex,
-      delimiters.field,
-    );
+    const failure = checkSegment(segments[segmentIndex], segmentIndex, rules);
     if (failure !== undefined) return failure;
   }
   return undefined;
@@ -105,24 +151,23 @@ function isDeclarable(delimiters: unknown): delimiters is DeclarableDelimiters {
   );
 }
 
+/** Checks a segment and everything below it. */
 function checkSegment(
   segment: unknown,
   segmentIndex: number,
-  fieldSeparator: string,
+  rules: ShapeRules,
 ): StringifyFailure | undefined {
   const at = { segmentIndex };
-  const span = spanOf(segment);
-  const { id, fields } = isObject(segment) ? segment : {};
-  if (typeof id !== "string" || !Array.isArray(fields)) {
-    return stringifyFailure("INVALID_TREE", { span, ...at });
+  const node = isObject(segment) ? segment : undefined;
+  const span = node && rules.spanOf(node, noSpan);
+  const { id, fields } = node ?? {};
+  if (span === undefined || typeof id !== "string" || !Array.isArray(fields)) {
+    return stringifyFailure("INVALID_TREE", { span: span ?? noSpan, ...at });
   }
-  // `parse` cuts the identifier at the first field separator and every segment at a carriage return; any other
-  // identifier, valid or not, reads back as written.
-  if (id.includes(fieldSeparator) || id.includes("\r")) {
-    return stringifyFailure("INVALID_SEGMENT_ID", { span, ...at });
-  }
+  const failure = rules.checkId(id, { span, ...at });
+  if (failure !== undefined) return failure;
   const location = isValidSegmentId(id) ? { ...at, segmentId: id } : at;
-  return checkChildren(fields, 0, span, location);
+  return checkChildren(fields, 0, span, location, rules);
 }
 
 // The levels below a segment: the property that holds the children of a node at each depth, and the location
@@ -141,6 +186,7 @@ function checkChildren(
   depth: Depth,
   parent: Span,
   location: Omit<Location, "span">,
+  rules: ShapeRules,
 ): StringifyFailure | undefined {
   if (!Array.isArray(list)) {
     return stringifyFailure("INVALID_TREE", { span: parent, ...location });
@@ -149,14 +195,20 @@ function checkChildren(
   for (let index = 0; index < list.length; index++) {
     const node: unknown = list[index];
     const at = { ...location, [numbers[depth]]: index + 1 };
-    const span = spanOf(node, parent);
-    if (!isObject(node)) {
-      return stringifyFailure("INVALID_TREE", { span, ...at });
+    const span = isObject(node) ? rules.spanOf(node, parent) : undefined;
+    if (!isObject(node) || span === undefined) {
+      return stringifyFailure("INVALID_TREE", { span: parent, ...at });
     }
     const failure =
       depth === 3
         ? checkSubcomponent(node, { span, ...at })
-        : checkChildren(node[childLists[depth]], nextDepth[depth], span, at);
+        : checkChildren(
+            node[childLists[depth]],
+            nextDepth[depth],
+            span,
+            at,
+            rules,
+          );
     if (failure !== undefined) return failure;
   }
   return undefined;

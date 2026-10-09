@@ -35,6 +35,9 @@ type Severity = "error" | "warning" | "info";
  * Input and message structure:
  *
  * - `INVALID_INPUT` (error): the input is not a string, for example a `Buffer` that was not decoded or `undefined`.
+ * - `INVALID_TREE` (error): a message passed to `validate` or `group` does not have the shape of the tree `parse`
+ *   returns: a node is missing, `null` or of the wrong type, or has no valid span. Possible only for trees built in
+ *   plain JavaScript. No `value`.
  * - `INVALID_DEFINITION` (error): a segment definition passed to `validate` or `group` was not made with
  *   `defineSegment` and does not have its shape; it is ignored. `value` says what is wrong with it.
  * - `EMPTY_INPUT` (error): the input contains no text once framing and whitespace are removed.
@@ -153,6 +156,7 @@ type Severity = "error" | "warning" | "info";
  */
 type IssueCode =
   | "INVALID_INPUT"
+  | "INVALID_TREE"
   | "INVALID_DEFINITION"
   | "EMPTY_INPUT"
   | "MISSING_MSH"
