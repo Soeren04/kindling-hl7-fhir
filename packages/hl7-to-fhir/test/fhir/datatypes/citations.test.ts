@@ -10,6 +10,7 @@ import { drCitation, tsCitations } from "../../../src/fhir/datatypes/date-time";
 import { hdCitation } from "../../../src/fhir/datatypes/hd";
 import { nmCitation } from "../../../src/fhir/datatypes/nm";
 import { snCitations } from "../../../src/fhir/datatypes/sn";
+import { xadCitations } from "../../../src/fhir/datatypes/xad";
 import { xpnCitations } from "../../../src/fhir/datatypes/xpn";
 import {
   type MappingCitation,
@@ -33,6 +34,7 @@ const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   HD: [hdCitation],
   NM: [nmCitation],
   SN: snCitations,
+  XAD: xadCitations,
   XPN: xpnCitations,
 };
 
