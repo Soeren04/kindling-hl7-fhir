@@ -12,7 +12,11 @@ import {
   completeDelimiterSets,
   encodingCharactersOf,
 } from "../hl7v2/arbitraries";
-import { parsed } from "../hl7v2/helpers";
+import {
+  canonical,
+  parsed,
+  withoutSpans as treeWithoutSpans,
+} from "../hl7v2/helpers";
 
 const standard: Delimiters = {
   field: "|",
@@ -43,6 +47,19 @@ const hostileInput = fc.oneof(
       fc.string({ unit: hostileCharacter }),
     )
     .map(([prefix, rest]) => `${prefix}MSH|^~\\&#|||||||||2.7${rest}`),
+  fc
+    .tuple(
+      fc.constantFrom(
+        "",
+        "UNICODE UTF-8",
+        "ISO IR87",
+        "UNICODE",
+        "UNICODE UTF-16",
+        "KLINGON",
+      ),
+      fc.string({ unit: hostileCharacter }),
+    )
+    .map(([charset, rest]) => `MSH|^~\\&${"|".repeat(16)}${charset}\r${rest}`),
 );
 
 const failureCodes: readonly ParseFailureCode[] = [
@@ -60,8 +77,6 @@ describe("parse properties", () => {
       const result = parse(input);
       if (result.ok) {
         expect(result.value.message.segments[0]?.id).toBe("MSH");
-        // Every tree parse returns can be written.
-        expect(stringify(result.value.message).ok).toBe(true);
         const { segments } = result.value.message;
         const { issues } = result.value;
         // Segments come in input order and do not overlap.
@@ -89,6 +104,25 @@ describe("parse properties", () => {
         : result.error.issues.slice(0, -1);
       const starts = issues.map(({ location }) => location?.span.start ?? 0);
       expect(starts).toStrictEqual([...starts].sort((a, b) => a - b));
+    },
+  );
+
+  propertyTest.prop([hostileInput], { numRuns: 1000 })(
+    "returns only trees that stringify writes and parse reads back the same",
+    (input) => {
+      const result = parse(input);
+      if (!result.ok) return;
+      const { message } = result.value;
+      const text = stringify(message);
+      // The documented exception these inputs can reach: a value `""` from formatting commands in a character set
+      // without hex escapes. The other one needs an escape sequence before the version, which they never start with.
+      if (!text.ok) {
+        expect(text.error.code).toBe("HEX_ESCAPE_UNSUPPORTED");
+        return;
+      }
+      expect(treeWithoutSpans(parsed(text.value).message)).toStrictEqual(
+        canonical(message),
+      );
     },
   );
 
@@ -180,7 +214,14 @@ function serialize(
             components
               .map((subcomponents) =>
                 subcomponents
-                  .map((text) => encodeText(text, delimiters) ?? "")
+                  .map((text) => {
+                    const encoded = encodeText(text, {
+                      delimiters,
+                      hexEscapes: true,
+                      lineFeedIsData: true,
+                    });
+                    return encoded.ok ? encoded.value.join("") : "";
+                  })
                   .join(subcomponent),
               )
               .join(component),

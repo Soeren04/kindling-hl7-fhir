@@ -1,6 +1,7 @@
 // Escape sequences (HL7 v2.5.1 chapter 2.7). Decoding turns the raw text of a subcomponent into the text a reader
 // sees; encoding is the inverse for text that has to be written into a message.
 import type { IssueCode, Span } from "../shared/issue";
+import { err, ok, type Result } from "../shared/result";
 import { type Charset, decodeBytes } from "./charset";
 import { indexOfOrEnd } from "./input";
 import type { Delimiters } from "./model";
@@ -60,6 +61,10 @@ export function decodeText(
   report: DecodeIssueReporter,
 ): DecodedText {
   const { escape, truncation } = context.delimiters;
+  // MSH-2 declares the truncation character after the escape character, so without one there is neither.
+  if (escape === undefined) {
+    return { value: input.slice(span.start, span.end), truncated: false };
+  }
   const truncated =
     truncation !== undefined &&
     span.end > span.start &&
@@ -67,9 +72,6 @@ export function decodeText(
     !endsInsideEscape(input, span, escape);
   const end = truncated ? span.end - 1 : span.end;
   if (truncated) report("VALUE_TRUNCATED", { start: end, end: span.end });
-  if (escape === undefined) {
-    return { value: input.slice(span.start, end), truncated };
-  }
   const parts: string[] = [];
   let copied = span.start;
   let open = indexOfOrEnd(input, escape, span.start, end);
@@ -94,12 +96,7 @@ export function decodeText(
  * Whether the last character of the span lies inside an escape sequence: escape characters open and close sequences
  * in turn, so an odd number of them leaves the last sequence open.
  */
-function endsInsideEscape(
-  input: string,
-  span: Span,
-  escape: string | undefined,
-): boolean {
-  if (escape === undefined) return false;
+function endsInsideEscape(input: string, span: Span, escape: string): boolean {
   let open = false;
   for (let index = span.start; index < span.end; index++) {
     if (input.charAt(index) === escape) open = !open;
@@ -107,44 +104,120 @@ function endsInsideEscape(
   return open;
 }
 
+/** What the text around a value allows, which decides how characters without a plain form are written. */
+export interface EncodeContext {
+  /** The message delimiters. */
+  readonly delimiters: Delimiters;
+  /**
+   * Whether hexadecimal escape sequences of ASCII bytes read back: true unless the character set of the message
+   * (MSH-18) is one the library cannot decode, such as UTF-16.
+   */
+  readonly hexEscapes: boolean;
+  /**
+   * Whether a raw line feed reads back as data: true outside the first MSH segment of text whose segments end with
+   * carriage returns, as `stringify` writes it. In the first MSH segment, a line feed would end the segment.
+   */
+  readonly lineFeedIsData: boolean;
+}
+
 /**
- * Escapes `value` so that it can be written as one subcomponent: delimiters (and the truncation character, if
- * declared) become their escape sequences, a line feed becomes `\X0A\` and a carriage return `\X0D\`, which would otherwise end the segment. The first quote of a value of exactly `""` is
- * written as `\X22\`, so the value is not read as the HL7 null.
+ * Why a value cannot be written.
  *
- * `decodeText` restores the original value in every supported character set.
+ * - `ESCAPE_CHARACTER_REQUIRED`: the value needs an escape sequence, but the message declares no escape character.
+ * - `HEX_ESCAPE_UNSUPPORTED`: the value needs a hexadecimal escape sequence, which does not read back in the
+ *   character set of the message.
+ */
+export type EncodeFailureCode =
+  "ESCAPE_CHARACTER_REQUIRED" | "HEX_ESCAPE_UNSUPPORTED";
+
+/**
+ * Escapes `value` so that it can be written as one subcomponent, the inverse of {@link decodeText}.
  *
- * Without an escape character, a line feed is written as it is: in text whose segments end with carriage returns, as
- * `stringify` writes it, a line feed is data. Every other character that needs an escape sequence makes the value
- * unrepresentable.
+ * - Delimiters, and the truncation character if declared, become their escape sequences (`\F\`, `\S\`, ...).
+ * - A carriage return, which would end the segment, becomes `\X0D\`.
+ * - A line feed becomes `\X0A\`, which is valid in every text data type. Where hexadecimal escapes do not read
+ *   back, it becomes `\.br\` unless "." is a delimiter, and without an escape character it is written as it is where
+ *   it reads back as data.
+ * - The first quote of a value of exactly `""` becomes `\X22\`, so the value is not read as the HL7 null.
  *
- * @returns The escaped text, or `undefined` when the value needs an escape sequence but the message declares no
- *   escape character.
+ * @returns The escaped text in pieces, to be concatenated by the caller, or why the value cannot be written.
  */
 export function encodeText(
   value: string,
-  delimiters: Delimiters,
-): string | undefined {
-  const { escape } = delimiters;
-  // Written as is, a value of exactly `""` would read as the HL7 null; a hexadecimal escape for its first quote
-  // keeps it a value. The second quote takes the normal path, which escapes it if the quote is a delimiter.
-  const quotedNull = value === '""';
-  let encoded = "";
-  for (let index = 0; index < value.length; index++) {
-    const character = value.charAt(index);
-    const sequence =
-      quotedNull && index === 0
-        ? "X22"
-        : escapeSequenceFor(character, delimiters);
-    if (sequence === undefined) encoded += character;
-    else if (escape !== undefined) encoded += escape + sequence + escape;
-    else if (character === "\n") encoded += character;
-    else return undefined;
+  context: EncodeContext,
+): Result<readonly string[], EncodeFailureCode> {
+  const pieces: string[] = [];
+  let copied = 0;
+  for (
+    let index = nextCandidate(value, 0);
+    index < value.length;
+    index = nextCandidate(value, index + 1)
+  ) {
+    const sequence = escapeSequenceFor(value, index, context);
+    if (sequence === undefined) continue;
+    if (!sequence.ok) return sequence;
+    pieces.push(value.slice(copied, index), sequence.value);
+    copied = index + 1;
   }
-  return encoded;
+  pieces.push(value.slice(copied));
+  return ok(pieces);
 }
 
+// Delimiters are printable ASCII punctuation, and the other characters that may need an escape sequence are the
+// line terminators and the quote: letters, digits, spaces and everything beyond ASCII stand for themselves. A native
+// search for the rest keeps the scan of long values fast.
+const candidates = /[^\d a-z\x7F-\u{10FFFF}]/iu;
+
+/** The offset of the next character at or after `from` that may need an escape sequence, or the length of `value`. */
+function nextCandidate(value: string, from: number): number {
+  const found = value.slice(from).search(candidates);
+  return found === -1 ? value.length : from + found;
+}
+
+/**
+ * How the character at `index` must be written: `undefined` when it stands for itself, otherwise its replacement
+ * (an escape sequence or, for a line feed without escape character, the line feed itself).
+ */
 function escapeSequenceFor(
+  value: string,
+  index: number,
+  context: EncodeContext,
+): Result<string, EncodeFailureCode> | undefined {
+  const { delimiters, hexEscapes, lineFeedIsData } = context;
+  const { escape } = delimiters;
+  const character = value.charAt(index);
+  const delimiter = delimiterSequenceFor(character, delimiters);
+  if (delimiter !== undefined) {
+    return escape === undefined
+      ? err("ESCAPE_CHARACTER_REQUIRED")
+      : ok(escape + delimiter + escape);
+  }
+  if (character === "\n") {
+    if (escape !== undefined) {
+      if (hexEscapes) return ok(`${escape}X0A${escape}`);
+      // The command `.br` contains a period: as a delimiter it would split or end the sequence.
+      return usesPeriod(delimiters)
+        ? err("HEX_ESCAPE_UNSUPPORTED")
+        : ok(`${escape}.br${escape}`);
+    }
+    return lineFeedIsData ? ok(character) : err("ESCAPE_CHARACTER_REQUIRED");
+  }
+  // Written as is, a value of exactly `""` would read as the HL7 null; a hexadecimal escape for its first quote
+  // keeps it a value. The quote is no delimiter here, or it would have been escaped above.
+  const hex =
+    character === "\r" ? "X0D" : index === 0 && value === '""' ? "X22" : "";
+  if (hex === "") return undefined;
+  if (escape === undefined) return err("ESCAPE_CHARACTER_REQUIRED");
+  return hexEscapes ? ok(escape + hex + escape) : err("HEX_ESCAPE_UNSUPPORTED");
+}
+
+function usesPeriod(delimiters: Delimiters): boolean {
+  const { field, component, repetition, subcomponent, escape } = delimiters;
+  return [field, component, repetition, subcomponent, escape].includes(".");
+}
+
+/** The escape sequence content for a delimiter character, or `undefined` for any other character. */
+function delimiterSequenceFor(
   character: string,
   delimiters: Delimiters,
 ): string | undefined {
@@ -161,11 +234,6 @@ function escapeSequenceFor(
       return "E";
     case delimiters.truncation:
       return "P";
-    case "\n":
-      // `\.br\` is only valid in formatted text (FT); the hexadecimal form is valid in every text data type.
-      return "X0A";
-    case "\r":
-      return "X0D";
     default:
       return undefined;
   }

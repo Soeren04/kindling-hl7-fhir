@@ -87,16 +87,23 @@ function trimmedList<T>(
 /** Where generated fields go: in MSH, a line feed always needs an escape sequence, as it would end the segment. */
 type Place = "header" | "body";
 
-function subcomponents(
-  delimiters: Delimiters,
-  place: Place,
-): {
+/** What the generated values may contain besides the delimiters. */
+interface ValueRules {
+  readonly delimiters: Delimiters;
+  readonly place: Place;
+  /** Whether the character set has hexadecimal escapes, which carriage returns and the value `""` need. */
+  readonly hexEscapes: boolean;
+}
+
+function subcomponents({ delimiters, place, hexEscapes }: ValueRules): {
   readonly any: fc.Arbitrary<Subcomponent>;
   readonly filled: fc.Arbitrary<Subcomponent>;
 } {
   // With an escape character, values may contain every delimiter, quotes, line breaks and a period (never a
-  // delimiter here). Without one, they hold only what needs no escape sequence, and line feeds outside MSH. They are
-  // never empty: an empty value only arises from removed formatting commands, which `stringify` cannot reproduce.
+  // delimiter here); carriage returns need a hexadecimal escape too. Without one, they hold only what needs no escape
+  // sequence, and line feeds outside MSH. MLLP end blocks, spaces and tabs may end a value, also at the end of the
+  // message. Values are never empty: an empty value only arises from removed formatting commands, which `stringify`
+  // writes as an empty subcomponent.
   const { field, component, repetition, escape, subcomponent, truncation } =
     delimiters;
   const declared = [
@@ -110,14 +117,15 @@ function subcomponents(
   const text = fc
     .string({
       unit: fc.constantFrom(
-        ...Array.from(`ab .,"é`).filter((c) => !declared.includes(c)),
-        ...(escape === undefined ? [] : ["\n", "\r", ...declared]),
+        ...Array.from(`ab .,"é\t\u001C`).filter((c) => !declared.includes(c)),
+        ...(escape === undefined ? [] : ["\n", ...declared]),
+        ...(escape !== undefined && hexEscapes ? ["\r"] : []),
         ...(escape === undefined && place === "body" ? ["\n"] : []),
       ),
       minLength: 1,
       maxLength: 6,
     })
-    .filter((value) => escape !== undefined || value !== '""');
+    .filter((value) => (escape !== undefined && hexEscapes) || value !== '""');
   // Values may be marked as truncated where the message declares a truncation character.
   const truncated =
     truncation === undefined ? fc.constant(false) : fc.boolean();
@@ -141,8 +149,9 @@ function subcomponents(
   return { any, filled };
 }
 
-function fields(delimiters: Delimiters, place: Place): fc.Arbitrary<Field> {
-  const subcomponent = subcomponents(delimiters, place);
+function fields(rules: ValueRules): fc.Arbitrary<Field> {
+  const { delimiters } = rules;
+  const subcomponent = subcomponents(rules);
   // Without a subcomponent separator, a component holds at most one subcomponent.
   const children =
     delimiters.subcomponent === undefined
@@ -197,12 +206,36 @@ const delimiterCharacters = punctuation.filter(
   (character) => character !== "." && character !== '"',
 );
 
+/** The character sets of HL7 table 0211 whose code units are wider than a byte, so they have no ASCII hex escapes. */
+const withoutHexEscapes: readonly string[] = [
+  "UNICODE",
+  "UNICODE UTF-16",
+  "UNICODE UTF-32",
+];
+
+/** Character sets of HL7 table 0211 that the generated messages declare in MSH-18. */
+const characterSets: readonly string[] = [
+  "ASCII",
+  "8859/1",
+  "8859/2",
+  "UNICODE UTF-8",
+  "ISO IR14",
+  "ISO IR87",
+  "ISO IR159",
+  "GB 18030-2000",
+  "KS X 1001",
+  "CNS 11643-1992",
+  "BIG-5",
+  ...withoutHexEscapes,
+];
+
 /**
  * Random messages in the shape `parse` returns: an MSH segment with its version, then segments with arbitrary
  * fields, repetitions, components and subcomponents (values, nulls and empty ones in the middle), under random sets
  * of distinct delimiters, some of which omit the subcomponent separator or it and the escape character. Some
  * messages declare a truncation character, which needs version 2.7 or later, and some values are truncated; header
- * fields go up to MSH-18, the character set.
+ * fields go up to MSH-18, the character set, which may be one without hexadecimal escapes (UTF-16 and UTF-32), where
+ * values hold no carriage return and are never `""`.
  *
  * All spans are empty, so compare trees with the spans removed.
  */
@@ -211,8 +244,9 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
     fc.shuffledSubarray(delimiterCharacters, { minLength: 6, maxLength: 6 }),
     omissions,
     fc.boolean(),
+    fc.option(fc.constantFrom(...characterSets), { nil: undefined }),
   )
-  .chain(([characters, omission, wantsTruncation]) => {
+  .chain(([characters, omission, wantsTruncation, wantedCharset]) => {
     // A truncation character follows all four other encoding characters in MSH-2.
     const truncating = wantsTruncation && omission === "none";
     const truncation = characters[5] ?? "";
@@ -223,7 +257,14 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
     const encoding =
       encodingCharactersOf(delimiters) + (truncating ? truncation : "");
     const { field } = delimiters;
-    const anyField = fields(delimiters, "body");
+    // A name that holds a delimiter would be cut apart where parse reads it raw.
+    const charset = characters.some((character) =>
+      wantedCharset?.includes(character),
+    )
+      ? undefined
+      : wantedCharset;
+    const hexEscapes = !withoutHexEscapes.includes(charset ?? "");
+    const anyField = fields({ delimiters, place: "body", hexEscapes });
     const segment = fc.tuple(
       fc.constantFrom("PID", "OBX", "NTE", "ZPI"),
       trimmedList(
@@ -234,7 +275,7 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
     // MSH-3 to MSH-11, MSH-12 with the version, MSH-13 to MSH-17, and MSH-18 with a character set that may be
     // omitted. The versions span both sides of 2.7, where the truncation character was introduced.
     const headerFields = (count: number) =>
-      fc.array(fields(delimiters, "header"), {
+      fc.array(fields({ delimiters, place: "header", hexEscapes }), {
         minLength: count,
         maxLength: count,
       });
@@ -245,18 +286,9 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
           ? fc.constantFrom("2.7", "2.8.2", "2.10")
           : fc.constantFrom("2.3", "2.5.1", "2.6", "2.8"),
         headerFields(5),
-        // A name that holds a delimiter would be cut apart where parse reads it raw.
-        fc.option(
-          fc
-            .constantFrom("ASCII", "8859/1", "UNICODE UTF-8")
-            .filter((name) =>
-              characters.every((character) => !name.includes(character)),
-            ),
-          { nil: undefined },
-        ),
         fc.array(segment, { maxLength: 4 }),
       )
-      .map(([before, version, after, charset, others]): Hl7Message => {
+      .map(([before, version, after, others]): Hl7Message => {
         const rest =
           charset === undefined
             ? withoutTrailingEmpty(after)

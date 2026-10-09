@@ -2,7 +2,7 @@ import { test as propertyTest } from "@fast-check/vitest";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import type { Charset } from "../../src/hl7v2/charset";
+import { type Charset, decodesAsciiBytes } from "../../src/hl7v2/charset";
 import {
   decodeText,
   encodeText,
@@ -340,6 +340,16 @@ describe("decodeText", () => {
   });
 });
 
+/** Encodes `value` and returns the text, or the failure code. */
+function encode(
+  value: string,
+  delimiters: Delimiters,
+  { hexEscapes = true, lineFeedIsData = true } = {},
+): string {
+  const result = encodeText(value, { delimiters, hexEscapes, lineFeedIsData });
+  return result.ok ? result.value.join("") : result.error;
+}
+
 describe("encodeText", () => {
   it.each([
     ["a|b^c&d~e\\f", "a\\F\\b\\S\\c\\T\\d\\R\\e\\E\\f"],
@@ -349,24 +359,69 @@ describe("encodeText", () => {
     ["", ""],
     ['""', '\\X22\\"'],
     ['"""', '"""'],
+    ['a""', 'a""'],
   ])("encodes %j as %s", (value, encoded) => {
-    expect(encodeText(value, standard)).toBe(encoded);
+    expect(encode(value, standard)).toBe(encoded);
+  });
+
+  it("returns the text in pieces that share the unescaped runs", () => {
+    expect(
+      encodeText("a|b", {
+        delimiters: standard,
+        hexEscapes: true,
+        lineFeedIsData: true,
+      }),
+    ).toStrictEqual({
+      ok: true,
+      value: ["a", "\\F\\", "b"],
+    });
   });
 
   it("keeps a quoted null distinct when the quote is the escape character", () => {
     const quoteEscape = { ...standard, escape: '"' };
-    const encoded = encodeText('""', quoteEscape) ?? "";
-    expect(encoded).toBe('"X22""E"');
+    const encoded = encode('""', quoteEscape);
+    expect(encoded).toBe('"E""E"');
     expect(decode(encoded, "ascii", quoteEscape).value).toBe('""');
   });
 
   it("escapes the truncation character only when the message declares one", () => {
-    expect(encodeText("#", standard)).toBe("#");
-    expect(encodeText("#", { ...standard, truncation: "#" })).toBe("\\P\\");
+    expect(encode("#", standard)).toBe("#");
+    expect(encode("#", { ...standard, truncation: "#" })).toBe("\\P\\");
   });
 
   it("uses the delimiters of the message", () => {
-    expect(encodeText("#$%*!?\\", custom)).toBe("!F!!S!!T!!R!!E!!P!\\");
+    expect(encode("#$%*!?\\", custom)).toBe("!F!!S!!T!!R!!E!!P!\\");
+  });
+
+  describe("in a character set without hexadecimal escapes", () => {
+    const options = { hexEscapes: false };
+
+    it("writes a line feed as a line break command", () => {
+      expect(encode("a\nb", standard, options)).toBe("a\\.br\\b");
+    });
+
+    it.each(["a\rb", '""'])("cannot write %j", (value) => {
+      expect(encode(value, standard, options)).toBe("HEX_ESCAPE_UNSUPPORTED");
+    });
+
+    it.each([
+      "field",
+      "component",
+      "repetition",
+      "subcomponent",
+      "escape",
+    ] as const)(
+      "cannot write a line feed when the period is the %s delimiter",
+      (delimiter) => {
+        expect(encode("a\nb", { ...standard, [delimiter]: "." }, options)).toBe(
+          "HEX_ESCAPE_UNSUPPORTED",
+        );
+      },
+    );
+
+    it("writes delimiters with their escape sequences", () => {
+      expect(encode("a|b", standard, options)).toBe("a\\F\\b");
+    });
   });
 
   describe("without an escape character", () => {
@@ -379,16 +434,28 @@ describe("encodeText", () => {
     it.each(["a&b\\c", "line\nfeed"])(
       "writes %j, which needs no escape sequence there, as it is",
       (value) => {
-        expect(encodeText(value, withoutEscape)).toBe(value);
+        expect(encode(value, withoutEscape)).toBe(value);
       },
     );
 
     it.each(["a|b", "a^b", "a~b", "a\rb", '""'])("cannot write %j", (value) => {
-      expect(encodeText(value, withoutEscape)).toBeUndefined();
+      expect(encode(value, withoutEscape)).toBe("ESCAPE_CHARACTER_REQUIRED");
+    });
+
+    it("cannot write a line feed where it would end the segment", () => {
+      expect(encode("a\nb", withoutEscape, { lineFeedIsData: false })).toBe(
+        "ESCAPE_CHARACTER_REQUIRED",
+      );
     });
   });
 
-  const charsets = fc.constantFrom<Charset>("ascii", "iso-8859-1", "utf-8");
+  const charsets = fc.constantFrom<Charset>(
+    "ascii",
+    "iso-8859-1",
+    "ascii-compatible",
+    "utf-8",
+    "unsupported",
+  );
   const withTruncation = fc.option(fc.constantFrom("#", "@", "`"), {
     nil: undefined,
   });
@@ -406,24 +473,39 @@ describe("encodeText", () => {
         Object.values(delimiters).includes(truncation)
           ? delimiters
           : { ...delimiters, truncation };
-      const encoded = encodeText(value, declared);
-      if (encoded === undefined) {
-        // Only a message without escape character refuses a value.
-        expect(declared.escape).toBeUndefined();
+      const hexEscapes = decodesAsciiBytes(charset);
+      const encoded = encodeText(value, {
+        delimiters: declared,
+        hexEscapes,
+        lineFeedIsData: false,
+      });
+      if (!encoded.ok) {
+        // A value is refused only without an escape character, or for a hexadecimal escape that does not read back.
+        expect(
+          declared.escape === undefined ||
+            (encoded.error === "HEX_ESCAPE_UNSUPPORTED" && !hexEscapes),
+        ).toBe(true);
       } else {
-        expect(decode(encoded, charset, declared)).toStrictEqual({
-          value,
-          truncated: false,
-          issues: [],
-        });
+        expect(decode(encoded.value.join(""), charset, declared)).toStrictEqual(
+          {
+            value,
+            truncated: false,
+            issues: [],
+          },
+        );
       }
     },
   );
 
-  propertyTest.prop([fc.string(), delimiterSets])(
-    "never writes a delimiter or a line terminator",
-    (value, delimiters) => {
-      const encoded = encodeText(value, delimiters) ?? "";
+  propertyTest.prop([fc.string(), delimiterSets, fc.boolean()])(
+    "never writes a delimiter or a carriage return, nor a line feed unless it is data",
+    (value, delimiters, lineFeedIsData) => {
+      const result = encodeText(value, {
+        delimiters,
+        hexEscapes: true,
+        lineFeedIsData,
+      });
+      const encoded = result.ok ? result.value.join("") : "";
       const { field, component, repetition, subcomponent = "\r" } = delimiters;
       for (const forbidden of [
         field,
@@ -431,9 +513,11 @@ describe("encodeText", () => {
         repetition,
         subcomponent,
         "\r",
-        "\n",
       ]) {
         expect(encoded).not.toContain(forbidden);
+      }
+      if (!lineFeedIsData || delimiters.escape !== undefined) {
+        expect(encoded).not.toContain("\n");
       }
     },
   );

@@ -617,26 +617,58 @@ interface PathError {
  */
 export declare function parsePath(path: string): Result<ParsedPath, PathError>;
 //#endregion
-//#region src/hl7v2/stringify.d.ts
+//#region src/hl7v2/stringify-failure.d.ts
 /**
- * Why a tree cannot be written with the delimiters of its message.
+ * Why `stringify` cannot write a tree. Trees returned by `parse` are written, except in two cases of malformed input
+ * described under `DELIMITERS_MISMATCH` and `HEX_ESCAPE_UNSUPPORTED`; the failures concern trees built or changed by
+ * hand.
  *
- * The codes are separate from the issue codes of `parse`, because a failure of `stringify` is about a tree, not about
- * input text.
+ * The tree as a whole:
  *
- * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return or is the text `""`, which need an
- *   escape sequence, but MSH-2 declares no escape character. Line feeds are written as they are, except in MSH,
- *   where a line feed would end the segment.
+ * - `INVALID_TREE`: the tree does not have the shape of `Hl7Message`: a node is missing, `null`, not an object
+ *   or of an unknown `kind`, a list is not an array or has holes, a value or identifier is not a string, or
+ *   `truncated` is neither `true` nor absent. Plain JavaScript callers can pass anything; the tree is checked first.
+ * - `INVALID_DELIMITERS`: `message.delimiters` cannot be declared in MSH-1 and MSH-2: a delimiter is not a single
+ *   printable ASCII character that is neither a letter nor a digit, two are equal, or one is declared although a
+ *   delimiter before it in MSH-2 (escape before subcomponent before truncation) is omitted.
+ * - `MISSING_MSH`: the message has no segments, or the first one is not `MSH`.
+ * - `INVALID_SEGMENT_ID`: a segment identifier contains the field separator or a carriage return, so it would not
+ *   read back as one identifier. Other identifiers that `isValidSegmentId` rejects, as `parse` keeps them, are
+ *   written as they are.
+ *
+ * The header (`message.delimiters` is the single source of truth for the delimiters; MSH-1 and MSH-2 are written
+ * from it):
+ *
+ * - `DELIMITERS_MISMATCH`: MSH-1 or MSH-2 holds something other than the declared delimiters, or the written MSH
+ *   segment would declare others, for example a truncation character that the version in MSH-12 does not allow.
+ *   A tree from `parse` meets it only when the raw MSH-12 starts with an escape sequence (`\H\2.7`) that hides from
+ *   the truncation rule a version the written text shows, in a message whose MSH-2 has a fifth character.
+ * - `VERSION_MISMATCH`: `message.version` differs from the value of MSH-12.1, from which `parse` reads it.
+ *
+ * Values the delimiters or the character set cannot express:
+ *
+ * - `ESCAPE_CHARACTER_REQUIRED`: a value contains a delimiter or a carriage return, or is the text `""`, which need
+ *   an escape sequence, but MSH-2 declares no escape character. A line feed is written as it is, except in the first
+ *   MSH segment, where it would end the segment.
+ * - `HEX_ESCAPE_UNSUPPORTED`: a value contains a carriage return or is the text `""`, which need a hexadecimal escape
+ *   sequence, but MSH-18 names a character set in which the library cannot write one: `UNICODE`, `UNICODE UTF-16`,
+ *   `UNICODE UTF-32` or a name HL7 table 0211 does not define. Line feeds are written as `\.br\` there, which fails
+ *   too when "." is a delimiter, because it would split the sequence. A tree from
+ *   `parse` meets it only for a value `""` that the input wrote with formatting commands, such as `"\H\"`, in such a
+ *   character set.
  * - `SUBCOMPONENT_SEPARATOR_REQUIRED`: a component has more than one subcomponent, but MSH-2 declares no subcomponent
  *   separator.
  * - `NULL_NOT_REPRESENTABLE`: a subcomponent is the HL7 null, but the quote character is one of the delimiters, so
  *   `""` would not read back as the null.
  * - `TRUNCATION_CHARACTER_REQUIRED`: a value is marked as truncated, but MSH-2 declares no truncation character.
+ *
+ * The output:
+ *
+ * - `OUTPUT_TOO_LARGE`: the text would be longer than the longest string the JavaScript engine can hold.
  */
-type StringifyFailureCode = "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE" | "TRUNCATION_CHARACTER_REQUIRED";
+type StringifyFailureCode = "INVALID_TREE" | "INVALID_DELIMITERS" | "MISSING_MSH" | "INVALID_SEGMENT_ID" | "DELIMITERS_MISMATCH" | "VERSION_MISMATCH" | "ESCAPE_CHARACTER_REQUIRED" | "HEX_ESCAPE_UNSUPPORTED" | "SUBCOMPONENT_SEPARATOR_REQUIRED" | "NULL_NOT_REPRESENTABLE" | "TRUNCATION_CHARACTER_REQUIRED" | "OUTPUT_TOO_LARGE";
 /**
- * The reason {@link stringify} could not write a message: the first node, in message order, that the delimiters of
- * the message cannot express. Trees returned by `parse` never fail; only trees built or changed by hand can.
+ * The reason `stringify` could not write a message, and the node it is about.
  *
  * @example
  * ```ts
@@ -645,39 +677,53 @@ type StringifyFailureCode = "ESCAPE_CHARACTER_REQUIRED" | "SUBCOMPONENT_SEPARATO
  * declare const message: Hl7Message;
  *
  * const result = stringify(message);
- * if (!result.ok) console.error(result.error.code, result.error.location.field); // "ESCAPE_CHARACTER_REQUIRED", 5
+ * if (!result.ok) console.error(result.error.code, result.error.location.field);
  * ```
  */
 interface StringifyFailure {
-  /** Discriminant: why the node cannot be written. */
+  /** Discriminant: why the tree cannot be written. */
   readonly code: StringifyFailureCode;
   /** A description without message content. */
   readonly message: string;
-  /** The node: its position in HL7 numbers (`segmentIndex`, `field`, ...) and the span the tree gives it. */
+  /**
+   * The node: its position in HL7 numbers (`segmentIndex`, `field`, ...) and the span the tree gives it, or an empty
+   * span at 0 when the tree gives none. A failure about the message as a whole has only the span.
+   */
   readonly location: Location;
 }
+//#endregion
+//#region src/hl7v2/stringify.d.ts
 /**
  * Writes a message as HL7 v2 text: the inverse of `parse`.
  *
- * The output is canonical. Every segment, the last one included, ends with a carriage return. Values are escaped with
- * the message delimiters, so `parse(stringify(message))` yields the same tree except for its spans, which describe
- * the new text. Nodes are written as the tree holds them: parsed trees never end in empty nodes, so the output has no
- * trailing delimiters, but a tree built by hand with trailing empty nodes keeps them.
+ * `parse(stringify(message))` yields the same tree, apart from its spans, which describe the new text, and from
+ * empty nodes, which are written the way `parse` represents them:
  *
- * Three things do not survive a round trip, because the tree no longer holds them: formatting commands that `parse`
- * removed from a value, the original spelling of escape sequences (`\X41\` is written as `A`), and the terminators
- * and framing of the input. A value that is empty because it consisted only of removed formatting commands is
- * written as an empty subcomponent.
+ * - Empty children at the end of a list are not written, as `parse` trims them. A value `""` that is not truncated
+ *   (left by removed formatting commands) is written as nothing, so it reads back as an empty subcomponent, and a
+ *   node whose children are all empty reads back without children.
+ * - MSH-1 and MSH-2 are written from `message.delimiters`, the single source of truth; a tree without them gets
+ *   them, one with others fails (`DELIMITERS_MISMATCH`).
  *
- * MSH-1 and MSH-2 are written as they stand in the first two fields of the MSH segment, never escaped; a tree without
- * them gets the delimiters of the message. Segment identifiers are written as they are.
+ * The output is canonical: every segment, the last one included, ends with a carriage return, and values are
+ * escaped with the message delimiters. Line feeds are written as `\X0A\` (as `\.br\` in a character set without
+ * hexadecimal escapes, and as they are, where they read back as data, in a message without escape character).
+ * Segment identifiers are written as they are. A segment that would otherwise read back as a blank line or with an
+ * MLLP end block at its end gets a trailing field separator, which reads back as nothing, and one whose identifier
+ * starts with a line feed follows `\r\n` instead of `\r`, so the line feed does not join the terminator before it.
  *
- * Writing fails, instead of producing text that reads back differently, when the tree holds something the delimiters
- * cannot express (see {@link StringifyFailureCode}). That happens only for trees built or changed by hand, for
- * example a value with a `|` in a message whose MSH-2 omits the escape character.
+ * Three things do not survive a round trip from text, because the tree no longer holds them: formatting commands that
+ * `parse` removed from a value, the original spelling of escape sequences (`\X41\` is written as `A`), and the
+ * terminators and framing of the input.
+ *
+ * Writing never throws. It fails instead of producing text that reads back differently (see
+ * {@link StringifyFailureCode}): for a tree that does not have the shape of a message, and for one that holds what
+ * its delimiters or character set cannot express, for example a value with a `|` in a message whose MSH-2 omits the
+ * escape character. Trees returned by `parse` are written, except in two cases of malformed input described under
+ * `DELIMITERS_MISMATCH` and `HEX_ESCAPE_UNSUPPORTED`.
  *
  * @param message - The message to write, usually from `parse`.
- * @returns The message text (empty for a message without segments), or the first node that cannot be written.
+ * @returns The message text, or why it cannot be written.
  *
  * @example
  * ```ts

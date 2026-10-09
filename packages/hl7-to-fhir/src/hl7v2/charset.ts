@@ -71,6 +71,14 @@ export function resolveCharset(msh18: string | undefined): ResolvedCharset {
     : { charset, nonStandard: true };
 }
 
+/**
+ * Whether hexadecimal escape sequences of ASCII bytes, such as `\X0D\` for a carriage return, decode in `charset`:
+ * in every character set except the unsupported ones. `stringify` writes such sequences only where they read back.
+ */
+export function decodesAsciiBytes(charset: Charset): boolean {
+  return charset !== "unsupported";
+}
+
 // TextDecoder exists in every runtime the package supports (Node.js, browsers, Deno, Bun), but the ES2022 library
 // typings it is compiled against do not declare it. This declaration covers exactly the use below.
 declare const TextDecoder: new (

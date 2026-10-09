@@ -55,14 +55,22 @@ mapping build on, and that the playground sends from a Web Worker. Several force
   repetition separators are required; an MSH-2 shorter than two characters is `INVALID_ENCODING_CHARACTERS`.
   Substituting the standard characters for omitted ones, as an earlier version did, would split values on a `&` or
   decode a `\` that the sender meant literally.
-- **`stringify` returns `Result<string, StringifyFailure>`.** A hand-built or edited tree can hold what the
-  delimiters of its message cannot express: a value with a delimiter or a line break without an escape character
-  (`ESCAPE_CHARACTER_REQUIRED`), several subcomponents without a subcomponent separator
-  (`SUBCOMPONENT_SEPARATOR_REQUIRED`), or the null `""` when the quote is a delimiter (`NULL_NOT_REPRESENTABLE`).
-  Writing such a tree anyway would produce text that parses into a different tree, silently. `stringify` fails
-  instead, naming the first such node with its position, and never fails for a tree `parse` returned (a property
-  test checks this). Throwing was rejected because the library returns expected failures (ADR 0004); returning the
-  text with issues was rejected because the text would be wrong.
+- **`stringify` returns `Result<string, StringifyFailure>` and never returns text that reads back differently.**
+  A hand-built or edited tree can hold what text cannot carry: a shape other than `Hl7Message` from plain JavaScript
+  (`INVALID_TREE`), delimiters MSH-2 cannot declare (`INVALID_DELIMITERS`), no MSH first (`MISSING_MSH`), an
+  identifier with the field separator (`INVALID_SEGMENT_ID`), MSH-1, MSH-2 or a version that disagree with
+  `delimiters` and `version` (`DELIMITERS_MISMATCH`, `VERSION_MISMATCH`), values the delimiters or the MSH-18
+  character set cannot express (`ESCAPE_CHARACTER_REQUIRED`, `HEX_ESCAPE_UNSUPPORTED`,
+  `SUBCOMPONENT_SEPARATOR_REQUIRED`, `NULL_NOT_REPRESENTABLE`, `TRUNCATION_CHARACTER_REQUIRED`), or more text than a
+  string holds (`OUTPUT_TOO_LARGE`). Writing such a tree anyway would produce text that parses into a different
+  tree, silently. `stringify` fails instead, naming the node with its position. `delimiters` is the single source of
+  truth for MSH-1 and MSH-2, and the written MSH is read back with the parser's own delimiter rules, so a truncation
+  character the version does not allow is caught too. The failure codes are their own union, `StringifyFailureCode`,
+  because they describe trees, not input. Trees from `parse` round-trip (a property test checks it on hostile input), with two documented exceptions in malformed input: a value `""` spelled with formatting commands in a character set without hexadecimal escapes, and an MSH-12 starting with an escape sequence that hides version 2.7 or later from the truncation rule, which reads the raw text. Throwing was rejected because the library returns expected failures (ADR 0004); returning
+  the text with issues was rejected because the text would be wrong.
+- **`version` is the decoded MSH-12.1,** the value the tree holds, so `stringify` can check it and a written tree
+  reads back with the same version. Only the truncation rule reads the raw version text, which it needs before
+  values can be decoded; MSH-18, the character set, is read raw for the same reason.
 - **`parse` returns `Result<ParseSuccess, ParseFailure>`, and the success holds `{ message, issues }`.** The plan
   sketched `Result<Hl7Message, …>`, but parsing is lenient (ADR 0003): a successful parse has issues too, and they
   belong to the same call as the tree. Pairing them in the success value keeps them out of the tree, which stays plain
@@ -137,10 +145,12 @@ the public shape and is not planned.
   consumers that need it read the raw text through the span.
 - Trimming trailing empties makes `stringify` canonical: it cannot reproduce trailing delimiters, so
   `stringify(parse(x)) === x` holds for canonical input only.
-- `stringify` writes the tree as it stands: every segment, the last one included, ends with `\r`; MSH-1 and MSH-2 are
-  taken verbatim from the first two fields of MSH (falling back to `delimiters` for hand-built trees); nulls are
-  always `""`. Values are escaped by `encodeText` only, so changes to escaping stay in `escape.ts`. Line feeds are
-  written as `\X0A\`, not `\.br\`: the formatting command is only defined for formatted text (FT), while the
-  hexadecimal escape is valid in every text data type. In a message whose MSH-18 names a character set the library
-  cannot decode, such escapes read back as written. Callers unwrap
-  the result of `stringify`, although it only fails for trees built or changed by hand.
+- `stringify` writes the tree canonically: every segment, the last one included, ends with `\r`; MSH-1 and MSH-2
+  come from `delimiters`; nulls are always `""`; empty nodes at the end of a list are not written, so they read back
+  trimmed as `parse` trims them. Values are escaped by `encodeText` only, so changes to escaping stay in
+  `escape.ts`. Line feeds are written as `\X0A\`, not `\.br\`: the formatting command is only defined for formatted
+  text (FT), while the hexadecimal escape is valid in every text data type. In a character set whose hexadecimal
+  escapes the library cannot write (UTF-16, UTF-32, unknown names), a line feed becomes `\.br\`, and a carriage
+  return or a value `""` fails. A segment that would read back as a blank line or with an MLLP end block at its
+  end gets a trailing field separator, which reads back as nothing. Callers unwrap the result of `stringify`,
+  although for trees from `parse` it fails only in the exceptions above.
