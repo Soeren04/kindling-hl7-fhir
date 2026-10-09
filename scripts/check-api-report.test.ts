@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   compareApiReport,
+  normalizeDeclaration,
   readDeclarations,
   writeDeclarations,
 } from "./check-api-report.mjs";
@@ -38,6 +39,62 @@ describe("compareApiReport", () => {
       "index.d.ts is not in the report",
       "old.d.ts is no longer built",
     ]);
+  });
+});
+
+describe("normalizeDeclaration", () => {
+  const members = Array.from(
+    { length: 30 },
+    (_, index) => `"PID.${String(index)}"`,
+  );
+  const union = `type KnownPath = ${members.join(" | ")};`;
+
+  it("puts each member of a long string-literal union on its own line", () => {
+    const lines = normalizeDeclaration(union).split("\n");
+    expect(lines[0]).toBe("type KnownPath =");
+    expect(lines.slice(1)).toStrictEqual(
+      members.map(
+        (member, index) =>
+          `  | ${member}${index === members.length - 1 ? ";" : ""}`,
+      ),
+    );
+  });
+
+  it("keeps the export and declare modifiers", () => {
+    expect(normalizeDeclaration(`export ${union}`)).toMatch(
+      /^export type KnownPath =\n {2}\| "PID.0"\n/,
+    );
+    expect(normalizeDeclaration(`declare ${union}`)).toMatch(
+      /^declare type KnownPath =\n/,
+    );
+  });
+
+  it("is stable when applied twice", () => {
+    const once = normalizeDeclaration(union);
+    expect(normalizeDeclaration(once)).toBe(once);
+  });
+
+  it("keeps a short union on one line", () => {
+    const short = 'type Mode = "a" | "b";';
+    expect(normalizeDeclaration(short)).toBe(short);
+  });
+
+  it("leaves other declarations untouched", () => {
+    const other = [
+      `declare function get(path: ${members.join(" | ")}): void;`,
+      `type Mixed = ${members.join(" | ")} | number;`,
+      `type Generic<T> = ${members.join(" | ")};`,
+      "  type Nested = " + members.join(" | ") + ";",
+    ].join("\n");
+    expect(normalizeDeclaration(other)).toBe(other);
+  });
+
+  it("reflows only the long union among other lines", () => {
+    const text = `export {};\n${union}\ndeclare const x: 1;\n`;
+    const lines = normalizeDeclaration(text).split("\n");
+    expect(lines[0]).toBe("export {};");
+    expect(lines.at(-2)).toBe("declare const x: 1;");
+    expect(lines).toContain('  | "PID.29";');
   });
 });
 

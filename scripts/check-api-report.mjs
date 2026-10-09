@@ -32,6 +32,35 @@ export function compareApiReport(report, build) {
   return problems;
 }
 
+// A top-level `type Name = "a" | "b" | ...;` on one line; the bundler writes the whole union on a single line.
+const stringUnionAlias =
+  /^((?:export |declare )?type \w+ = )("[^"\n]*"(?: \| "[^"\n]*")*);$/gm;
+const longestLine = 120;
+
+/**
+ * Lays out long string-literal union aliases one member per line, so a change to the union shows up as the members
+ * that were added or removed instead of one rewritten line of many thousand characters. Everything else is kept as is.
+ *
+ * @param {string} declaration - The text of a declaration file.
+ * @returns {string} The text with every long top-level string-literal union reflowed.
+ */
+export function normalizeDeclaration(declaration) {
+  return declaration.replace(
+    stringUnionAlias,
+    (
+      /** @type {string} */ alias,
+      /** @type {string} */ head,
+      /** @type {string} */ union,
+    ) =>
+      alias.length <= longestLine
+        ? alias
+        : `${head.trimEnd()}\n${union
+            .split(" | ")
+            .map((member) => `  | ${member}`)
+            .join("\n")};`,
+  );
+}
+
 /**
  * Reads the declaration files of a directory.
  *
@@ -74,7 +103,12 @@ export function writeDeclarations(directory, declarations) {
 // Exercised by spawning the script in the tests and by `pnpm check:api`; V8 coverage cannot follow child processes.
 /* v8 ignore start */
 if (import.meta.main) {
-  const build = readDeclarations("dist");
+  const build = new Map(
+    [...readDeclarations("dist")].map(([name, content]) => [
+      name,
+      normalizeDeclaration(content),
+    ]),
+  );
   if (build.size === 0) {
     console.error(
       "API report: no declarations in dist/; run `pnpm build` first.",
