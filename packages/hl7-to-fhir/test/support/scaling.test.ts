@@ -23,6 +23,18 @@ describe("measureScaling", () => {
     );
   });
 
+  it("rejects at once when the worker exits without answering", async () => {
+    const started = performance.now();
+    await expect(
+      measureScaling(
+        task,
+        60_000,
+        new URL("exiting-worker.ts", import.meta.url),
+      ),
+    ).rejects.toThrow("the parse worker exited with code 3 before it answered");
+    expect(performance.now() - started).toBeLessThan(10_000);
+  });
+
   it("rejects when the worker fails", async () => {
     // Without an MSH segment the input cannot be parsed, which stringify needs.
     await expect(

@@ -29,19 +29,26 @@ export interface ScalingTimes {
  *
  * @param task - The operation and the input to time.
  * @param timeoutMs - How long the worker may take in total.
- * @returns The times; rejects when the worker fails or exceeds the timeout.
+ * @param script - The worker to run; the tests replace it to see how a worker that dies is handled.
+ * @returns The times; rejects when the worker fails, exits without answering or exceeds the timeout.
  */
 export function measureScaling(
   task: ScalingTask,
   timeoutMs: number,
+  script: URL = new URL("scaling-worker.ts", import.meta.url),
 ): Promise<ScalingTimes> {
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("scaling-worker.ts", import.meta.url), {
+    const worker = new Worker(script, {
       workerData: task,
       // A tree smaller than the young generation is never promoted to the old generation, which makes it much cheaper
       // per byte than a large one. A tiny young generation puts every input in the same regime, so the ratio between
       // two sizes measures the algorithm instead of the garbage collector.
-      resourceLimits: { maxYoungGenerationSizeMb: 2 },
+      // The old generation is capped so that a regression that makes the tree grow without bound ends this worker with
+      // an error, instead of taking the memory of the machine the tests run on.
+      resourceLimits: {
+        maxYoungGenerationSizeMb: 2,
+        maxOldGenerationSizeMb: 1024,
+      },
     });
     const timer = setTimeout(() => {
       reject(
@@ -59,6 +66,16 @@ export function measureScaling(
     worker.once("error", (error) => {
       clearTimeout(timer);
       reject(error);
+    });
+    // A worker that ends without a message or an error, for example through process.exit, would leave the promise
+    // pending until the timeout; after a message or an error the promise is settled and this does nothing.
+    worker.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(
+        new Error(
+          `the ${task.operation} worker exited with code ${String(code)} before it answered`,
+        ),
+      );
     });
   });
 }
