@@ -54,11 +54,13 @@ describe("locateContent", () => {
       "MSH|1\r\n",
       [["TRAILING_WHITESPACE_REMOVED", " \t\r"]],
     ],
+    ["spaces before the final terminator", "MSH|1  \r", "MSH|1  \r", []],
+    ["spaces and tabs at the end", "MSH|1 \t", "MSH|1 \t", []],
     [
-      "spaces before the final terminator",
-      "MSH|1  \r",
-      "MSH|1",
-      [["TRAILING_WHITESPACE_REMOVED", "  \r"]],
+      "spaces, a terminator and whitespace at the end",
+      "MSH|1 \t\r\n \r\t",
+      "MSH|1 \t\r\n",
+      [["TRAILING_WHITESPACE_REMOVED", " \r\t"]],
     ],
     [
       "whitespace after an MLLP frame",

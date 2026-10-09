@@ -180,9 +180,6 @@ const delimiterCharacters = punctuation.filter(
  * of distinct delimiters, some of which omit the subcomponent separator or it and the escape character. Some
  * messages declare a truncation character, which needs version 2.7 or later.
  *
- * The last segment is a fixed Z segment: `parse` strips whitespace at the end of the text, which would otherwise
- * change a final value that ends in a space.
- *
  * All spans are empty, so compare trees with the spans removed.
  */
 export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
@@ -237,7 +234,6 @@ export const hl7Messages: fc.Arbitrary<Hl7Message> = fc
             fields: children,
             span: noSpan,
           })),
-          { id: "ZZZ", fields: [singleValue("end")], span: noSpan },
         ];
         return { delimiters, version, segments };
       });
