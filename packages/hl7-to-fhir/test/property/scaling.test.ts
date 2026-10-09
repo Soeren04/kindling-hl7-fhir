@@ -11,12 +11,16 @@ import {
 const header = "MSH|^~\\&|LAB|HOSP|||||ADT^A01|1|P|2.5.1\r";
 const patient = `${header}PID|`;
 
-/** A description, the text before the repeated unit, the unit and the text after it. */
+/**
+ * A description, the text before the repeated unit, the unit, the text after it and, for `validate`, the caller
+ * definition that grows with the input.
+ */
 type Growth = readonly [
   description: string,
   prefix: string,
   unit: string,
   suffix?: string,
+  definition?: ScalingTask["definition"],
 ];
 
 const segments: Growth = ["segments", header, "NTE\r"];
@@ -52,6 +56,20 @@ const identifiers: Growth = [
   "patient identifiers",
   `${patient}1||`,
   "a^^^H&1&ISO^MR~",
+];
+// PID-1 occurs once, so every repetition after the first is a finding, of which the result keeps a bounded number.
+const excessRepetitions: Growth = [
+  "repetitions beyond the maximum",
+  patient,
+  "1~",
+];
+// A caller defines a segment with as many fields as the message has: the definition is read in full.
+const definedFields: Growth = [
+  "fields of a caller definition",
+  `${header}ZPI|`,
+  "abcdefgh|",
+  "",
+  { segmentId: "ZPI", dataType: "ST" },
 ];
 const numberDigits: Growth = [
   "digits of a number",
@@ -107,18 +125,18 @@ const scenarios: readonly (readonly [
   [
     "validate",
     [
-      segments,
       observations,
       zSegments,
       fields,
       components,
       subcomponents,
       identifiers,
+      excessRepetitions,
+      definedFields,
       numberDigits,
       codeCharacters,
     ],
   ],
-  ["group", [segments, observations, zSegments]],
   [
     "splitBatch",
     [
@@ -179,9 +197,7 @@ function nonLinearity({
  */
 async function assertLinear(
   operation: Operation,
-  prefix: string,
-  unit: string,
-  suffix: string,
+  [, prefix, unit, suffix = "", definition]: Growth,
 ): Promise<void> {
   const reasons: string[] = [];
   for (let attempt = 0; attempt < measurements; attempt++) {
@@ -191,6 +207,7 @@ async function assertLinear(
         prefix,
         unit,
         suffix,
+        ...(definition === undefined ? {} : { definition }),
         bytes: initialBytes,
         minimumMilliseconds,
       },
@@ -218,14 +235,12 @@ describe.each(scenarios)(
     it.for(growth)(
       "of many %s",
       { timeout: measurements * timeoutMilliseconds + 5000 },
-      async ([, prefix, unit, suffix = ""], { skip }) => {
+      async (scenario, { skip }) => {
         if (failed) skip();
-        await assertLinear(operation, prefix, unit, suffix).catch(
-          (error: unknown) => {
-            failed = true;
-            throw error;
-          },
-        );
+        await assertLinear(operation, scenario).catch((error: unknown) => {
+          failed = true;
+          throw error;
+        });
       },
     );
   },

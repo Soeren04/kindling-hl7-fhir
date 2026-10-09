@@ -7,7 +7,7 @@
 import { registerHooks } from "node:module";
 import { parentPort, workerData } from "node:worker_threads";
 
-import type { Hl7Message } from "../../src/hl7v2";
+import type { Hl7Message, SegmentDefinition } from "../../src/hl7v2";
 import type { ScalingTask, ScalingTimes } from "./scaling";
 
 const extensions = [".ts", "/index.ts"];
@@ -30,7 +30,7 @@ registerHooks({
   },
 });
 
-const { group, parse, splitBatch, stringify, validate } =
+const { defineSegment, parse, splitBatch, stringify, validate } =
   await import("../../src/hl7v2");
 
 /** Builds an input of about `bytes` characters: the prefix once, then the unit repeated, then the suffix. */
@@ -55,13 +55,23 @@ function operation(task: ScalingTask, input: string): () => unknown {
     }
     case "validate": {
       const message = parsedMessage(input);
-      return () => validate(message);
-    }
-    case "group": {
-      const message = parsedMessage(input);
-      return () => group(message);
+      const options = { segments: definitionsOf(task, input) };
+      return () => validate(message, options);
     }
   }
+}
+
+/** The caller definitions of a task: one segment with a field for every repetition of the unit, or none. */
+function definitionsOf(task: ScalingTask, input: string): SegmentDefinition[] {
+  if (task.definition === undefined) return [];
+  const { segmentId: id, dataType } = task.definition;
+  const units =
+    (input.length - task.prefix.length - task.suffix.length) / task.unit.length;
+  const fields = Array.from({ length: units }, (_, index) => ({
+    name: `field${String(index)}`,
+    dataType,
+  }));
+  return [defineSegment({ id, fields })];
 }
 
 /** The message of an input that operations on messages take; such an input must parse. */

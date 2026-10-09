@@ -2,14 +2,21 @@ import { Worker } from "node:worker_threads";
 
 /** What a scaling worker is asked to time. */
 export interface ScalingTask {
-  readonly operation:
-    "parse" | "splitBatch" | "stringify" | "validate" | "group";
+  readonly operation: "parse" | "splitBatch" | "stringify" | "validate";
   /** Text at the start of every input, such as the MSH segment. */
   readonly prefix: string;
   /** Text that is repeated to make the input grow. */
   readonly unit: string;
   /** Text at the end of every input, so that the repeated unit is not trailing whitespace the parser trims. */
   readonly suffix: string;
+  /**
+   * For `validate`: a caller definition of this segment whose number of fields grows with the input, one for every
+   * repetition of the unit, so that the cost of reading a definition is measured as well.
+   */
+  readonly definition?: {
+    readonly segmentId: string;
+    readonly dataType: string;
+  };
   /**
    * The characters of the first small input. The worker doubles it until a run takes at least `minimumMilliseconds`;
    * the large input has about four times as many characters as the small one it ends with.
