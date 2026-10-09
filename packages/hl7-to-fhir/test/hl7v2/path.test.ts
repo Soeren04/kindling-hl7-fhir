@@ -128,6 +128,56 @@ describe("parsePath", () => {
     });
   });
 
+  describe("hostile paths", () => {
+    // Each of these takes well under 100 ms; the bound is generous so that a slow machine does not fail the test, and
+    // low enough that work proportional to the number of dots (seconds for five million) does.
+    const budgetMs = 1000;
+
+    function timed<T>(run: () => T): { result: T; ms: number } {
+      const started = performance.now();
+      const result = run();
+      return { result, ms: performance.now() - started };
+    }
+
+    it("stops at the fifth part of a path with millions of dots", () => {
+      const path = `PID${".".repeat(5_000_000)}`;
+      const { result, ms } = timed(() => parsePath(path));
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: "TOO_MANY_PARTS",
+          span: { start: 7, end: path.length },
+        },
+      });
+      expect(ms).toBeLessThan(budgetMs);
+    });
+
+    it("rejects a number of millions of digits", () => {
+      const path = `PID.${"9".repeat(5_000_000)}`;
+      const { result, ms } = timed(() => parsePath(path));
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_NUMBER", span: { start: 4, end: path.length } },
+      });
+      expect(ms).toBeLessThan(budgetMs);
+    });
+
+    it("accepts the largest safe integer and rejects the next digit", () => {
+      expect(parsePath(`PID.${String(Number.MAX_SAFE_INTEGER)}`)).toMatchObject(
+        {
+          ok: true,
+          value: { field: Number.MAX_SAFE_INTEGER },
+        },
+      );
+      expect(
+        parsePath(`PID.${String(Number.MAX_SAFE_INTEGER)}0`),
+      ).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_NUMBER" },
+      });
+    });
+  });
+
   it("does not echo the path in its messages", () => {
     const result = parsePath("Everyman.Adam");
     expect(result.ok).toBe(false);

@@ -99,15 +99,13 @@ export function parsePath(path: string): Result<ParsedPath, PathFailure> {
   if (!isString(path))
     return pathFailure("INVALID_INPUT", { start: 0, end: 0 });
   const parts = splitParts(path);
-  const [segmentPart, fieldPart, componentPart, subcomponentPart] = parts;
+  const [segmentPart, fieldPart, componentPart, subcomponentPart, excess] =
+    parts;
   if (segmentPart === undefined) {
     return pathFailure("EMPTY_PATH", { start: 0, end: 0 });
   }
-  if (subcomponentPart !== undefined && parts.length > 4) {
-    return pathFailure("TOO_MANY_PARTS", {
-      start: subcomponentPart.span.end + 1,
-      end: path.length,
-    });
+  if (excess !== undefined) {
+    return pathFailure("TOO_MANY_PARTS", excess.span);
   }
 
   const segment = readIndexed(segmentPart);
@@ -147,16 +145,24 @@ interface Part {
   readonly span: Span;
 }
 
-/** The dot-separated parts of a path; an empty path has none. */
+/** The most parts a path has: segment, field, component and subcomponent. */
+const maxParts = 4;
+
+/**
+ * The dot-separated parts of a path; an empty path has none. Splitting stops after {@link maxParts} parts: whatever
+ * follows the last dot is one more part, `excess`, that runs to the end of the path and is not split further, so
+ * the work does not grow with the number of dots in a hostile path.
+ */
 function splitParts(path: string): readonly Part[] {
   const parts: Part[] = [];
   if (path === "") return parts;
-  let start = 0;
-  for (const text of path.split(".")) {
-    parts.push({ text, span: { start, end: start + text.length } });
-    start += text.length + 1;
+  for (let start = 0; ;) {
+    const dot = parts.length === maxParts ? -1 : path.indexOf(".", start);
+    const end = dot === -1 ? path.length : dot;
+    parts.push({ text: path.slice(start, end), span: { start, end } });
+    if (dot === -1) return parts;
+    start = dot + 1;
   }
-  return parts;
 }
 
 /** A name with its optional bracketed repetition index. */
@@ -190,9 +196,12 @@ function readNumber(text: string, span: Span): Result<number, PathFailure> {
     : ok(number);
 }
 
+/** The most digits a safe integer has; a longer number is rejected without looking at it. */
+const maxDigits: number = String(Number.MAX_SAFE_INTEGER).length;
+
 /** The number written by `text` if it is a positive whole number without leading zeros or signs. */
 function toPositiveInteger(text: string): number | undefined {
-  if (!/^[1-9]\d*$/u.test(text)) return undefined;
+  if (text.length > maxDigits || !/^[1-9]\d*$/u.test(text)) return undefined;
   const number = Number(text);
   return Number.isSafeInteger(number) ? number : undefined;
 }
