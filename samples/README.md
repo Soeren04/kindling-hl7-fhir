@@ -8,11 +8,12 @@
 Segments end with a carriage return, as HL7 v2 requires. The files are stored byte for byte (`*.hl7 -text` in
 `.gitattributes`), so editors and Git do not convert the terminators.
 
-| File                    | Message                              | What it exercises                                                                                                 |
-| ----------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `adt-a01.hl7`           | ADT^A01, v2.5.1, UTF-8               | Repetitions, subcomponents, the HL7 null `""`, delimiter and hexadecimal escapes, a Z segment with a local escape |
-| `oru-r01.hl7`           | ORU^R01, v2.5.1                      | Two OBR groups with OBX and NTE segments, line breaks and highlighting in text                                    |
-| `custom-delimiters.hl7` | ADT^A04, v2.8.2, `#$*!%` and `?`     | Non-standard delimiters, including a truncation character that marks a truncated value and one escaped as `!P!`   |
-| `batch.hl7`             | FHS, two BHS batches, three messages | A batch file for `splitBatch`: file and batch envelopes with correct counts                                       |
+| File                    | Message                              | What it exercises                                                                                                                                                         |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adt-a01.hl7`           | ADT^A01, v2.5.1, UTF-8               | Repetitions, subcomponents, the HL7 null `""`, delimiter and hexadecimal escapes, a Z segment with a local escape                                                         |
+| `oru-r01.hl7`           | ORU^R01, v2.5.1                      | Two OBR groups with OBX and NTE segments, line breaks and highlighting in text                                                                                            |
+| `custom-delimiters.hl7` | ADT^A04, v2.8.2, `#$*!%` and `?`     | Non-standard delimiters, including a truncation character that marks a truncated value and one escaped as `!P!`                                                           |
+| `invalid-adt-a01.hl7`   | ADT^A01, v2.5.1, with mistakes       | Findings of `validate` of every severity: unknown codes, invalid dates and numbers, a missing required field, a segment out of order and repeated, an undefined Z segment |
+| `batch.hl7`             | FHS, two BHS batches, three messages | A batch file for `splitBatch`: file and batch envelopes with correct counts                                                                                               |
 
-`batch.hl7` is not one message: `splitBatch` cuts it into three, which parse like the others. The values, issues and validation results of every message, and the full tree of `adt-a01.hl7`, are checked in `packages/hl7-to-fhir/test/golden/`.
+`batch.hl7` is not one message: `splitBatch` cuts it into three, which parse like the others. The values, issues and validation results of every message (for `invalid-adt-a01.hl7`, only the validation results), and the full tree of `adt-a01.hl7`, are checked in `packages/hl7-to-fhir/test/golden/`.

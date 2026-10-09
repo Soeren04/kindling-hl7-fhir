@@ -69,10 +69,10 @@ function report(input: string): string {
   return `${lines.join("\n")}\n`;
 }
 
-// The expected results are files in test/golden. After an intended change of the rules or the definitions, update them
-// with `pnpm test -u` and review the diff like code.
+// The expected results are files in test/golden. After an intended change of the rules or the definitions, update only
+// this test's files, as test/golden/README.md describes, and review the diff like code.
 describe("golden validation results", () => {
-  it.each(["adt-a01", "oru-r01", "custom-delimiters"])(
+  it.each(["adt-a01", "oru-r01", "custom-delimiters", "invalid-adt-a01"])(
     "validates samples/%s.hl7",
     async (name) => {
       await expect(report(readSample(name))).toMatchFileSnapshot(
