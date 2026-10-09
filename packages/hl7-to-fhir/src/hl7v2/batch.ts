@@ -10,6 +10,7 @@ import {
   report,
   type Span,
 } from "../shared/issue";
+import { isDelimiterCharacter } from "./delimiters";
 import {
   byteOrderMark,
   indexOfOrEnd,
@@ -44,8 +45,10 @@ export interface BatchSplit {
  * The input may be a batch file (`FHS`, `BHS`, messages, `BTS`, `FTS`), a stream of MLLP frames (`0x0B` message
  * `0x1C` `0x0D`), plain concatenated messages, or a mixture. A message starts at an `MSH` segment and ends before
  * the next `MSH`, the next envelope segment, the MLLP end block or the end of the input. Segments end with `\r`, `\n`
- * or `\r\n`; the final terminator of a message is kept, so each message can be passed to `parse` as it is. Blank
- * lines between messages are ignored.
+ * or `\r\n`, with the rule of `parse`: the terminator of each MSH segment decides, and in a message whose MSH ends
+ * with `\r` or `\r\n`, a line feed on its own is data, so a line after it belongs to the segment before, even when it
+ * starts with `MSH` or an envelope identifier. The final terminator of a message is kept, so each message can be
+ * passed to `parse` as it is. Blank lines between messages are ignored.
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
@@ -97,6 +100,7 @@ export function splitBatch(input: string): BatchSplit {
     message: undefined,
     outside: undefined,
     frameStart: undefined,
+    lineFeedIsData: false,
     messagesInBatch: 0,
     batchesInFile: 0,
   };
@@ -131,6 +135,8 @@ interface Scan {
   outside: Span | undefined;
   /** Offset of the MLLP start block of the frame that is open. */
   frameStart: number | undefined;
+  /** Whether the MSH of the message being read ends with `\r` or `\r\n`, which makes a line feed on its own data. */
+  lineFeedIsData: boolean;
   /** Messages since the last `BHS` or `BTS`, to check `BTS-1`. */
   messagesInBatch: number;
   /** Batches since the last `FHS` or `FTS`, to check `FTS-1`. */
@@ -154,39 +160,68 @@ function reportUnterminated(scan: Scan, frameStart: number): void {
   });
 }
 
+/** The segments that start or end a message: their lines end at every terminator, as the first line does in parse. */
+const boundaries: ReadonlySet<string> = new Set([
+  "MSH",
+  "FHS",
+  "BHS",
+  "BTS",
+  "FTS",
+]);
+
 /**
  * Reads the line at `start`, which ends at a terminator, an MLLP block or the end of the input, handles it and
  * returns the offset where the next line starts.
  */
 function readLine(scan: Scan, start: number): number {
   const { input } = scan;
+  const id = segmentIdAt(input, start);
+  const lineFeedIsData =
+    scan.message !== undefined && scan.lineFeedIsData && !boundaries.has(id);
   let end = start;
-  while (end < input.length && !endsLine(input.charAt(end))) end++;
-
-  const marker = input.charAt(end);
-  let next = end;
-  let contentEnd = end;
-  if (marker === mllpEndBlock) {
-    // The end block is followed by a carriage return in MLLP.
-    next = end + (input.charAt(end + 1) === "\r" ? 2 : 1);
-  } else if (marker === "\r" || marker === "\n") {
-    // The terminator belongs to the segment, so a message keeps its final terminator.
-    next = end + terminatorLength(input, end, input.length);
-    contentEnd = next;
+  while (end < input.length && !endsLine(input.charAt(end), lineFeedIsData)) {
+    end++;
   }
 
-  if (!isBlank(input, start, end)) readSegment(scan, start, end, contentEnd);
-  if (marker === mllpEndBlock) endFrame(scan, end, next);
+  const marker = input.charAt(end);
+  const framed = marker === mllpEndBlock;
+  // The end block is followed by a carriage return in MLLP. Otherwise the terminator belongs to the segment, so a
+  // message keeps its final terminator; a start block and the end of the input have none.
+  const next =
+    end +
+    (framed
+      ? input.charAt(end + 1) === "\r"
+        ? 2
+        : 1
+      : terminatorLength(input, end, input.length));
+  const contentEnd = framed ? end : next;
+
+  if (!isBlank(input, start, end)) {
+    readSegment(scan, id, start, end, contentEnd);
+    if (id === "MSH") scan.lineFeedIsData = marker === "\r";
+  }
+  if (framed) endFrame(scan, end, next);
   return next;
 }
 
-function endsLine(character: string): boolean {
+function endsLine(character: string, lineFeedIsData: boolean): boolean {
   return (
     character === "\r" ||
-    character === "\n" ||
+    (character === "\n" && !lineFeedIsData) ||
     character === mllpEndBlock ||
     character === mllpStartBlock
   );
+}
+
+/**
+ * The identifier the line at `start` starts with, read the way `parse` recognizes a header: three characters
+ * followed by a delimiter or the end of the line. Otherwise, as for `MSHX|`, an empty string.
+ */
+function segmentIdAt(input: string, start: number): string {
+  const after = input.charAt(start + 3);
+  const idEnds =
+    after === "" || endsLine(after, false) || isDelimiterCharacter(after);
+  return idEnds ? input.slice(start, start + 3) : "";
 }
 
 function isBlank(input: string, start: number, end: number): boolean {
@@ -206,16 +241,17 @@ function endFrame(scan: Scan, end: number, next: number): void {
 }
 
 /**
- * Handles a segment. `start` to `end` is its text and `contentEnd` the offset after it, including its terminator
- * (equal to `end` when a block character or the end of the input follows).
+ * Handles a segment with the identifier `id` (see `segmentIdAt`). `start` to `end` is its text and `contentEnd` the
+ * offset after it, including its terminator (equal to `end` when a block character or the end of the input follows).
  */
 function readSegment(
   scan: Scan,
+  id: string,
   start: number,
   end: number,
   contentEnd: number,
 ): void {
-  switch (segmentIdAt(scan.input, start, end)) {
+  switch (id) {
     case "MSH":
       closeSection(scan);
       scan.message = { start, end: contentEnd };
@@ -247,23 +283,6 @@ function readSegment(
         scan.outside = { start: scan.outside?.start ?? start, end };
       }
   }
-}
-
-/** The identifier of the segment at `start`, or an empty string when the line does not start with one. */
-function segmentIdAt(input: string, start: number, end: number): string {
-  if (end - start < 3) return "";
-  if (end - start > 3 && isAlphanumeric(input.charCodeAt(start + 3))) {
-    return "";
-  }
-  return input.slice(start, start + 3);
-}
-
-function isAlphanumeric(code: number): boolean {
-  return (
-    (code >= 0x30 && code <= 0x39) ||
-    (code >= 0x41 && code <= 0x5a) ||
-    (code >= 0x61 && code <= 0x7a)
-  );
 }
 
 /** Ends the message being read and reports the text outside messages that came before the current line. */

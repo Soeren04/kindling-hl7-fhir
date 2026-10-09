@@ -54,8 +54,23 @@ describe("splitBatch", () => {
       ],
       [
         "blank lines between messages",
-        `${adt}\r\r \t\r\n\n${oru}\r`,
+        `${adt}\r\r \t\r\r\n${oru}\r`,
         [`${adt}\r`, `${oru}\r`],
+      ],
+      [
+        "blank lines between messages with line feed terminators",
+        `${adt}\n\n \t\n${oru}\n`,
+        [`${adt}\n`, `${oru}\n`],
+      ],
+      [
+        "an identifier that is followed by a letter",
+        `${adt}\rFHSA|1\rBTSx\rMSH1|2\r`,
+        [`${adt}\rFHSA|1\rBTSx\rMSH1|2\r`],
+      ],
+      [
+        "an envelope identifier that ends its line",
+        `${adt}\rBTS\r${oru}`,
+        [`${adt}\r`, oru],
       ],
       [
         "a blank line inside a message, left for parse to report",
@@ -88,6 +103,49 @@ describe("splitBatch", () => {
       expect(
         messages.map((message) => parsed(message).message.version),
       ).toStrictEqual(["2.5.1", "2.5.1"]);
+    });
+  });
+
+  describe("segment terminators", () => {
+    it.each([
+      ["a carriage return", "\r"],
+      ["a carriage return and line feed", "\r\n"],
+    ])(
+      "keeps a line feed as data in a message whose MSH ends with %s, as parse does",
+      (_name, end) => {
+        const input = `${adt}${end}NTE|a\nBTS data${end}NTE|b\nMSH|^~\\&|x${end}`;
+        expect(split(input)).toStrictEqual([[input], []]);
+      },
+    );
+
+    it("ends segments at line feeds in a message whose MSH ends with one", () => {
+      const input = `${adt}\nNTE|a\nBTS|1\n${oru}\nNTE|b\n`;
+      expect(split(input)).toStrictEqual([
+        [`${adt}\nNTE|a\n`, `${oru}\nNTE|b\n`],
+        [],
+      ]);
+    });
+
+    it("lets the MSH of each message decide", () => {
+      const input = `${adt}\nNTE|a\n${oru}\rNTE|b\nMSH|x\r${adt}\nNTE|c\n`;
+      expect(split(input)[0]).toStrictEqual([
+        `${adt}\nNTE|a\n`,
+        `${oru}\rNTE|b\nMSH|x\r`,
+        `${adt}\nNTE|c\n`,
+      ]);
+    });
+
+    it("cuts envelope lines at every terminator", () => {
+      const input = `FHS|^~\\&\nBHS|^~\\&\n${adt}\rPID|1\rBTS|1\nFTS|1\n`;
+      expect(split(input)).toStrictEqual([[`${adt}\rPID|1\r`], []]);
+    });
+
+    it("returns messages whose parse reads the same segments", () => {
+      const input = `${adt}\rNTE|a\nb\r${oru}\nNTE|c\n`;
+      const segments = splitBatch(input).messages.map(
+        (message) => parsed(message).message.segments.length,
+      );
+      expect(segments).toStrictEqual([2, 2]);
     });
   });
 

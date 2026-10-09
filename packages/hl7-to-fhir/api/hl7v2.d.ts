@@ -415,8 +415,10 @@ interface BatchSplit {
  * The input may be a batch file (`FHS`, `BHS`, messages, `BTS`, `FTS`), a stream of MLLP frames (`0x0B` message
  * `0x1C` `0x0D`), plain concatenated messages, or a mixture. A message starts at an `MSH` segment and ends before
  * the next `MSH`, the next envelope segment, the MLLP end block or the end of the input. Segments end with `\r`, `\n`
- * or `\r\n`; the final terminator of a message is kept, so each message can be passed to `parse` as it is. Blank
- * lines between messages are ignored.
+ * or `\r\n`, with the rule of `parse`: the terminator of each MSH segment decides, and in a message whose MSH ends
+ * with `\r` or `\r\n`, a line feed on its own is data, so a line after it belongs to the segment before, even when it
+ * starts with `MSH` or an envelope identifier. The final terminator of a message is kept, so each message can be
+ * passed to `parse` as it is. Blank lines between messages are ignored.
  *
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
