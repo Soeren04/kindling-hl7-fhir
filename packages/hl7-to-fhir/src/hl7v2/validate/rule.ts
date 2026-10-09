@@ -13,10 +13,11 @@ export interface RuleDescription {
   /** The codes the rule reports. */
   readonly codes: readonly IssueCode[];
   /**
-   * Which messages the rule applies to: every message, or only those of version 2.5 and 2.5.x and the segments with a
-   * definition passed in.
+   * Which messages the rule applies to: every message; only those of version 2.5 and 2.5.x; or the segments of those
+   * messages that the library defines and, in every message, the segments with a definition passed in.
    */
-  readonly scope: "every message" | "version 2.5 and caller definitions";
+  readonly scope:
+    "every message" | "version 2.5" | "version 2.5 and caller definitions";
 }
 
 /** A segment with its position in the message and the definition it is checked against. */

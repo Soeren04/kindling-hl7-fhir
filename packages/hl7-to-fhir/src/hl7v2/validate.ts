@@ -25,6 +25,8 @@ import { checkVersion } from "./validate/rules/version";
  *   `options`, and an `UNSUPPORTED_VERSION` note says so.
  * - Z segments and segments the structure does not contain are never dropped; they are reported unless `options`
  *   defines them.
+ * - The rules and their codes are listed in the table of validation rules, linked from the section "Validation rules"
+ *   of the README: https://github.com/Soeren04/kindling-hl7-fhir#validation-rules.
  *
  * It takes time linear in the size of the message and never throws: a tree that does not have the shape of a
  * message, possible only from plain JavaScript, yields one `INVALID_TREE` issue, and a definition in `options` that was

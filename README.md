@@ -14,6 +14,12 @@ The decisions behind the library and its tooling are written down as
 [architecture decision records](https://github.com/Soeren04/kindling-hl7-fhir/tree/main/docs/adr), including which
 parts are already implemented.
 
+## Validation rules
+
+`validate` from `hl7-to-fhir/hl7v2` checks a message against HL7 v2.5.1 and reports every deviation as an issue with
+a stable code. The [table of validation rules](https://github.com/Soeren04/kindling-hl7-fhir/blob/main/docs/validation-rules.md)
+lists each rule, the messages it applies to, and the severity and message of each of its codes.
+
 ## Contributing
 
 Contributions are welcome: read
