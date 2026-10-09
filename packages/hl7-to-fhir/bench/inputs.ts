@@ -56,6 +56,12 @@ export const manyNodesOfOneMegabyte: string = inField(
   "a&".repeat(megabyte / 2),
 );
 
+/**
+ * A 1 MB segment of 500,000 one-character fields: every field is a node of four levels with a span each, which is the
+ * most memory per byte of input the parser can be made to retain.
+ */
+export const manyFieldsOfOneMegabyte = `${oruHeader[0] ?? ""}\rPID|${"a|".repeat(megabyte / 2)}\r`;
+
 /** A 1 MB value of empty subcomponents: the parser allocates a node per byte, then trims them all. */
 export const emptyNodesOfOneMegabyte: string = inField("&".repeat(megabyte));
 

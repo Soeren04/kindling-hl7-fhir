@@ -28,28 +28,31 @@ apply from the release that contains them:
 
 Parsing time and memory are linear in the size of the input, but the factor for memory is large. The parser keeps the
 whole message as a tree in which every field, repetition, component and subcomponent is an object with its own
-character span: about 110 bytes per object. The tree of a segment-heavy message therefore retains roughly 160 times
-the size of the input, and a short one up to about 180 times:
+character span: about 110 bytes per object. The tree of a realistic segment-heavy message therefore retains roughly
+160 times the size of the input, and a short one up to about 180 times. The worst case is a segment made of one-character
+fields (`PID|` followed by `a|` 500,000 times), where every two input bytes become four levels of nodes: it retains
+about 450 times the size of the input.
 
-| Input                                     | Retained memory | Per input byte |
-| ----------------------------------------- | --------------: | -------------: |
-| ORU^R01 with 17,000 OBX segments (1 MB)   |          159 MB |           157x |
-| ORU^R01 with 50 OBX segments (3 KB)       |          498 KB |           161x |
-| ADT^A01 (0.6 KB)                          |          112 KB |           182x |
-| One field of 500,000 subcomponents (1 MB) |           50 MB |            50x |
-| One field of plain text (1 MB)            |            1 MB |             1x |
+| Input                                          | Retained memory | Per input byte |
+| ---------------------------------------------- | --------------: | -------------: |
+| `PID` with 500,000 one-character fields (1 MB) |          445 MB |           445x |
+| ORU^R01 with 17,000 OBX segments (1 MB)        |          159 MB |           157x |
+| ORU^R01 with 50 OBX segments (3 KB)            |          498 KB |           161x |
+| ADT^A01 (0.6 KB)                               |          112 KB |           182x |
+| One field of 500,000 subcomponents (1 MB)      |           50 MB |            50x |
+| One field of plain text (1 MB)                 |            1 MB |             1x |
 
 The numbers come from `pnpm bench:memory` (see
 [`packages/hl7-to-fhir/bench/README.md`](packages/hl7-to-fhir/bench/README.md)); they depend on the JavaScript engine.
 Fields that hold only empty subcomponents retain nothing.
 
 The library has no size limit of its own, so a service that parses messages from outside its trust boundary should limit
-the size of the input before it calls `parse` or `splitBatch`, for example by rejecting HTTP bodies and MLLP frames
-above a few hundred kilobytes (160 times that is the memory one request can hold), and by parsing the messages of a
-batch one after the other instead of all at once. A real HL7 v2 message is rarely larger than a few dozen kilobytes.
-`splitBatch` only finds the boundaries between messages and keeps the input strings, so its memory is proportional to the
-input. Memory within the factors above is documented behavior, not a vulnerability; input that makes the parser retain
-much more per byte is one.
+the size of the input before it calls `parse` or `splitBatch`, and size the limit from the worst case: 450 times the
+limit is the memory one request can hold, so 1 MB of input can retain 450 MB and 256 KB about 115 MB. Reject HTTP bodies
+and MLLP frames above that limit, and parse the messages of a batch one after the other instead of all at once. A real
+HL7 v2 message is rarely larger than a few dozen kilobytes. `splitBatch` only finds the boundaries between messages and
+keeps the input strings, so its memory is proportional to the input. Memory within the factors above is documented
+behavior, not a vulnerability; input that makes the parser retain much more than 450 times its size is one.
 
 ## Patient data posted by mistake
 

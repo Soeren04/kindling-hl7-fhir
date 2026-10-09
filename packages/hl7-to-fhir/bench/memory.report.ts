@@ -10,6 +10,7 @@ import {
   adtA01,
   emptyNodesOfOneMegabyte,
   escapedFieldOfOneMegabyte,
+  manyFieldsOfOneMegabyte,
   manyNodesOfOneMegabyte,
   oruOfOneMegabyte,
   oruR01With50Obx,
@@ -51,6 +52,7 @@ const cases: readonly (readonly [string, string])[] = [
   ["1 MB escape sequences", escapedFieldOfOneMegabyte],
   ["1 MB one-character subcomponents", manyNodesOfOneMegabyte],
   ["1 MB empty subcomponents", emptyNodesOfOneMegabyte],
+  ["1 MB of 500,000 fields", manyFieldsOfOneMegabyte],
 ];
 
 /** The heap a parsed message retains, measured after garbage collection, and the size of its tree. */

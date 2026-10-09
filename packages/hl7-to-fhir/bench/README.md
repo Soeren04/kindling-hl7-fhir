@@ -46,9 +46,11 @@ one-time costs of the first parse):
 | 1 MB field of escape sequences    |   1.3 MB |             1x |          130 |          - |
 | 1 MB field of 500,000 subcomp.    |    50 MB |            50x |    1,000,128 |       50 B |
 | 1 MB field of empty subcomponents |   1.0 MB |             1x |          118 |          - |
+| 1 MB of 500,000 one-char. fields  |   445 MB |           445x |    4,000,102 |      111 B |
 
 A tree object is a node or a span. Fields that hold only empty subcomponents are trimmed, so they cost time but
-retain nothing.
+retain nothing. The last row, `PID|` followed by `a|` 500,000 times, is the worst case: four levels of nodes for every
+two input bytes. It is the figure [SECURITY.md](../../../SECURITY.md) sizes the recommended input limit from.
 
 The decision about the span representation, with the experiment behind it, is in
 [ADR 0008](../../../docs/adr/0008-message-model-and-indexing.md).

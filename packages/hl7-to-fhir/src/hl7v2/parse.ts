@@ -93,7 +93,9 @@ export interface ParseFailure {
  * Memory: the returned tree keeps one object per field, repetition, component and subcomponent, each with its own
  * span. That is about 110 bytes per object and, for segment-heavy messages, roughly 160 times the size of the input
  * (a 1 MB message with 17,000 OBX segments retains about 159 MB; plain text retains about 1 times its size). The
- * library sets no size limit, so check the size of untrusted input before calling `parse`, and parse the messages of
+ * worst case is a segment of one-character fields (`PID|` followed by `a|` 500,000 times), which retains about 450
+ * times the size of the input: 1 MB of input can retain 450 MB. The library sets no size limit, so limit the size of
+ * untrusted input before calling `parse`, sized from that factor (256 KB is about 115 MB), and parse the messages of
  * a batch one at a time. See SECURITY.md.
  *
  * @param input - One message as text. Use `splitBatch` for batch files or streams with several messages.
