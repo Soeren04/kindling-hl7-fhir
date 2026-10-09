@@ -162,6 +162,20 @@ describe("stringify", () => {
       expect(stringified(message)).toBe(`MSH|^~\\&\rNTE|1|${written}\r`);
     });
 
+    it("writes a value with more escapes than a function call takes arguments", () => {
+      const lineFeeds = 200_000;
+      const message: Hl7Message = {
+        delimiters: standard,
+        segments: [
+          segment("MSH", "|", "^~\\&"),
+          segment("NTE", "1", "\n".repeat(lineFeeds)),
+        ],
+      };
+      expect(stringified(message)).toBe(
+        `MSH|^~\\&\rNTE|1|${"\\X0A\\".repeat(lineFeeds)}\r`,
+      );
+    });
+
     it("writes decoded escape sequences in their delimiter form", () => {
       const input = `${header}\rNTE|1|a\\F\\b\\S\\c\\T\\d\\R\\e\\E\\f\\X41\\\r`;
       expect(roundTrip(input)).toBe(

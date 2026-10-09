@@ -461,7 +461,8 @@ function writeSubcomponent(
     case "value": {
       const encoded = encodeText(subcomponent.value, writer);
       if (!encoded.ok) return stringifyFailure(encoded.error, location);
-      parts.push(...encoded.value);
+      // A loop, not push(...pieces): a value with many escapes has more pieces than a call can take as arguments.
+      for (const piece of encoded.value) parts.push(piece);
       if (subcomponent.truncated !== true) return undefined;
       // The marker goes after the escaped value, unescaped, where parse reads it as the truncation.
       if (delimiters.truncation === undefined) {
