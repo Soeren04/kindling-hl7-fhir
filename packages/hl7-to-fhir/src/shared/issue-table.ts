@@ -269,6 +269,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The code is not in the user-defined table that its field or component refers to, as HL7 suggests it; a site may have added it.",
   },
+  HL7_NULL_IGNORED: {
+    severity: "info",
+    message:
+      'An explicit null "" was left out: a transaction bundle cannot express that the receiver should delete the value.',
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

@@ -19,7 +19,7 @@ function documentedSeverities(): Map<string, string> {
       source,
     )?.[1];
   const items = (comment ?? "").matchAll(
-    /^[ \t]*\*[ \t]+- `([A-Z_]+)` \((error|warning|info)\)/gmu,
+    /^[ \t]*\*[ \t]+- `([A-Z][A-Z0-9_]*)` \((error|warning|info)\)/gmu,
   );
   return new Map(
     Array.from(items, ([, code = "", severity = ""]) => [code, severity]),
@@ -42,7 +42,7 @@ function documentedItems(): Map<string, string> {
   let heading = "";
   let code: string | undefined;
   for (const line of lines) {
-    const item = /^- `([A-Z_]+)`/u.exec(line);
+    const item = /^- `([A-Z][A-Z0-9_]*)`/u.exec(line);
     if (item !== null) {
       code = item[1];
       if (code !== undefined) items.set(code, `${heading} ${line}`);

@@ -136,7 +136,7 @@ export type Severity = "error" | "warning" | "info";
  * - `UNEXPECTED_COMPONENT` (warning): a component or subcomponent beyond those its data type defines holds something;
  *   a primitive type has one of each. No `value`.
  *
- * Values (validation; `value` is the decoded value, as the message tree holds it):
+ * Values (validation and mapping; `value` is the decoded value, as the message tree holds it):
  *
  * - `INVALID_NUMBER` (error): a value of type NM is not an optional sign, digits and at most one decimal point.
  * - `INVALID_SEQUENCE_ID` (error): a value of type SI is not a non-negative whole number.
@@ -150,6 +150,11 @@ export type Severity = "error" | "warning" | "info";
  * - `UNKNOWN_CODE` (error): a coded value is not in the HL7-defined table its field or component refers to.
  * - `UNKNOWN_USER_DEFINED_CODE` (warning): a coded value is not in the user-defined table its field or component refers
  *   to, as HL7 suggests it; sites may add codes to such tables.
+ *
+ * Mapping to FHIR (`value` is the decoded value the issue is about, unless stated otherwise):
+ *
+ * - `HL7_NULL_IGNORED` (info): an explicit null `""` was left out of a transaction bundle, which has no way to say
+ *   "delete this value"; reported only for transaction bundles. No `value`.
  *
  * Limits:
  *
@@ -212,6 +217,7 @@ export type IssueCode =
   | "MALFORMED_CODE"
   | "UNKNOWN_CODE"
   | "UNKNOWN_USER_DEFINED_CODE"
+  | "HL7_NULL_IGNORED"
   | "TOO_MANY_ISSUES";
 
 /**
