@@ -4,7 +4,7 @@ import { validate } from "../../../src/hl7v2/validate";
 import { maxIssues } from "../../../src/shared/collect";
 import type { Issue } from "../../../src/shared/issue";
 import { parsed } from "../helpers";
-import { adtWith } from "./messages";
+import { adtWith, validOru } from "./messages";
 
 /** How often each code occurs, in the order the codes first occur. */
 function counts(issues: readonly Issue[]): [string, number][] {
@@ -19,6 +19,10 @@ function counts(issues: readonly Issue[]): [string, number][] {
 function validated(segments: readonly string[]): readonly Issue[] {
   return validate(parsed(segments.join("\r")).message);
 }
+
+/** A valid PID with PID-1 and the fields after PID-9 replaced by `rest`. */
+const pidWith = (setId: string, rest: string): string =>
+  `PID|${setId}||PATID1234||Everyman|||||${rest}`;
 
 describe("validate with more issues than it reports", () => {
   it("keeps the first issues and ends with TOO_MANY_ISSUES", () => {
@@ -45,5 +49,38 @@ describe("validate with more issues than it reports", () => {
       ["UNEXPECTED_SEGMENT", maxIssues - 1],
       ["TOO_MANY_ISSUES", 1],
     ]);
+  });
+
+  it("stops checking fields once there are too many issues", () => {
+    const [msh = "", pid = "", ...rest] = validOru;
+    const notes = Array.from({ length: 2 * maxIssues }, () => "NTE|x");
+    const issues = validated([msh, pid, ...notes, ...rest]);
+    expect(counts(issues)).toStrictEqual([
+      ["INVALID_SEQUENCE_ID", maxIssues],
+      ["TOO_MANY_ISSUES", 1],
+    ]);
+    expect(issues[maxIssues - 1]?.location.segmentIndex).toBe(maxIssues + 1);
+  });
+
+  it("keeps the first issues of one segment in message order, whichever rule finds them", () => {
+    const fields = "|".repeat(29) + "|a".repeat(2 * maxIssues);
+    const issues = validated(adtWith({ pid: pidWith("x", fields) }));
+    expect(counts(issues)).toStrictEqual([
+      ["INVALID_SEQUENCE_ID", 1],
+      ["UNEXPECTED_FIELD", maxIssues - 1],
+      ["TOO_MANY_ISSUES", 1],
+    ]);
+    expect(issues[1]?.location.field).toBe(40);
+  });
+
+  it("keeps the extra subcomponent of an early component before many extra components", () => {
+    const race = `x&s^b^c^d^e^f${"^z".repeat(2 * maxIssues)}`;
+    const [first] = validated(adtWith({ pid: pidWith("1", race) }));
+    expect(first?.code).toBe("UNEXPECTED_COMPONENT");
+    expect(first?.location).toMatchObject({
+      field: 10,
+      component: 1,
+      subcomponent: 2,
+    });
   });
 });

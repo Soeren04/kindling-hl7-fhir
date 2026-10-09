@@ -209,6 +209,41 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "A field after the last one the segment definition has, or one it marks as not used (X), holds a value, often because a value contains an unescaped field separator.",
   },
+  UNEXPECTED_COMPONENT: {
+    severity: "warning",
+    message:
+      "A component or subcomponent beyond those its data type defines holds a value, often because a value contains an unescaped delimiter.",
+  },
+  INVALID_NUMBER: {
+    severity: "error",
+    message:
+      "The value is not a number (NM): an optional + or - sign, digits and at most one decimal point.",
+  },
+  INVALID_SEQUENCE_ID: {
+    severity: "error",
+    message:
+      "The value is not a sequence ID (SI): a non-negative whole number written with digits only.",
+  },
+  INVALID_DATE: {
+    severity: "error",
+    message:
+      "The value is not a date (DT) of the form YYYY[MM[DD]], or it names a month or day that does not exist.",
+  },
+  INVALID_DATE_TIME: {
+    severity: "error",
+    message:
+      "The value is not a date and time (DTM, or the first component of TS) of the form YYYY[MM[DD[HH[MM[SS[.S[S[S[S]]]]]]]]][+/-ZZZZ], it names a date or time that does not exist, or its offset exceeds 14 hours.",
+  },
+  INVALID_TIME: {
+    severity: "error",
+    message:
+      "The value is not a time (TM) of the form HH[MM[SS[.S[S[S[S]]]]]][+/-ZZZZ], it names a time that does not exist, or its offset exceeds 14 hours.",
+  },
+  MALFORMED_CODE: {
+    severity: "error",
+    message:
+      "A coded value (ID or IS) has whitespace at its start or end or contains a control character, so it cannot match a table entry.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

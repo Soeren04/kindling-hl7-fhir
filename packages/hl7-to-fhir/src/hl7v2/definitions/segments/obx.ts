@@ -19,15 +19,23 @@
 import { field } from "../define";
 import type { SegmentDefinition } from "../types";
 
+/** OBX-2, the value type: the data type of OBX-5. */
+export const valueTypeField = 2;
+
+/** OBX-5, the observation value, whose data type OBX-2 names. */
+export const observationValueField = 5;
+
 /** The observation result segment. */
 export const obx: SegmentDefinition = {
   id: "OBX",
   fields: [
     field(1, "setId", "SI"),
-    field(2, "valueType", "ID", "C", { table: "0125" }),
+    field(valueTypeField, "valueType", "ID", "C", { table: "0125" }),
     field(3, "observationIdentifier", "CE", "R"),
     field(4, "observationSubId", "ST", "C"),
-    field(5, "observationValue", "varies", "C", { repeats: true }),
+    field(observationValueField, "observationValue", "varies", "C", {
+      repeats: true,
+    }),
     field(6, "units", "CE"),
     field(7, "referencesRange", "ST"),
     field(8, "abnormalFlags", "IS", "O", { repeats: true, table: "0078" }),

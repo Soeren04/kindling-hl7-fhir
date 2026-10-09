@@ -121,6 +121,20 @@ type Severity = "error" | "warning" | "info";
  *   repetition too many. No `value`.
  * - `UNEXPECTED_FIELD` (warning): a field after the last one the segment definition has, or one it marks as not used
  *   (`X`), holds something. No `value`.
+ * - `UNEXPECTED_COMPONENT` (warning): a component or subcomponent beyond those its data type defines holds something;
+ *   a primitive type has one of each. No `value`.
+ *
+ * Values (validation; `value` holds the decoded value):
+ *
+ * - `INVALID_NUMBER` (error): a value of type NM is not an optional sign, digits and at most one decimal point.
+ * - `INVALID_SEQUENCE_ID` (error): a value of type SI is not a non-negative whole number.
+ * - `INVALID_DATE` (error): a value of type DT is not `YYYY[MM[DD]]` or names a day that does not exist.
+ * - `INVALID_DATE_TIME` (error): a value of type DTM, or the first component of a TS, is not
+ *   `YYYY[MM[DD[HH[MM[SS[.S[S[S[S]]]]]]]]][+/-ZZZZ]`, names a date or time that does not exist, or has an offset of
+ *   more than 14 hours.
+ * - `INVALID_TIME` (error): a value of type TM is not `HH[MM[SS[.S[S[S[S]]]]]][+/-ZZZZ]` or names a time that does
+ *   not exist.
+ * - `MALFORMED_CODE` (error): a coded value (ID or IS) has whitespace at either end or a control character.
  *
  * Limits:
  *
@@ -171,6 +185,13 @@ type IssueCode =
   | "REQUIRED_FIELD_MISSING"
   | "TOO_MANY_REPETITIONS"
   | "UNEXPECTED_FIELD"
+  | "UNEXPECTED_COMPONENT"
+  | "INVALID_NUMBER"
+  | "INVALID_SEQUENCE_ID"
+  | "INVALID_DATE"
+  | "INVALID_DATE_TIME"
+  | "INVALID_TIME"
+  | "MALFORMED_CODE"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
@@ -251,7 +272,8 @@ interface Issue {
   /** Where the issue was found; an issue about the input as a whole has only a span. */
   readonly location: Location;
   /**
-   * The raw input text the issue is about.
+   * The input text the issue is about: the raw text for issues of parsing, the decoded value (as the message tree
+   * holds it) for issues of validation.
    *
    * This may contain protected health information (PHI). Do not log it unless your logs are allowed to hold
    * patient data.

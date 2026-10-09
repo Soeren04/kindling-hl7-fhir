@@ -1,4 +1,6 @@
 import type { SegmentRule } from "../rule";
+import { components } from "./components";
+import { formats } from "./formats";
 import { repetitions } from "./repetitions";
 import { requiredFields } from "./required-fields";
 import { unexpectedFields } from "./unexpected-fields";
@@ -8,4 +10,6 @@ export const segmentRules: readonly SegmentRule[] = [
   requiredFields,
   repetitions,
   unexpectedFields,
+  components,
+  formats,
 ];
