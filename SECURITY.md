@@ -54,6 +54,13 @@ HL7 v2 message is rarely larger than a few dozen kilobytes. `splitBatch` only fi
 keeps the input strings, so its memory is proportional to the input. Memory within the factors above is documented
 behavior, not a vulnerability; input that makes the parser retain much more than 450 times its size is one.
 
+## Logging issues
+
+The code, severity, message and location of an issue never contain message content, so they can be logged. The
+`value` of an issue is the text the issue is about, such as the value `validate` found malformed, and may contain
+protected health information (PHI). Do not log it, or send it to error trackers, unless that destination may hold
+patient data.
+
 ## Patient data posted by mistake
 
 This project only ever needs synthetic or fully de-identified HL7 messages. If real patient data (protected health

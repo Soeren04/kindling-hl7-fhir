@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partial (lenient `parse` and its issue codes exist; `validate` follows in phase 2)
+- Implementation: implemented (`parse` and its issue codes; `validate`, see [ADR 0011](0011-structures-groups-and-validation.md))
 
 ## Context
 
