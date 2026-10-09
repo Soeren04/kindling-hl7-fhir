@@ -5,6 +5,7 @@ import type { Issue } from "../shared/issue";
 import { report } from "../shared/collect";
 import { emptySpanAt } from "../shared/span";
 import type { StructureElement } from "./definitions/types";
+import { hasBuiltInDefinitions } from "./definitions/version";
 import type { Hl7Message, Segment } from "./model";
 import { isValidSegmentId } from "./segment";
 import { resolveStructure } from "./structure";
@@ -73,8 +74,8 @@ export type GroupChild = SegmentReference | SegmentGroup;
  *
  * Every segment of the message appears exactly once, in message order, so the tree never drops a segment: one the
  * structure does not allow at its position (a Z segment, an unknown or misplaced one) is placed in the group that was
- * open when it occurred and reported in `issues`. When the structure is unknown or the library has no definition of
- * it, every segment is a child of the top level.
+ * open when it occurred and, in a message of version 2.5 or 2.5.x, reported in `issues`. When the structure is
+ * unknown or the library has no definition of it, every segment is a child of the top level.
  *
  * @example
  * ```ts
@@ -138,8 +139,8 @@ interface Match {
  * @param message - The message.
  * @param isDefined - Whether the caller has a definition of a segment, which allows it where the structure does not
  *   contain it.
- * @param issues - Receives the issues of the structure resolution, `SEGMENT_MISSING`, `SEGMENT_OUT_OF_ORDER`,
- *   `SEGMENT_REPEATED`, `UNEXPECTED_SEGMENT` and `UNDEFINED_Z_SEGMENT`.
+ * @param issues - Receives the issues of the structure resolution and, for a message of version 2.5 or 2.5.x,
+ *   `SEGMENT_MISSING`, `SEGMENT_OUT_OF_ORDER`, `SEGMENT_REPEATED`, `UNEXPECTED_SEGMENT` and `UNDEFINED_Z_SEGMENT`.
  */
 export function groupSegments(
   message: Hl7Message,
@@ -152,13 +153,16 @@ export function groupSegments(
     const children = message.segments.map((_, index) => reference(index));
     return { ...named, children };
   }
+  // The 2.5.1 structure still gives the best grouping of a message of another version, but segments were added and
+  // moved between versions, so what does not fit it is no finding.
+  const found = hasBuiltInDefinitions(message.version) ? issues : [];
   const matcher: Matcher = {
     allowed: segmentIdsOf(definition.elements),
     isDefined,
     lastIndex: new Map(
       message.segments.map((segment, index) => [segment.id, index]),
     ),
-    issues,
+    issues: found,
   };
   const root = openFrame(undefined, definition.elements);
   let current = root;
@@ -172,7 +176,7 @@ export function groupSegments(
     frame = frame.parent
   ) {
     for (const segmentId of requiredUntil(frame, frame.elements.length)) {
-      report(issues, "SEGMENT_MISSING", { span: end, segmentId });
+      report(found, "SEGMENT_MISSING", { span: end, segmentId });
     }
   }
   return { ...named, children: root.children };

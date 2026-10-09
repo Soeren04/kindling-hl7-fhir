@@ -5,6 +5,7 @@ import type { SegmentDefinition } from "./definitions/types";
 import { groupSegments } from "./group";
 import type { Hl7Message } from "./model";
 import { segmentRules } from "./validate/rules/segment-rules";
+import { checkVersion } from "./validate/rules/version";
 
 /**
  * Checks a message against the HL7 v2.5.1 definitions of its structure and segments.
@@ -14,9 +15,10 @@ import { segmentRules } from "./validate/rules/segment-rules";
  */
 export function validate(message: Hl7Message): readonly Issue[] {
   const issues: Issue[] = [];
+  const builtIn = checkVersion(message, issues);
   groupSegments(message, () => false, issues);
   const fieldIssues = checkSegments(message, (id) =>
-    segmentDefinitions.get(id),
+    builtIn ? segmentDefinitions.get(id) : undefined,
   );
   return finishIssues(
     issues.concat(fieldIssues),

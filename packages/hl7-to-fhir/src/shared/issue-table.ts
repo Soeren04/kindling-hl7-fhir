@@ -154,6 +154,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "MSH-18 names the character set with a spelling that HL7 table 0211 does not use; it was recognized anyway.",
   },
+  UNSUPPORTED_VERSION: {
+    severity: "info",
+    message:
+      "MSH-12 names a version other than 2.5 or 2.5.x. The segment order and the field, data type and table rules of version 2.5.1 were not applied; only the message structure was resolved and the segment definitions passed in were checked.",
+  },
   MESSAGE_STRUCTURE_UNKNOWN: {
     severity: "warning",
     message:

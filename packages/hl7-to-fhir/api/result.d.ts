@@ -94,8 +94,11 @@ type Severity = "error" | "warning" | "info";
  * - `NON_STANDARD_CHARACTER_SET` (info): MSH-18 names a character set with a spelling HL7 table 0211 does not use,
  *   such as `UTF-8`; it is recognized.
  *
- * Message structure (validation):
+ * Message version and structure (validation):
  *
+ * - `UNSUPPORTED_VERSION` (info): MSH-12 names a version other than 2.5 and 2.5.x; the segment order and the field,
+ *   data type and table rules of version 2.5.1 are not applied, only the structure resolution and the segment
+ *   definitions passed in. `value` is MSH-12.
  * - `MESSAGE_STRUCTURE_UNKNOWN` (warning): MSH-9 identifies no message structure: MSH-9.3 is empty, and MSH-9.1 and
  *   MSH-9.2 imply none; segment order is not checked. No `value`.
  * - `MESSAGE_STRUCTURE_MISMATCH` (error): MSH-9.3 names another structure than the one MSH-9.1 and MSH-9.2 imply
@@ -177,6 +180,7 @@ type IssueCode =
   | "INVALID_HEX_ESCAPE"
   | "UNSUPPORTED_CHARACTER_SET"
   | "NON_STANDARD_CHARACTER_SET"
+  | "UNSUPPORTED_VERSION"
   | "MESSAGE_STRUCTURE_UNKNOWN"
   | "MESSAGE_STRUCTURE_MISMATCH"
   | "MESSAGE_STRUCTURE_UNSUPPORTED"
