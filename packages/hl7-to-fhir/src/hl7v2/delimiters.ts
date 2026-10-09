@@ -1,4 +1,11 @@
-import type { LocatedIssue, Location, Span } from "../shared/issue";
+import {
+  issue,
+  type IssueOf,
+  type LocatedIssue,
+  type Location,
+  report,
+  type Span,
+} from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import {
   encodingCharactersSpan,
@@ -8,20 +15,18 @@ import {
 } from "./header";
 import type { Delimiters } from "./model";
 
-/** The delimiters of a message and the remarks made while reading them. */
+/** The delimiters of a message and where MSH-2 declares them. */
 export interface DelimiterReading {
   /** The delimiters, with standard values for those MSH-2 omits. */
   readonly delimiters: Delimiters;
   /** The span of MSH-2, the encoding characters. */
   readonly encoding: Span;
-  /** Remarks about MSH-1 and MSH-2, such as defaulted delimiters. */
-  readonly issues: readonly LocatedIssue[];
 }
 
 /** Why the delimiters cannot be used. */
-export type DelimiterFailure = LocatedIssue & {
-  readonly code: "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS";
-};
+export type DelimiterFailure = IssueOf<
+  "INVALID_FIELD_SEPARATOR" | "INVALID_ENCODING_CHARACTERS"
+>;
 
 /** The standard delimiters `|^~\&`, used for the characters a shortened MSH-2 omits. */
 const standard = {
@@ -43,34 +48,33 @@ const maxEncodingCharacters = 5;
  *
  * @param input - The whole input.
  * @param msh - The span of the MSH segment without its terminator; the input must start with `MSH` there.
- * @returns The delimiters with remarks, or the error issue explaining why they cannot be used.
+ * @param issues - Receives the warnings about MSH-2, such as defaulted delimiters.
+ * @returns The delimiters, or the error issue explaining why they cannot be used.
  */
 export function readDelimiters(
   input: string,
   msh: Span,
+  issues: LocatedIssue[],
 ): Result<DelimiterReading, DelimiterFailure> {
   const separatorStart = msh.start + fieldSeparatorOffset;
-  const field = input.slice(
-    separatorStart,
-    Math.min(separatorStart + 1, msh.end),
-  );
+  // Bounded by the segment: "MSH" alone has no field separator, whatever character follows it in the input.
+  const separatorSpan = {
+    start: separatorStart,
+    end: Math.min(separatorStart + 1, msh.end),
+  };
+  const field = input.slice(separatorSpan.start, separatorSpan.end);
   if (!isDelimiterCharacter(field)) {
-    return err(invalidFieldSeparator(field, separatorStart, msh.end));
+    return err(
+      issue(
+        "INVALID_FIELD_SEPARATOR",
+        mshLocation(1, separatorSpan),
+        field || undefined,
+      ),
+    );
   }
 
   const encodingSpan = encodingCharactersSpan(input, msh, field);
   const encoding = input.slice(encodingSpan.start, encodingSpan.end);
-  const problem = findEncodingProblem(encoding);
-  if (problem !== undefined) {
-    return err({
-      code: "INVALID_ENCODING_CHARACTERS",
-      severity: "error",
-      message: problem,
-      location: mshLocation(2, encodingSpan),
-      value: encoding,
-    });
-  }
-
   const delimiters: Delimiters = {
     field,
     component: encoding.charAt(0),
@@ -79,53 +83,52 @@ export function readDelimiters(
     subcomponent: encoding.charAt(3) || standard.subcomponent,
   };
   const { component, repetition, escape, subcomponent } = delimiters;
-  const declared = [field, component, repetition, escape, subcomponent];
-  if (!areDistinct([...declared, encoding.charAt(4)])) {
-    return err({
-      code: "INVALID_ENCODING_CHARACTERS",
-      severity: "error",
-      message:
-        "The field separator, the encoding characters in MSH-2 and the standard values of omitted encoding characters must all be different.",
-      location: mshLocation(2, encodingSpan),
-      value: encoding,
-    });
+  const valid =
+    encoding.length > 0 &&
+    encoding.length <= maxEncodingCharacters &&
+    allDelimiterCharacters(encoding) &&
+    areDistinct([
+      field,
+      component,
+      repetition,
+      escape,
+      subcomponent,
+      encoding.charAt(4),
+    ]);
+  if (!valid) {
+    return err(
+      issue(
+        "INVALID_ENCODING_CHARACTERS",
+        mshLocation(2, encodingSpan),
+        encoding,
+      ),
+    );
   }
 
-  const issues: LocatedIssue[] = [];
   if (encoding.length < 4) {
-    issues.push({
-      code: "ENCODING_CHARACTERS_DEFAULTED",
-      severity: "warning",
-      message:
-        "MSH-2 declares fewer than four encoding characters; the omitted ones take their standard values.",
-      location: mshLocation(2, encodingSpan),
-      value: encoding,
-    });
+    report(
+      issues,
+      "ENCODING_CHARACTERS_DEFAULTED",
+      mshLocation(2, encodingSpan),
+      encoding,
+    );
   }
-  if (encoding.length < maxEncodingCharacters)
-    return ok({ delimiters, encoding: encodingSpan, issues });
+  const reading = { delimiters, encoding: encodingSpan };
+  if (encoding.length < maxEncodingCharacters) return ok(reading);
 
   const truncation = encoding.charAt(4);
   const version = findHeaderValue(input, msh, delimiters, versionField);
   if (declaresTruncation(version && input.slice(version.start, version.end))) {
-    return ok({
-      delimiters: { ...delimiters, truncation },
-      encoding: encodingSpan,
-      issues,
-    });
+    return ok({ ...reading, delimiters: { ...delimiters, truncation } });
   }
-  issues.push({
-    code: "TRUNCATION_CHARACTER_IGNORED",
-    severity: "warning",
-    message:
-      "MSH-2 declares a truncation character, which only versions 2.7 and later define; it has no special meaning in this message.",
-    location: mshLocation(2, {
-      start: encodingSpan.end - 1,
-      end: encodingSpan.end,
-    }),
-    value: truncation,
-  });
-  return ok({ delimiters, encoding: encodingSpan, issues });
+  const truncationSpan = { start: encodingSpan.end - 1, end: encodingSpan.end };
+  report(
+    issues,
+    "TRUNCATION_CHARACTER_IGNORED",
+    mshLocation(2, truncationSpan),
+    truncation,
+  );
+  return ok(reading);
 }
 
 /**
@@ -143,41 +146,11 @@ export function isDelimiterCharacter(character: string): boolean {
   return printable && !digit && !letter;
 }
 
-function invalidFieldSeparator(
-  field: string,
-  start: number,
-  segmentEnd: number,
-): DelimiterFailure {
-  const location = mshLocation(1, {
-    start,
-    end: Math.min(start + 1, segmentEnd),
-  });
-  return field === ""
-    ? {
-        code: "INVALID_FIELD_SEPARATOR",
-        severity: "error",
-        message: "The MSH segment ends before MSH-1, the field separator.",
-        location,
-      }
-    : {
-        code: "INVALID_FIELD_SEPARATOR",
-        severity: "error",
-        message:
-          "MSH-1, the field separator, must be a printable ASCII character that is neither a letter nor a digit.",
-        location,
-        value: field,
-      };
-}
-
-function findEncodingProblem(encoding: string): string | undefined {
-  if (encoding.length === 0 || encoding.length > maxEncodingCharacters) {
-    return "MSH-2 must contain one to five encoding characters.";
+function allDelimiterCharacters(text: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    if (!isDelimiterCharacter(text.charAt(index))) return false;
   }
-  return Array.from({ length: encoding.length }, (_, index) =>
-    encoding.charAt(index),
-  ).every(isDelimiterCharacter)
-    ? undefined
-    : "The encoding characters in MSH-2 must be printable ASCII characters that are neither letters nor digits.";
+  return true;
 }
 
 function areDistinct(characters: readonly string[]): boolean {

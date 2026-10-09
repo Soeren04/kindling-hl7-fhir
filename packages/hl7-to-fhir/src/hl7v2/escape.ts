@@ -1,8 +1,8 @@
 // Escape sequences (HL7 v2.5.1 chapter 2.7). Decoding turns the raw text of a subcomponent into the text a reader
 // sees; encoding is the inverse for text that has to be written into a message.
-import type { IssueCode, Severity, Span } from "../shared/issue";
-import { indexOfOrEnd } from "./input";
+import type { IssueCode, Span } from "../shared/issue";
 import { type Charset, decodeBytes } from "./charset";
+import { indexOfOrEnd } from "./input";
 import type { Delimiters } from "./model";
 
 /** What decoding needs to know about the message. */
@@ -13,25 +13,20 @@ export interface DecodeContext {
   readonly charset: Charset;
 }
 
-/** A remark about one escape sequence, located in the input. */
-interface EscapeProblem {
-  /** The issue code. */
-  readonly code: IssueCode;
-  /** How serious the problem is. */
-  readonly severity: Severity;
-  /** A description without message content. */
-  readonly message: string;
-  /** The escape sequence, delimiters included. */
-  readonly span: Span;
-}
+/** The issues decoding can find. */
+export type EscapeIssueCode = Extract<
+  IssueCode,
+  | "UNKNOWN_ESCAPE"
+  | "UNTERMINATED_ESCAPE"
+  | "FORMATTING_REMOVED"
+  | "CHARACTER_SET_ESCAPE_KEPT"
+  | "LOCAL_ESCAPE_KEPT"
+  | "INVALID_HEX_ESCAPE"
+  | "UNSUPPORTED_CHARACTER_SET"
+>;
 
-/** Decoded text and the remarks made while decoding it. */
-export interface DecodedText {
-  /** The decoded text. */
-  readonly value: string;
-  /** Remarks about escape sequences that were removed, kept as written or are malformed. */
-  readonly problems: readonly EscapeProblem[];
-}
+/** Receives an issue about the escape sequence at `span`, delimiters included. */
+export type EscapeIssueReporter = (code: EscapeIssueCode, span: Span) => void;
 
 /**
  * Decodes the escape sequences in `input` between `span.start` and `span.end`.
@@ -43,37 +38,34 @@ export interface DecodedText {
  * - Character set switches (`\C…\`, `\M…\`), locally defined (`\Z…\`), unknown, malformed and unterminated
  *   sequences are kept as written.
  *
- * Every case except the delimiter escapes and line breaks is reported as a problem.
+ * Every case except the delimiter escapes and line breaks is reported, located in the input.
+ *
+ * @returns The decoded text.
  */
 export function decodeText(
   input: string,
   span: Span,
   context: DecodeContext,
-): DecodedText {
+  report: EscapeIssueReporter,
+): string {
   const { escape } = context.delimiters;
   const parts: string[] = [];
-  const problems: EscapeProblem[] = [];
   let copied = span.start;
   let open = indexOfOrEnd(input, escape, span.start, span.end);
   while (open < span.end) {
     const close = indexOfOrEnd(input, escape, open + 1, span.end);
     if (close === span.end) {
-      problems.push({
-        ...unterminated,
-        span: { start: open, end: span.end },
-      });
+      report("UNTERMINATED_ESCAPE", { start: open, end: span.end });
       break;
     }
-    const { text, problem } = interpret(input.slice(open + 1, close), context);
+    const { text, issue } = interpret(input.slice(open + 1, close), context);
     parts.push(input.slice(copied, open), text ?? input.slice(open, close + 1));
-    if (problem !== undefined) {
-      problems.push({ ...problem, span: { start: open, end: close + 1 } });
-    }
+    if (issue !== undefined) report(issue, { start: open, end: close + 1 });
     copied = close + 1;
     open = indexOfOrEnd(input, escape, copied, span.end);
   }
   parts.push(input.slice(copied, span.end));
-  return { value: parts.join(""), problems };
+  return parts.join("");
 }
 
 /**
@@ -134,38 +126,17 @@ function usesPeriod(delimiters: Delimiters): boolean {
   return [field, component, repetition, subcomponent, escape].includes(".");
 }
 
-/** A problem before it is located. */
-type Remark = Omit<EscapeProblem, "span">;
-
 /** The replacement for one escape sequence; `text` is absent when the sequence is kept as written. */
 interface Interpretation {
   readonly text?: string;
-  readonly problem?: Remark;
+  readonly issue?: EscapeIssueCode;
 }
 
-const unterminated: Remark = {
-  code: "UNTERMINATED_ESCAPE",
-  severity: "warning",
-  message:
-    "An escape sequence has no closing escape character; the rest of the value is kept as written.",
-};
-
-const unknown: Interpretation = {
-  problem: {
-    code: "UNKNOWN_ESCAPE",
-    severity: "warning",
-    message: "Unknown escape sequence; it is kept as written.",
-  },
-};
+const unknown: Interpretation = { issue: "UNKNOWN_ESCAPE" };
 
 const removedFormatting: Interpretation = {
   text: "",
-  problem: {
-    code: "FORMATTING_REMOVED",
-    severity: "info",
-    message:
-      "A text formatting escape sequence was removed; only line breaks have a plain-text equivalent.",
-  },
+  issue: "FORMATTING_REMOVED",
 };
 
 const lineBreak: Interpretation = { text: "\n" };
@@ -205,23 +176,9 @@ function interpretWithArgument(
       return decodeHex(content.slice(1), charset);
     case "C":
     case "M":
-      return {
-        problem: {
-          code: "CHARACTER_SET_ESCAPE_KEPT",
-          severity: "warning",
-          message:
-            "Character set switching escape sequences are not supported; the sequence is kept as written.",
-        },
-      };
+      return { issue: "CHARACTER_SET_ESCAPE_KEPT" };
     case "Z":
-      return {
-        problem: {
-          code: "LOCAL_ESCAPE_KEPT",
-          severity: "warning",
-          message:
-            "A locally defined escape sequence cannot be interpreted; it is kept as written.",
-        },
-      };
+      return { issue: "LOCAL_ESCAPE_KEPT" };
     case ".":
       return interpretFormatting(content.slice(1, 3), content.slice(3));
     default:
@@ -262,39 +219,14 @@ function interpretFormatting(
   return removedCommands.has(command) ? removedFormatting : unknown;
 }
 
-const malformedHex: Interpretation = {
-  problem: {
-    code: "INVALID_HEX_ESCAPE",
-    severity: "warning",
-    message:
-      "A hexadecimal escape sequence needs an even, non-zero number of hexadecimal digits; it is kept as written.",
-  },
-};
-
-const undecodableHex: Interpretation = {
-  problem: {
-    code: "INVALID_HEX_ESCAPE",
-    severity: "warning",
-    message:
-      "A hexadecimal escape sequence contains bytes that are not valid in the message character set (MSH-18); it is kept as written.",
-  },
-};
-
-const unsupportedCharset: Interpretation = {
-  problem: {
-    code: "UNSUPPORTED_CHARACTER_SET",
-    severity: "warning",
-    message:
-      "The character set in MSH-18 is not supported for hexadecimal escape sequences; the sequence is kept as written.",
-  },
-};
+const invalidHex: Interpretation = { issue: "INVALID_HEX_ESCAPE" };
 
 function decodeHex(digits: string, charset: Charset): Interpretation {
   const bytes = parseHexBytes(digits);
-  if (bytes === undefined) return malformedHex;
-  if (charset === "unsupported") return unsupportedCharset;
+  if (bytes === undefined) return invalidHex;
+  if (charset === "unsupported") return { issue: "UNSUPPORTED_CHARACTER_SET" };
   const text = decodeBytes(bytes, charset);
-  return text === undefined ? undecodableHex : { text };
+  return text === undefined ? invalidHex : { text };
 }
 
 function parseHexBytes(digits: string): Uint8Array | undefined {

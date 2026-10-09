@@ -232,7 +232,7 @@ describe("parse", () => {
       });
     });
 
-    it("reports problems at the exact position of the sequence", () => {
+    it("reports issues at the exact position of the sequence", () => {
       const input = message("PID|1", "ZPI|a~b^c&x\\Zlocal\\y");
       const [issue] = parsed(input).issues;
       expect(issue).toStrictEqual({
@@ -255,7 +255,7 @@ describe("parse", () => {
       });
     });
 
-    it("reports problems in MSH fields after MSH-2 with their field number", () => {
+    it("reports issues in MSH fields after MSH-2 with their field number", () => {
       const result = parsed("MSH|^~\\&|LAB\\Q\\");
       expect(result.issues[0]?.location).toMatchObject({
         segmentId: "MSH",

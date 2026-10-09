@@ -2,15 +2,7 @@
 // a trailing newline from an editor. They are removed here, so the parser sees only segments, and every removal is
 // reported (ADR 0003). Offsets stay those of the original input. The module also cuts the content into lines and
 // holds the bounded scans the other modules use, so that no search runs past the segment it belongs to.
-import type { LocatedIssue, Span } from "../shared/issue";
-
-/** Where the segments are in the input, and what was removed around them. */
-export interface Content {
-  /** The segments, including the terminator of the last one when present. */
-  readonly span: Span;
-  /** One info issue per removed artifact. */
-  readonly issues: readonly LocatedIssue[];
-}
+import { type LocatedIssue, report, type Span } from "../shared/issue";
 
 export const byteOrderMark = "\uFEFF";
 export const mllpStartBlock = "\u000B";
@@ -19,20 +11,20 @@ export const mllpEndBlock = "\u001C";
 /**
  * Finds the segments in `input`: skips a leading byte order mark and MLLP start block, and an MLLP end block and
  * whitespace at the end. A single segment terminator after the last segment is kept; it is part of the message.
+ *
+ * @param issues - Receives one info issue per removed artifact.
+ * @returns The span of the segments, including the terminator of the last one when present.
  */
-export function locateContent(input: string): Content {
-  const issues: LocatedIssue[] = [];
+export function locateContent(input: string, issues: LocatedIssue[]): Span {
   let start = 0;
   if (input.startsWith(byteOrderMark)) {
-    issues.push(
-      removalIssue("BYTE_ORDER_MARK_REMOVED", { start, end: start + 1 }),
-    );
+    report(issues, "BYTE_ORDER_MARK_REMOVED", {
+      span: { start, end: start + 1 },
+    });
     start += 1;
   }
   if (input.startsWith(mllpStartBlock, start)) {
-    issues.push(
-      removalIssue("MLLP_FRAMING_REMOVED", { start, end: start + 1 }),
-    );
+    report(issues, "MLLP_FRAMING_REMOVED", { span: { start, end: start + 1 } });
     start += 1;
   }
 
@@ -41,34 +33,31 @@ export function locateContent(input: string): Content {
   if (textEnd > start && input.charAt(textEnd - 1) === mllpEndBlock) {
     // The end block is followed by a carriage return in MLLP; anything after that is ordinary trailing whitespace.
     const frameEnd = textEnd + (input.charAt(textEnd) === "\r" ? 1 : 0);
-    issues.push(
-      removalIssue("MLLP_FRAMING_REMOVED", {
-        start: textEnd - 1,
-        end: frameEnd,
-      }),
-    );
-    issues.push(...trailingWhitespace(frameEnd, end));
+    report(issues, "MLLP_FRAMING_REMOVED", {
+      span: { start: textEnd - 1, end: frameEnd },
+    });
+    reportTrailingWhitespace(issues, frameEnd, end);
     end = textEnd - 1;
     textEnd = endOfText(input, start, end);
   }
   const contentEnd = textEnd + terminatorLength(input, textEnd, end);
-  issues.push(...trailingWhitespace(contentEnd, end));
-  return { span: { start, end: contentEnd }, issues };
-}
-
-/** The non-empty lines of the content, and the issues about blank lines and terminators. */
-export interface Lines {
-  readonly spans: readonly Span[];
-  readonly issues: readonly LocatedIssue[];
+  reportTrailingWhitespace(issues, contentEnd, end);
+  return { start, end: contentEnd };
 }
 
 /**
- * Splits the content into segment spans at `\r`, `\n` and `\r\n`. Blank lines are dropped, and the first terminator
- * other than `\r` is reported once.
+ * Splits the content into segment spans at `\r`, `\n` and `\r\n`. Blank lines are dropped and reported, and the first
+ * terminator other than `\r` is reported once.
+ *
+ * @param issues - Receives the issues about blank lines and terminators.
+ * @returns The spans of the non-empty lines, without their terminators.
  */
-export function splitLines(input: string, content: Span): Lines {
+export function splitLines(
+  input: string,
+  content: Span,
+  issues: LocatedIssue[],
+): Span[] {
   const spans: Span[] = [];
-  const issues: LocatedIssue[] = [];
   let terminatorReported = false;
   let lineStart = content.start;
   let index = content.start;
@@ -80,18 +69,13 @@ export function splitLines(input: string, content: Span): Lines {
     }
     const terminator = { start: index, end: index + length };
     if (lineStart === index) {
-      issues.push({
-        code: "BLANK_LINE_REMOVED",
-        severity: "info",
-        message: "An empty line between segments was removed.",
-        location: { span: terminator },
-      });
+      report(issues, "BLANK_LINE_REMOVED", { span: terminator });
     } else {
       spans.push({ start: lineStart, end: index });
     }
     const standard = length === 1 && input.charAt(index) === "\r";
     if (!standard && !terminatorReported) {
-      issues.push(nonStandardTerminator(terminator));
+      report(issues, "NON_STANDARD_SEGMENT_TERMINATOR", { span: terminator });
       terminatorReported = true;
     }
     index += length;
@@ -99,17 +83,7 @@ export function splitLines(input: string, content: Span): Lines {
   }
   if (lineStart < content.end)
     spans.push({ start: lineStart, end: content.end });
-  return { spans, issues };
-}
-
-function nonStandardTerminator(span: Span): LocatedIssue {
-  return {
-    code: "NON_STANDARD_SEGMENT_TERMINATOR",
-    severity: "info",
-    message:
-      "Segments end with a line feed or a carriage return and line feed; HL7 v2 uses a carriage return alone.",
-    location: { span },
-  };
+  return spans;
 }
 
 /**
@@ -148,37 +122,14 @@ function isWhitespace(character: string): boolean {
   );
 }
 
-function trailingWhitespace(start: number, end: number): LocatedIssue[] {
-  return start < end
-    ? [removalIssue("TRAILING_WHITESPACE_REMOVED", { start, end })]
-    : [];
-}
-
-const removalMessages = {
-  BYTE_ORDER_MARK_REMOVED: "A byte order mark before the message was removed.",
-  MLLP_FRAMING_REMOVED:
-    "MLLP framing characters around the message were removed.",
-  TRAILING_WHITESPACE_REMOVED: "Whitespace after the last segment was removed.",
-} as const;
-
-/** The info issue for an artifact removed from the input. */
-export function removalIssue(
-  code: keyof typeof removalMessages,
-  span: Span,
-): LocatedIssue {
-  return {
-    code,
-    severity: "info",
-    message: removalMessages[code],
-    location: { span },
-  };
-}
-
-/** Sorts issues by their position in the input; issues at the same position keep the order they were found in. */
-export function inInputOrder(issues: readonly LocatedIssue[]): LocatedIssue[] {
-  return [...issues].sort(
-    (a, b) => a.location.span.start - b.location.span.start,
-  );
+function reportTrailingWhitespace(
+  issues: LocatedIssue[],
+  start: number,
+  end: number,
+): void {
+  if (start < end) {
+    report(issues, "TRAILING_WHITESPACE_REMOVED", { span: { start, end } });
+  }
 }
 
 /**

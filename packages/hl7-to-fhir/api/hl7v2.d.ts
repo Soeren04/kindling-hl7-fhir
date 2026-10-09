@@ -330,7 +330,7 @@ export declare function isNull<P extends string>(message: Hl7Message, path: Hl7P
 interface BatchSplit {
   /** The messages in input order. Each starts with `MSH` and keeps its own segment terminators. */
   readonly messages: readonly string[];
-  /** Remarks in input order, located in the string passed to {@link splitBatch}. */
+  /** The issues in input order, located in the string passed to {@link splitBatch}. */
   readonly issues: readonly Issue[];
 }
 /**
@@ -345,7 +345,7 @@ interface BatchSplit {
  * Unlike `parse`, this function cannot fail: it returns what it found, possibly no message. Everything it removes or
  * doubts is reported in `issues`, as `parse` does (ADR 0003): the byte order mark and MLLP framing (info), an MLLP
  * frame without end block, text that belongs to no message and is dropped, and a `BTS-1` or `FTS-1` count that
- * differs from the number of messages or batches (warnings). Envelope segments are dropped without a remark,
+ * differs from the number of messages or batches (warnings). Envelope segments are dropped without an issue,
  * because removing them is the purpose of the function. Offsets in the issues refer to `input`, not to the returned
  * messages, which are independent strings; the position of a message in the result tells which message a later
  * `parse` issue belongs to.
@@ -396,7 +396,7 @@ export declare function splitBatch(input: string): BatchSplit;
 interface ParsedMessage {
   /** The message tree. */
   readonly message: Hl7Message;
-  /** Remarks in input order; parsing succeeded regardless of their severity. */
+  /** The issues in input order; parsing succeeded regardless of their severity. */
   readonly issues: readonly Issue[];
 }
 /**
