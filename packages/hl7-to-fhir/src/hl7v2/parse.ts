@@ -1,7 +1,7 @@
 import type { Issue, LocatedIssue } from "../shared/issue";
 import { err, ok, type Result } from "../shared/result";
 import { readDelimiters } from "./delimiters";
-import { resolveCharset } from "./escape";
+import { resolveCharset } from "./charset";
 import { characterSetField, findHeaderValue, versionField } from "./header";
 import { inInputOrder, locateContent, splitLines } from "./input";
 import type { Hl7Message, Segment } from "./model";

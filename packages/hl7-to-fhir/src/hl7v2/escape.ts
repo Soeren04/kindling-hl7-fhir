@@ -2,13 +2,8 @@
 // sees; encoding is the inverse for text that has to be written into a message.
 import type { IssueCode, Severity, Span } from "../shared/issue";
 import { indexOfOrEnd } from "./input";
+import { type Charset, decodeBytes } from "./charset";
 import type { Delimiters } from "./model";
-
-/**
- * How the bytes of hexadecimal escape sequences (`\Xhh…\`) are turned into text, from MSH-18.
- * `unsupported` keeps such sequences as written.
- */
-export type Charset = "ascii" | "iso-8859-1" | "utf-8" | "unsupported";
 
 /** What decoding needs to know about the message. */
 export interface DecodeContext {
@@ -36,26 +31,6 @@ export interface DecodedText {
   readonly value: string;
   /** Remarks about escape sequences that were removed, kept as written or are malformed. */
   readonly problems: readonly EscapeProblem[];
-}
-
-/**
- * Maps MSH-18.1 to the character set used for hexadecimal escape sequences.
- *
- * An empty MSH-18 means ASCII, the HL7 default. `8859/1` and `UNICODE UTF-8` are the HL7 table 0211 codes for
- * ISO-8859-1 and UTF-8. Every other character set is `unsupported`.
- */
-export function resolveCharset(msh18: string | undefined): Charset {
-  switch (msh18) {
-    case undefined:
-    case "ASCII":
-      return "ascii";
-    case "8859/1":
-      return "iso-8859-1";
-    case "UNICODE UTF-8":
-      return "utf-8";
-    default:
-      return "unsupported";
-  }
 }
 
 /**
@@ -322,14 +297,14 @@ function decodeHex(digits: string, charset: Charset): Interpretation {
   return text === undefined ? undecodableHex : { text };
 }
 
-function parseHexBytes(digits: string): number[] | undefined {
+function parseHexBytes(digits: string): Uint8Array | undefined {
   if (digits.length === 0 || digits.length % 2 !== 0) return undefined;
-  const bytes: number[] = [];
-  for (let index = 0; index < digits.length; index += 2) {
-    const high = hexDigitValue(digits.charCodeAt(index));
-    const low = hexDigitValue(digits.charCodeAt(index + 1));
+  const bytes = new Uint8Array(digits.length / 2);
+  for (let index = 0; index < bytes.length; index++) {
+    const high = hexDigitValue(digits.charCodeAt(2 * index));
+    const low = hexDigitValue(digits.charCodeAt(2 * index + 1));
     if (high === undefined || low === undefined) return undefined;
-    bytes.push(high * 16 + low);
+    bytes[index] = high * 16 + low;
   }
   return bytes;
 }
@@ -339,68 +314,4 @@ function hexDigitValue(code: number): number | undefined {
   // Clearing bit 5 maps "a"-"f" onto "A"-"F" and leaves no other character in that range.
   const upper = code & ~0x20;
   return upper >= 0x41 && upper <= 0x46 ? upper - 0x41 + 10 : undefined;
-}
-
-// TextDecoder is not part of ES2022 and the library has no runtime-specific dependencies, so the three supported
-// encodings are decoded by hand. Each is a few lines.
-function decodeBytes(
-  bytes: readonly number[],
-  charset: Exclude<Charset, "unsupported">,
-): string | undefined {
-  switch (charset) {
-    case "ascii":
-      return bytes.every((byte) => byte < 0x80) ? fromCodes(bytes) : undefined;
-    case "iso-8859-1":
-      // ISO-8859-1 maps every byte to the Unicode code point of the same value.
-      return fromCodes(bytes);
-    case "utf-8":
-      return decodeUtf8(bytes);
-  }
-}
-
-function fromCodes(codes: readonly number[]): string {
-  // String.fromCodePoint(...codes) would exceed the argument limit for long sequences.
-  return codes.map((code) => String.fromCodePoint(code)).join("");
-}
-
-/** Lead byte ranges of UTF-8 sequences longer than one byte (RFC 3629, section 4). */
-const utf8Sequences = [
-  { first: 0xc2, last: 0xdf, length: 2, payload: 0x1f, min: 0x80 },
-  { first: 0xe0, last: 0xef, length: 3, payload: 0x0f, min: 0x800 },
-  { first: 0xf0, last: 0xf4, length: 4, payload: 0x07, min: 0x10000 },
-] as const;
-
-/** Strict UTF-8 decoding: overlong forms, surrogates and code points above U+10FFFF are rejected. */
-function decodeUtf8(bytes: readonly number[]): string | undefined {
-  const codePoints: number[] = [];
-  const remaining = bytes.values();
-  for (
-    let next = remaining.next();
-    next.done !== true;
-    next = remaining.next()
-  ) {
-    const lead = next.value;
-    if (lead < 0x80) {
-      codePoints.push(lead);
-      continue;
-    }
-    const sequence = utf8Sequences.find(
-      ({ first, last }) => lead >= first && lead <= last,
-    );
-    if (sequence === undefined) return undefined;
-    let codePoint = lead & sequence.payload;
-    for (let read = 1; read < sequence.length; read++) {
-      const continuation = remaining.next();
-      if (continuation.done === true || (continuation.value & 0xc0) !== 0x80) {
-        return undefined;
-      }
-      codePoint = (codePoint << 6) | (continuation.value & 0x3f);
-    }
-    const surrogate = codePoint >= 0xd800 && codePoint <= 0xdfff;
-    if (codePoint < sequence.min || codePoint > 0x10ffff || surrogate) {
-      return undefined;
-    }
-    codePoints.push(codePoint);
-  }
-  return fromCodes(codePoints);
 }
