@@ -27,7 +27,7 @@ export type Optionality = "R" | "O" | "C" | "B" | "X";
  * const names: MaxRepetitions = "unbounded";
  * ```
  */
-export type MaxRepetitions = number | "unbounded";
+type MaxRepetitions = number | "unbounded";
 
 /**
  * One field of a segment.
@@ -139,7 +139,7 @@ export interface CompositeDataType {
  * const varies: VariesDataType = { kind: "varies", id: "varies" };
  * ```
  */
-export interface VariesDataType {
+interface VariesDataType {
   /** Discriminant: the concrete type is decided by another field. */
   readonly kind: "varies";
   /** The data type identifier, `varies`. */
@@ -254,7 +254,7 @@ export interface MessageStructureDefinition {
  * const kind: CodeTableKind = "hl7-defined";
  * ```
  */
-export type CodeTableKind = "hl7-defined" | "user-defined";
+type CodeTableKind = "hl7-defined" | "user-defined";
 
 /**
  * An HL7 table: its number, name and codes.
