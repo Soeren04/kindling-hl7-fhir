@@ -11,6 +11,7 @@ import {
   type Span,
 } from "../shared/issue";
 import { isDelimiterCharacter } from "./delimiters";
+import { fieldSeparatorOffset } from "./header";
 import {
   byteOrderMark,
   indexOfOrEnd,
@@ -105,6 +106,8 @@ export function splitBatch(input: string): BatchSplit {
     lineFeedIsData: false,
     fileOpen: false,
     batch: "none",
+    fileComponent: defaultComponent,
+    batchComponent: defaultComponent,
     messagesInBatch: 0,
     batchesInFile: 0,
   };
@@ -145,6 +148,10 @@ interface Scan {
   fileOpen: boolean;
   /** The batch being read: none, one a `BHS` opened, or one that messages without `BHS` opened. */
   batch: "none" | "explicit" | "implicit";
+  /** The component separator the `FHS` of the open file declares, which ends `FTS-1.1`. */
+  fileComponent: string;
+  /** The component separator the `BHS` of the open batch declares, which ends `BTS-1.1`. */
+  batchComponent: string;
   /** Messages in the batch being read, to check `BTS-1`. */
   messagesInBatch: number;
   /** Batches closed since the last `FHS` or `FTS`, to check `FTS-1`. */
@@ -271,6 +278,7 @@ function readSegment(
       if (scan.fileOpen) reportMisplaced(scan, id, start);
       closeBatch(scan);
       scan.fileOpen = true;
+      scan.fileComponent = componentSeparatorAt(scan.input, start, end);
       scan.batchesInFile = 0;
       break;
     case "BHS":
@@ -278,18 +286,25 @@ function readSegment(
       if (scan.batch === "explicit") reportMisplaced(scan, id, start);
       closeBatch(scan);
       scan.batch = "explicit";
+      scan.batchComponent = componentSeparatorAt(scan.input, start, end);
       break;
     case "BTS":
       closeSection(scan);
-      checkCount(scan, { start, end }, scan.messagesInBatch);
+      checkCount(
+        scan,
+        { start, end },
+        scan.batchComponent,
+        scan.messagesInBatch,
+      );
       // A trailer closes a batch even without header or messages: [BHS] {MSH} [BTS] may be empty.
       countBatch(scan);
       break;
     case "FTS":
       closeSection(scan);
       closeBatch(scan);
-      checkCount(scan, { start, end }, scan.batchesInFile);
+      checkCount(scan, { start, end }, scan.fileComponent, scan.batchesInFile);
       scan.fileOpen = false;
+      scan.fileComponent = defaultComponent;
       scan.batchesInFile = 0;
       break;
     default:
@@ -314,6 +329,7 @@ function closeBatch(scan: Scan): void {
 function countBatch(scan: Scan): void {
   scan.batchesInFile++;
   scan.batch = "none";
+  scan.batchComponent = defaultComponent;
   scan.messagesInBatch = 0;
 }
 
@@ -345,12 +361,47 @@ function closeSection(scan: Scan): void {
   }
 }
 
-/** Compares field 1 of the trailer segment with the number found; an empty count is not sent and not checked. */
-function checkCount(scan: Scan, trailer: Span, actual: number): void {
+/** The separator HL7 v2 messages use for components unless a header declares another. */
+const defaultComponent = "^";
+
+/**
+ * The component separator an `FHS` or `BHS` declares: the first of its encoding characters, which follow the field
+ * separator as in MSH, or the default `^` when that is no delimiter.
+ */
+function componentSeparatorAt(
+  input: string,
+  start: number,
+  end: number,
+): string {
+  const separatorStart = start + fieldSeparatorOffset;
+  const component = input.slice(
+    separatorStart + 1,
+    Math.min(separatorStart + 2, end),
+  );
+  return isDelimiterCharacter(component) &&
+    component !== input.charAt(separatorStart)
+    ? component
+    : defaultComponent;
+}
+
+/**
+ * Compares the first component of field 1 of the trailer segment with the number found; an empty count is not sent
+ * and not checked. The trailer is read with its own field separator and the component separator of its header.
+ */
+function checkCount(
+  scan: Scan,
+  trailer: Span,
+  component: string,
+  actual: number,
+): void {
   const { input } = scan;
-  const separator = input.charAt(trailer.start + 3);
-  const valueStart = trailer.start + 4;
-  const valueEnd = indexOfOrEnd(input, separator, valueStart, trailer.end);
+  const separatorStart = trailer.start + fieldSeparatorOffset;
+  const separator = input.charAt(separatorStart);
+  const valueStart = separatorStart + 1;
+  const valueEnd = Math.min(
+    indexOfOrEnd(input, separator, valueStart, trailer.end),
+    indexOfOrEnd(input, component, valueStart, trailer.end),
+  );
   const declared = parseCount(input.slice(valueStart, valueEnd).trim());
   if (declared === undefined || declared === actual) return;
   report(scan.issues, "BATCH_COUNT_MISMATCH", {

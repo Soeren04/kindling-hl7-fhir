@@ -245,6 +245,43 @@ describe("splitBatch", () => {
     });
 
     it.each([
+      ["BTS-1 with a second component", `BHS|^~\\&\r${adt}\rBTS|1^x\r`, []],
+      ["BTS-1 without a header", `${adt}\rBTS|1^2\r`, []],
+      [
+        "BTS-1 with the component separator of its BHS",
+        `BHS|$~\\&\r${adt}\rBTS|1$x^y\r`,
+        [],
+      ],
+      [
+        "BTS-1 after a BHS with its own component separator, which ^ does not end",
+        `BHS|$~\\&\r${adt}\rBTS|1^x\r`,
+        [["BATCH_COUNT_MISMATCH", "warning", "1^x"]],
+      ],
+      [
+        "FTS-1 with the component separator of its FHS",
+        `FHS|$~\\&\r${adt}\rFTS|1$x\r`,
+        [],
+      ],
+      [
+        "FTS-1 after a header that declares no usable separator",
+        `FHS|a~\\&\r${adt}\rFTS|1^x\r`,
+        [],
+      ],
+      [
+        "FTS-1 after a header that repeats the field separator",
+        `FHS||~\\&\r${adt}\rFTS|1^x\r`,
+        [],
+      ],
+      [
+        "a trailer after an envelope closed before",
+        `BHS|$~\\&\rBTS|0\r${adt}\rBTS|1^x\r`,
+        [],
+      ],
+    ])("reads the count as the first component: %s", (_name, input, issues) => {
+      expect(split(input)[1]).toStrictEqual(issues);
+    });
+
+    it.each([
       ["BTS-1 above the number of messages", `${adt}\rBTS|2`, "2"],
       ["BTS-1 below the number of messages", `${adt}\r${oru}\rBTS|1`, "1"],
       ["a BTS-1 that is not a number", `${adt}\rBTS|one`, "one"],
