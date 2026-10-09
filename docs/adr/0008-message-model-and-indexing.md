@@ -135,5 +135,8 @@ the public shape and is not planned.
   `stringify(parse(x)) === x` holds for canonical input only.
 - `stringify` writes the tree as it stands: every segment, the last one included, ends with `\r`; MSH-1 and MSH-2 are
   taken verbatim from the first two fields of MSH (falling back to `delimiters` for hand-built trees); nulls are
-  always `""`. Values are escaped by `encodeText` only, so changes to escaping stay in `escape.ts`. Callers unwrap
+  always `""`. Values are escaped by `encodeText` only, so changes to escaping stay in `escape.ts`. Line feeds are
+  written as `\X0A\`, not `\.br\`: the formatting command is only defined for formatted text (FT), while the
+  hexadecimal escape is valid in every text data type. In a message whose MSH-18 names a character set the library
+  cannot decode, such escapes read back as written. Callers unwrap
   the result of `stringify`, although it only fails for trees built or changed by hand.

@@ -343,7 +343,7 @@ describe("decodeText", () => {
 describe("encodeText", () => {
   it.each([
     ["a|b^c&d~e\\f", "a\\F\\b\\S\\c\\T\\d\\R\\e\\E\\f"],
-    ["line\nbreak", "line\\.br\\break"],
+    ["line\nbreak", "line\\X0A\\break"],
     ["carriage\rreturn", "carriage\\X0D\\return"],
     ["Everyman", "Everyman"],
     ["", ""],
@@ -358,12 +358,6 @@ describe("encodeText", () => {
     const encoded = encodeText('""', quoteEscape) ?? "";
     expect(encoded).toBe('"X22""E"');
     expect(decode(encoded, "ascii", quoteEscape).value).toBe('""');
-  });
-
-  it("writes a line feed as a hexadecimal escape when the period is a delimiter", () => {
-    expect(encodeText("a\nb", { ...standard, component: "." })).toBe(
-      "a\\X0A\\b",
-    );
   });
 
   it("escapes the truncation character only when the message declares one", () => {
