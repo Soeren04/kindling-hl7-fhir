@@ -512,6 +512,12 @@ interface ParseFailure {
  * A later MSH segment starts a second message; `parse` keeps it as a segment and reports it (`UNEXPECTED_MSH`, or the
  * error `UNEXPECTED_MSH_DELIMITERS` when it declares other delimiters than the first).
  *
+ * Memory: the returned tree keeps one object per field, repetition, component and subcomponent, each with its own
+ * span. That is about 110 bytes per object and, for segment-heavy messages, roughly 160 times the size of the input
+ * (a 1 MB message with 17,000 OBX segments retains about 159 MB; plain text retains about 1 times its size). The
+ * library sets no size limit, so check the size of untrusted input before calling `parse`, and parse the messages of
+ * a batch one at a time. See SECURITY.md.
+ *
  * @param input - One message as text. Use `splitBatch` for batch files or streams with several messages.
  * @returns The message and its issues, or why it could not be parsed.
  *
