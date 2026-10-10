@@ -24,6 +24,11 @@
       "allowedVersions": "<7"
     },
     {
+      "description": "@types/fhir 3.0.x are releases from 2020 that sort above the current 0.0.x line (ADR 0012).",
+      "matchPackageNames": ["@types/fhir"],
+      "allowedVersions": "<1"
+    },
+    {
       "description": "Node types follow the oldest supported Node major.",
       "matchPackageNames": ["@types/node"],
       "allowedVersions": "<23"
