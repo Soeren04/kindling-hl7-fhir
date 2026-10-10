@@ -16,6 +16,9 @@ import {
   nameUse,
   nameUseMap,
   nameUseUnmatched,
+  observationInterpretation,
+  observationInterpretationMap,
+  observationInterpretationUnmatched,
   observationStatus,
   observationStatusMap,
   observationStatusUnmatched,
@@ -45,6 +48,11 @@ const lookups: readonly (readonly [
 ])[] = [
   ["administrativeGender", administrativeGender, administrativeGenderMap],
   ["encounterClass", encounterClass, encounterClassMap],
+  [
+    "observationInterpretation",
+    observationInterpretation,
+    observationInterpretationMap,
+  ],
   ["observationStatus", observationStatus, observationStatusMap],
   ["diagnosticReportStatus", diagnosticReportStatus, diagnosticReportStatusMap],
   ["nameUse", nameUse, nameUseMap],
@@ -153,6 +161,41 @@ describe("encounterClass", () => {
   it.each(["X", "e", "Z"])("does not map %j", (code) => {
     expect(encounterClass(code)).toBeUndefined();
   });
+});
+
+describe("observationInterpretation", () => {
+  const v3 =
+    "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+
+  it.each([
+    ["H", "High"],
+    ["LL", "Critical low"],
+    ["<", "Off scale low"],
+    ["N", "Normal"],
+    ["SYN-R", "Synergy - resistant"],
+    ["WR", "Weakly reactive"],
+  ])("maps %s to the v3 code of the same spelling, %s", (code, display) => {
+    expect(observationInterpretation(code)).toStrictEqual({
+      system: v3,
+      code,
+      display,
+    });
+  });
+
+  it("holds exactly the 39 codes the IG matches, each to itself", () => {
+    expect(observationInterpretationMap.size).toBe(39);
+    for (const [code, coding] of observationInterpretationMap) {
+      expect(coding.code).toBe(code);
+      expect(coding.system).toBe(v3);
+    }
+  });
+
+  it.each(["AC", "HM", "OBX", "QCF", "TOX", "Z", "h"])(
+    "does not map %s",
+    (code) => {
+      expect(observationInterpretation(code)).toBeUndefined();
+    },
+  );
 });
 
 describe("observationStatus", () => {
@@ -354,6 +397,12 @@ describe("the codes the guide lists as unmatched", () => {
     readonly ReadonlyMap<string, unknown>[],
     readonly string[],
   ])[] = [
+    [
+      "observationInterpretationUnmatched",
+      observationInterpretationUnmatched,
+      [observationInterpretationMap],
+      ["AC", "HM", "OBX", "QCF", "TOX"],
+    ],
     [
       "observationStatusUnmatched",
       observationStatusUnmatched,

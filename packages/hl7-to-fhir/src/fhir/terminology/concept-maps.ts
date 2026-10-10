@@ -1,5 +1,5 @@
 // HL7 v2 table codes mapped to FHIR R4 codes: the ConceptMaps of the HL7 Version 2 to FHIR Implementation Guide for
-// tables 0001, 0004 (patient class), 0085, 0123, 0190, 0200, 0201 and 0202.
+// tables 0001, 0004 (patient class), 0078 (interpretation codes), 0085, 0123, 0190, 0200, 0201 and 0202.
 //
 // Source of record: HL7 Version 2 to FHIR Implementation Guide 1.0.0 (STU 1, CC0),
 // https://hl7.org/fhir/uv/v2mappings/, resources ConceptMap-table-hl7NNNN-to-* of the npm package
@@ -20,11 +20,22 @@ const actCodeSystem = "http://terminology.hl7.org/CodeSystem/v3-ActCode";
 /** The code system of HL7 table 0004, which stands in where the IG has no v3 ActCode for a patient class. */
 const patientClassSystem = "http://terminology.hl7.org/CodeSystem/v2-0004";
 
+/** The code system of the v3 observation interpretations that the IG maps the abnormal flags of table 0078 to. */
+const interpretationSystem =
+  "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+
 /** FHIR `administrative-gender` codes. */
 export type AdministrativeGender = "male" | "female" | "other" | "unknown";
 
 /** A coding of an encounter class: a v3 ActCode, or the table 0004 code itself where the IG maps no ActCode. */
 export interface EncounterClassCoding {
+  readonly system: string;
+  readonly code: string;
+  readonly display: string;
+}
+
+/** A coding of an observation interpretation: a v3 ObservationInterpretation code. */
+export interface InterpretationCoding {
   readonly system: string;
   readonly code: string;
   readonly display: string;
@@ -217,6 +228,63 @@ export const telecomEquipmentUseMap: ReadonlyMap<string, TelecomUse> = new Map([
   ["CP", "mobile"],
 ]);
 
+/**
+ * Table 0078 (Interpretation Codes) to v3 `ObservationInterpretation`, each code to the v3 code it is spelled as.
+ * IG ConceptMap `table-hl70078-to-v3-observationinterpretation`. AC, HM, OBX, QCF and TOX are unmatched in the IG and
+ * absent here.
+ */
+export const observationInterpretationMap: ReadonlyMap<
+  string,
+  InterpretationCoding
+> = new Map(
+  (
+    [
+      ["<", "Off scale low"],
+      [">", "Off scale high"],
+      ["A", "Abnormal"],
+      ["AA", "Critical abnormal"],
+      ["B", "Better"],
+      ["CAR", "Carrier"],
+      ["D", "Significant change down"],
+      ["DET", "Detected"],
+      ["E", "Equivocal"],
+      ["EX", "outside threshold"],
+      ["EXP", "Expected"],
+      ["H", "High"],
+      ["HH", "Critical high"],
+      ["HU", "Significantly high"],
+      ["I", "Intermediate"],
+      ["IE", "Insufficient evidence"],
+      ["IND", "Indeterminate"],
+      ["L", "Low"],
+      ["LL", "Critical low"],
+      ["LU", "Significantly low"],
+      ["MS", "moderately susceptible"],
+      ["N", "Normal"],
+      ["NCL", "No CLSI defined breakpoint"],
+      ["ND", "Not detected"],
+      ["NEG", "Negative"],
+      ["NR", "Non-reactive"],
+      ["NS", "Non-susceptible"],
+      ["POS", "Positive"],
+      ["R", "Resistant"],
+      ["RR", "Reactive"],
+      ["S", "Susceptible"],
+      ["SDD", "Susceptible-dose dependent"],
+      ["SYN-R", "Synergy - resistant"],
+      ["SYN-S", "Synergy - susceptible"],
+      ["U", "Significant change up"],
+      ["VS", "very susceptible"],
+      ["UNE", "Unexpected"],
+      ["W", "Worse"],
+      ["WR", "Weakly reactive"],
+    ] as const
+  ).map(([code, display]) => [
+    code,
+    { system: interpretationSystem, code, display },
+  ]),
+);
+
 /** Table 0085 codes that the IG lists as unmatched in `table-hl70085-to-observation-status`. */
 export const observationStatusUnmatched: ReadonlySet<string> = new Set([
   "B",
@@ -227,6 +295,15 @@ export const observationStatusUnmatched: ReadonlySet<string> = new Set([
   "S",
   "U",
   "V",
+]);
+
+/** Table 0078 codes that the IG lists as unmatched in `table-hl70078-to-v3-observationinterpretation`. */
+export const observationInterpretationUnmatched: ReadonlySet<string> = new Set([
+  "AC",
+  "HM",
+  "OBX",
+  "QCF",
+  "TOX",
 ]);
 
 /** Table 0123 codes that the IG lists as unmatched in `table-hl70123-queries-to-diagnostic-report-status`. */
@@ -329,6 +406,24 @@ export function encounterClass(code: string): EncounterClassCoding | undefined {
  */
 export function observationStatus(code: string): ObservationStatus | undefined {
   return observationStatusMap.get(code);
+}
+
+/**
+ * The v3 observation interpretation of an abnormal flag (table 0078) code.
+ *
+ * @param code - A table 0078 code such as `"H"`.
+ * @returns The coding, or `undefined` for a code the IG does not map.
+ *
+ * @example
+ * ```ts
+ * observationInterpretation("H"); // { system: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", code: "H", display: "High" }
+ * observationInterpretation("TOX"); // undefined
+ * ```
+ */
+export function observationInterpretation(
+  code: string,
+): InterpretationCoding | undefined {
+  return observationInterpretationMap.get(code);
 }
 
 /**
