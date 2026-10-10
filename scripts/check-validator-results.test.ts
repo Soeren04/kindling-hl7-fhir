@@ -175,14 +175,18 @@ describe("findValidationProblems", () => {
   const issue = {
     severity: "warning",
     messageId: "SOME_WARNING",
-    file: "bundle.json",
+    file: "/work/golden/bundle.json",
     location: "Bundle",
     text: "Something to look at",
   };
   const allowed = {
     messageId: "SOME_WARNING",
+    text: undefined,
+    file: undefined,
     reason: "Expected for collection bundles",
   };
+  const unusedProblem = (description: string) =>
+    `allowlisted warning (${description}) no longer occurs; remove it from the allowlist`;
 
   it("passes when there are only information issues", () => {
     expect(
@@ -191,41 +195,117 @@ describe("findValidationProblems", () => {
   });
 
   it.each(["fatal", "error"])(
-    "fails on %s issues even when their id is allowlisted",
+    "fails on %s issues even when an entry matches them",
     (severity) => {
       expect(
         findValidationProblems([{ ...issue, severity }], [allowed]),
       ).toStrictEqual([
-        `${severity} SOME_WARNING in bundle.json at Bundle: Something to look at`,
-        "allowlisted warning SOME_WARNING no longer occurs; remove it from the allowlist",
+        `${severity} SOME_WARNING in /work/golden/bundle.json at Bundle: Something to look at`,
+        unusedProblem("messageId SOME_WARNING"),
       ]);
     },
   );
 
   it("fails on a warning that is not allowlisted", () => {
     expect(findValidationProblems([issue], [])).toStrictEqual([
-      "warning SOME_WARNING in bundle.json at Bundle: Something to look at",
+      "warning SOME_WARNING in /work/golden/bundle.json at Bundle: Something to look at",
     ]);
   });
 
-  it("accepts an allowlisted warning", () => {
+  it("accepts a warning by its message id", () => {
     expect(findValidationProblems([issue, issue], [allowed])).toStrictEqual([]);
   });
 
-  it("fails on an allowlist entry that no warning uses", () => {
+  it("accepts a warning that has no message id by its text", () => {
+    const entry = { ...allowed, messageId: undefined, text: "to look at" };
+    expect(
+      findValidationProblems([{ ...issue, messageId: "<none>" }], [entry]),
+    ).toStrictEqual([]);
+  });
+
+  it("does not match a text that the issue text lacks", () => {
+    const entry = { ...allowed, messageId: undefined, text: "something else" };
+    expect(findValidationProblems([issue], [entry])).toStrictEqual([
+      "warning SOME_WARNING in /work/golden/bundle.json at Bundle: Something to look at",
+      unusedProblem('text "something else"'),
+    ]);
+  });
+
+  it("needs every key of an entry to match", () => {
+    const entry = { ...allowed, text: "to look at" };
+    expect(findValidationProblems([issue], [entry])).toStrictEqual([]);
+    expect(
+      findValidationProblems([{ ...issue, messageId: "OTHER" }], [entry]),
+    ).toStrictEqual([
+      "warning OTHER in /work/golden/bundle.json at Bundle: Something to look at",
+      unusedProblem('messageId SOME_WARNING, text "to look at"'),
+    ]);
+    expect(
+      findValidationProblems([{ ...issue, text: "Different" }], [entry]),
+    ).toHaveLength(2);
+  });
+
+  it("restricts an entry with a file to that file", () => {
+    const entry = { ...allowed, file: "golden/bundle.json" };
+    expect(findValidationProblems([issue], [entry])).toStrictEqual([]);
+    expect(
+      findValidationProblems([{ ...issue, file: "/work/other.json" }], [entry]),
+    ).toStrictEqual([
+      "warning SOME_WARNING in /work/other.json at Bundle: Something to look at",
+      unusedProblem("messageId SOME_WARNING, file golden/bundle.json"),
+    ]);
+  });
+
+  it("matches the file by whole path segments, also with backslashes", () => {
+    const entry = { ...allowed, file: "golden/bundle.json" };
+    const windows = { ...issue, file: String.raw`C:\work\golden\bundle.json` };
+    expect(findValidationProblems([windows], [entry])).toStrictEqual([]);
+    const longer = { ...issue, file: "/work/xgolden/bundle.json" };
+    expect(findValidationProblems([longer], [entry])).toHaveLength(2);
+  });
+
+  it("fails on an entry that no warning matches", () => {
     expect(findValidationProblems([], [allowed])).toStrictEqual([
-      "allowlisted warning SOME_WARNING no longer occurs; remove it from the allowlist",
+      unusedProblem("messageId SOME_WARNING"),
+    ]);
+  });
+
+  it("reports each unused entry on its own", () => {
+    const other = { ...allowed, messageId: undefined, text: "Unrelated" };
+    expect(findValidationProblems([issue], [allowed, other])).toStrictEqual([
+      unusedProblem('text "Unrelated"'),
     ]);
   });
 });
 
 describe("parseAllowlist", () => {
-  it("reads message ids and reasons", () => {
+  it("reads message ids, texts, files and reasons", () => {
     const allowlist = {
-      warnings: [{ messageId: "SOME_WARNING", reason: "Expected" }],
+      warnings: [
+        { messageId: "SOME_WARNING", reason: "Expected" },
+        { text: "a text", file: "a/b.json", reason: "Also expected" },
+        { messageId: "OTHER", text: "a text", reason: "Both" },
+      ],
     };
     expect(parseAllowlist(allowlist)).toStrictEqual([
-      { messageId: "SOME_WARNING", reason: "Expected" },
+      {
+        messageId: "SOME_WARNING",
+        text: undefined,
+        file: undefined,
+        reason: "Expected",
+      },
+      {
+        messageId: undefined,
+        text: "a text",
+        file: "a/b.json",
+        reason: "Also expected",
+      },
+      {
+        messageId: "OTHER",
+        text: "a text",
+        file: undefined,
+        reason: "Both",
+      },
     ]);
   });
 
@@ -233,13 +313,38 @@ describe("parseAllowlist", () => {
     expect(() => parseAllowlist({})).toThrow('needs a "warnings" array');
   });
 
+  it("rejects an entry that is not an object", () => {
+    expect(() => parseAllowlist({ warnings: ["SOME_WARNING"] })).toThrow(
+      "must be an object",
+    );
+  });
+
   it.each([
     ["a missing reason", { messageId: "SOME_WARNING" }],
     ["a blank reason", { messageId: "SOME_WARNING", reason: "  " }],
-    ["a missing message id", { reason: "Expected" }],
+    ["a reason that is no string", { text: "a text", reason: 1 }],
   ])("rejects an entry with %s", (_description, entry) => {
     expect(() => parseAllowlist({ warnings: [entry] })).toThrow(
-      "needs a messageId and a non-empty reason",
+      "needs a non-empty reason",
+    );
+  });
+
+  it.each([
+    ["neither", { reason: "Expected" }],
+    ["only a file", { file: "a/b.json", reason: "Expected" }],
+  ])("rejects an entry with %s of messageId and text", (_d, entry) => {
+    expect(() => parseAllowlist({ warnings: [entry] })).toThrow(
+      "needs a messageId or a text to match",
+    );
+  });
+
+  it.each([
+    ["messageId", { messageId: 1, reason: "Expected" }],
+    ["text", { text: "", reason: "Expected" }],
+    ["file", { text: "a text", file: ["a"], reason: "Expected" }],
+  ])("rejects a %s that is not a non-empty string", (key, entry) => {
+    expect(() => parseAllowlist({ warnings: [entry] })).toThrow(
+      `The allowlist key "${key}" must be a non-empty string`,
     );
   });
 
@@ -280,6 +385,9 @@ describe("check-validator-results.mjs", () => {
       { messageId: "BUNDLE_BUNDLE_ENTRY_NOTFOUND", reason: "Expected" },
     ],
   };
+  const textAllowlist = {
+    warnings: [{ text: "Example", file: "bundle.json", reason: "Expected" }],
+  };
 
   it("passes when only allowlisted warnings occur", () => {
     expect(check(outcome("bundle.json", [warning]), allowlist)).toMatchObject({
@@ -287,6 +395,21 @@ describe("check-validator-results.mjs", () => {
       stdout: "FHIR validator: 1 issue(s), 0 problem(s).\n",
       stderr: "",
     });
+  });
+
+  it("passes a warning without message id that an entry matches by text", () => {
+    const withoutId = { ...warning, extension: [] };
+    expect(
+      check(outcome("/work/bundle.json", [withoutId]), textAllowlist),
+    ).toMatchObject({ status: 0, stderr: "" });
+  });
+
+  it("fails an entry restricted to another file and names it as unused", () => {
+    const result = check(outcome("other.json", [warning]), textAllowlist);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'allowlisted warning (text "Example", file bundle.json) no longer occurs',
+    );
   });
 
   it("fails and names the problem when a warning is not allowlisted", () => {

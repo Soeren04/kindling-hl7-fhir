@@ -1,6 +1,9 @@
 // @ts-check
 // Evaluates the output of the official HL7 FHIR validator (`-output <file>`): fails on any error, and on any warning
-// whose message id is not in the allowlist. Allowlist entries that no warning used fail too, so the list stays exact.
+// that no allowlist entry matches. An entry gives a message id, a substring of the issue text, a file, or a
+// combination; the issue must match every key the entry gives. The text is the key that every validator version
+// provides: only some versions write a message id. Allowlist entries that no warning matched fail too, so the list
+// stays exact.
 // Files passed after the allowlist must each have an outcome in the output, so a file the validator skipped cannot
 // pass as a clean one.
 // Usage: node scripts/check-validator-results.mjs <validator-output.json> <validator-allowlist.json> [validated file...]
@@ -21,8 +24,13 @@ const fileExtension =
  */
 
 /**
+ * An accepted warning. A warning matches when it satisfies every key the entry gives, and an entry gives at least one
+ * of `messageId` and `text`. Message ids differ between validator versions (some write none), so prefer `text`.
+ *
  * @typedef {object} AllowedWarning
- * @property {string} messageId - The exact message id of the accepted warning.
+ * @property {string | undefined} messageId - The exact message id of the accepted warning.
+ * @property {string | undefined} text - A substring the issue text must contain.
+ * @property {string | undefined} file - A path suffix, like `test/golden/a.json`, restricting the entry to that file.
  * @property {string} reason - Why the warning does not indicate a defect.
  */
 
@@ -65,12 +73,8 @@ export function collectValidatedFiles(output) {
  * @returns {string[]} One problem per expected file without an outcome.
  */
 export function findMissingFiles(validated, expected) {
-  const normalized = validated.map((file) => file.replaceAll("\\", "/"));
   return expected
-    .filter(
-      (file) =>
-        !normalized.some((name) => name === file || name.endsWith(`/${file}`)),
-    )
+    .filter((file) => !validated.some((name) => endsWithPath(name, file)))
     .map((file) => `the validator output has no outcome for ${file}`);
 }
 
@@ -105,24 +109,25 @@ function collectOutcomes(output) {
  * @returns {string[]} The problems; empty when the run passes.
  */
 export function findValidationProblems(issues, allowedWarnings) {
-  const allowedIds = new Set(
-    allowedWarnings.map((warning) => warning.messageId),
-  );
-  const usedIds = new Set();
+  const used = new Set();
   const problems = [];
   for (const issue of issues) {
-    if (issue.severity === "warning" && allowedIds.has(issue.messageId)) {
-      usedIds.add(issue.messageId);
+    const matching =
+      issue.severity === "warning"
+        ? allowedWarnings.filter((allowed) => matchesWarning(allowed, issue))
+        : [];
+    if (matching.length > 0) {
+      for (const allowed of matching) used.add(allowed);
     } else if (issue.severity !== "information") {
       problems.push(
         `${issue.severity} ${issue.messageId} in ${issue.file} at ${issue.location}: ${issue.text}`,
       );
     }
   }
-  for (const id of allowedIds) {
-    if (!usedIds.has(id))
+  for (const allowed of allowedWarnings) {
+    if (!used.has(allowed))
       problems.push(
-        `allowlisted warning ${id} no longer occurs; remove it from the allowlist`,
+        `allowlisted warning (${describeEntry(allowed)}) no longer occurs; remove it from the allowlist`,
       );
   }
   return problems;
@@ -133,24 +138,86 @@ export function findValidationProblems(issues, allowedWarnings) {
  *
  * @param {unknown} allowlist - The parsed allowlist JSON.
  * @returns {AllowedWarning[]} The accepted warnings.
+ * @throws {Error} When the allowlist has no `warnings` array, or an entry lacks a reason or any of `messageId` and
+ * `text`, or gives a key as anything but a non-empty string.
  */
 export function parseAllowlist(allowlist) {
   const warnings = isRecord(allowlist) ? allowlist["warnings"] : undefined;
   if (!Array.isArray(warnings))
     throw new Error('The allowlist needs a "warnings" array');
   return warnings.map((/** @type {unknown} */ warning) => {
-    if (
-      !isRecord(warning) ||
-      typeof warning["messageId"] !== "string" ||
-      typeof warning["reason"] !== "string" ||
-      warning["reason"].trim() === ""
-    ) {
+    if (!isRecord(warning)) {
+      throw new Error("Every allowlisted warning must be an object");
+    }
+    const messageId = optionalKey(warning, "messageId");
+    const text = optionalKey(warning, "text");
+    const file = optionalKey(warning, "file");
+    const reason = warning["reason"];
+    if (messageId === undefined && text === undefined) {
       throw new Error(
-        "Every allowlisted warning needs a messageId and a non-empty reason",
+        "Every allowlisted warning needs a messageId or a text to match",
       );
     }
-    return { messageId: warning["messageId"], reason: warning["reason"] };
+    if (typeof reason !== "string" || reason.trim() === "") {
+      throw new Error("Every allowlisted warning needs a non-empty reason");
+    }
+    return { messageId, text, file, reason };
   });
+}
+
+/**
+ * @param {AllowedWarning} allowed
+ * @param {ValidatorIssue} issue
+ * @returns {boolean}
+ */
+function matchesWarning(allowed, issue) {
+  return (
+    (allowed.messageId === undefined ||
+      allowed.messageId === issue.messageId) &&
+    (allowed.text === undefined || issue.text.includes(allowed.text)) &&
+    (allowed.file === undefined || endsWithPath(issue.file, allowed.file))
+  );
+}
+
+/**
+ * @param {AllowedWarning} allowed
+ * @returns {string}
+ */
+function describeEntry(allowed) {
+  return [
+    allowed.messageId === undefined ? [] : [`messageId ${allowed.messageId}`],
+    allowed.text === undefined ? [] : [`text "${allowed.text}"`],
+    allowed.file === undefined ? [] : [`file ${allowed.file}`],
+  ]
+    .flat()
+    .join(", ");
+}
+
+/**
+ * The validator names a file as it was passed or by its absolute path, so paths are compared by their end:
+ * `a/b.json` matches `/x/a/b.json`, but `b.json` does not match `ab.json`.
+ *
+ * @param {string} path - The path as the validator wrote it.
+ * @param {string} suffix - The path, or the end of it, to look for.
+ * @returns {boolean}
+ */
+function endsWithPath(path, suffix) {
+  const normalized = path.replaceAll("\\", "/");
+  return normalized === suffix || normalized.endsWith(`/${suffix}`);
+}
+
+/**
+ * @param {Record<string, unknown>} entry
+ * @param {string} key
+ * @returns {string | undefined} The value, or undefined when the entry does not give the key.
+ */
+function optionalKey(entry, key) {
+  const value = entry[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value === "") {
+    throw new Error(`The allowlist key "${key}" must be a non-empty string`);
+  }
+  return value;
 }
 
 /**
