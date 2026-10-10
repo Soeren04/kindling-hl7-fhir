@@ -279,6 +279,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The assigning authority of an identifier is named but is no ISO OID, UUID or URI and is not in the identifierSystems option, so the identifier has no system.",
   },
+  UNKNOWN_CODE_SYSTEM: {
+    severity: "warning",
+    message:
+      "The coding system of a code is named but is not in the codeSystems option and has no known URI in HL7 table 0396, so the coding has no system.",
+  },
   UNMAPPED_CODE: {
     severity: "warning",
     message:

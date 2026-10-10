@@ -159,6 +159,9 @@ export type Severity = "error" | "warning" | "info";
  *   not in the `identifierSystems` option and no ISO OID, UUID or URI. The identifier has no system. `value` is the
  *   namespace ID (HD.1), or the universal ID (HD.2) when there is none. An identifier without any assigning authority
  *   is not reported.
+ * - `UNKNOWN_CODE_SYSTEM` (warning): the coding system of a code is named but is not in the `codeSystems` option nor one
+ *   HL7 table 0396 names with a known URI, so the coding has no system. `value` is the name of the coding system. A
+ *   code without a coding system, where no HL7 table gives one, is not reported.
  * - `UNMAPPED_CODE` (warning): a code has no equivalent in the FHIR value set of the element it maps to and is not one
  *   the HL7 to FHIR guide lists as deliberately without equivalent, which are left out silently; the element is left
  *   out or holds a generic value instead.
@@ -248,6 +251,7 @@ export type IssueCode =
   | "UNKNOWN_USER_DEFINED_CODE"
   | "HL7_NULL_IGNORED"
   | "UNKNOWN_IDENTIFIER_SYSTEM"
+  | "UNKNOWN_CODE_SYSTEM"
   | "UNMAPPED_CODE"
   | "DATE_TIME_PRECISION_ADJUSTED"
   | "DATE_TIME_OFFSET_ASSUMED"
