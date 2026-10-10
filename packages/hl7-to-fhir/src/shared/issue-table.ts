@@ -329,6 +329,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The structured numeric (SN) combines its comparator, numbers and separator in a way FHIR cannot express as a quantity, range or ratio, or is a range from a larger to a smaller number; it was left out.",
   },
+  CONTACT_DETAIL_DROPPED: {
+    severity: "warning",
+    message:
+      "The telecommunication number has a part that does not fit its equipment type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

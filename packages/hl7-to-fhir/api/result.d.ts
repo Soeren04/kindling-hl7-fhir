@@ -180,6 +180,9 @@ type Severity = "error" | "warning" | "info";
  *   in a way FHIR cannot express as a quantity, range or ratio, or it is a range from a larger to a smaller number; it
  *   was left out. `value` is the comparator or separator that cannot be expressed, absent when a number is missing or
  *   the range is inverted.
+ * - `CONTACT_DETAIL_DROPPED` (warning): a telecommunication number (XTN) has a part that does not fit its equipment
+ *   type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.
+ *   `value` is the part that was left out.
  *
  * Limits:
  *
@@ -254,6 +257,7 @@ type IssueCode =
   | "NON_NUMERIC_VALUE"
   | "NUMBER_PRECISION_LOST"
   | "STRUCTURED_NUMERIC_UNSUPPORTED"
+  | "CONTACT_DETAIL_DROPPED"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.

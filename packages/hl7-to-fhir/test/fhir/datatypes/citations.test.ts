@@ -11,6 +11,7 @@ import { hdCitation } from "../../../src/fhir/datatypes/hd";
 import { nmCitation } from "../../../src/fhir/datatypes/nm";
 import { snCitations } from "../../../src/fhir/datatypes/sn";
 import { xadCitations } from "../../../src/fhir/datatypes/xad";
+import { xtnCitation } from "../../../src/fhir/datatypes/xtn";
 import { xpnCitations } from "../../../src/fhir/datatypes/xpn";
 import {
   type MappingCitation,
@@ -36,6 +37,7 @@ const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   SN: snCitations,
   XAD: xadCitations,
   XPN: xpnCitations,
+  XTN: [xtnCitation],
 };
 
 describe("the citations of the data type mappers", () => {
