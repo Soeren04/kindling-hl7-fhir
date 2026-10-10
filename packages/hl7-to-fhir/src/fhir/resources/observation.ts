@@ -139,6 +139,19 @@ export function mapObservation(
   };
 }
 
+/**
+ * Whether a result status (OBX-11) says the observation has no result to show: withdrawn or deleted (the statuses the
+ * guide maps to `entered-in-error`), cancelled, or one of the statuses of {@link absentByStatus}.
+ */
+export function withholdsResult(status: string): boolean {
+  const mapped = observationStatus(status);
+  return (
+    absentByStatus.has(status) ||
+    mapped === "entered-in-error" ||
+    mapped === "cancelled"
+  );
+}
+
 /** The status of OBX-11 by the rules at the top of this module. */
 function status(
   context: MappingContext,

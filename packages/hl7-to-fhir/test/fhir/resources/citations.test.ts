@@ -1,12 +1,15 @@
-// Every resource mapper names the segment or table map of the HL7 Version 2 to FHIR guide it follows and the rows it
-// implements. This test checks those citations against the rows of the guide's maps (guide-maps.json, extracted from
-// the guide's npm package), as the test of the data type citations does.
+// Every resource, message and bundle mapper names the segment, message or table map of the HL7 Version 2 to FHIR
+// guide it follows and the rows it implements. This test checks those citations against the rows of the guide's maps
+// (guide-maps.json, extracted from the guide's npm package), as the test of the data type citations does.
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { bundleCitation } from "../../../src/fhir/bundle";
 import type { MappingCitation } from "../../../src/fhir/mapping-guide";
 import { mappingGuide } from "../../../src/fhir/mapping-guide";
+import { adtA01Citation } from "../../../src/fhir/messages/adt-a01";
+import { oruR01Citation } from "../../../src/fhir/messages/oru-r01";
 import { diagnosticReportCitation } from "../../../src/fhir/resources/diagnostic-report";
 import { encounterCitations } from "../../../src/fhir/resources/encounter";
 import { observationCitations } from "../../../src/fhir/resources/observation";
@@ -26,9 +29,12 @@ const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   Encounter: encounterCitations,
   Observation: observationCitations,
   DiagnosticReport: [diagnosticReportCitation],
+  Bundle: [bundleCitation],
+  ADT_A01: [adtA01Citation],
+  ORU_R01: [oruR01Citation],
 };
 
-describe("the citations of the resource mappers", () => {
+describe("the citations of the resource, message and bundle mappers", () => {
   it("refer to the release of the guide the rows were extracted from", () => {
     expect(guideMaps.package).toBe(
       `hl7.fhir.uv.v2mappings@${mappingGuide.version}`,
