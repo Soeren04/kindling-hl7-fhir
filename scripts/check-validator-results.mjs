@@ -1,7 +1,9 @@
 // @ts-check
 // Evaluates the output of the official HL7 FHIR validator (`-output <file>`): fails on any error, and on any warning
 // whose message id is not in the allowlist. Allowlist entries that no warning used fail too, so the list stays exact.
-// Usage: node scripts/check-validator-results.mjs <validator-output.json> <validator-allowlist.json>
+// Files passed after the allowlist must each have an outcome in the output, so a file the validator skipped cannot
+// pass as a clean one.
+// Usage: node scripts/check-validator-results.mjs <validator-output.json> <validator-allowlist.json> [validated file...]
 import { readFileSync } from "node:fs";
 
 const messageIdExtension =
@@ -32,6 +34,51 @@ const fileExtension =
  * @throws {Error} When the output is not an OperationOutcome or a Bundle of them, or the Bundle is empty.
  */
 export function collectIssues(output) {
+  return collectOutcomes(output).flatMap((outcome) => {
+    const file = extensionValue(outcome, fileExtension) ?? "<unknown file>";
+    return asArray(outcome["issue"])
+      .filter(isRecord)
+      .map((issue) => toValidatorIssue(issue, file));
+  });
+}
+
+/**
+ * Lists the files the validator wrote an outcome for, as it names them.
+ *
+ * @param {unknown} output - The parsed JSON the validator wrote.
+ * @returns {string[]} The file of every OperationOutcome that names one.
+ * @throws {Error} When the output is not an OperationOutcome or a Bundle of them, or the Bundle is empty.
+ */
+export function collectValidatedFiles(output) {
+  return collectOutcomes(output).flatMap((outcome) => {
+    const file = extensionValue(outcome, fileExtension);
+    return file === undefined ? [] : [file];
+  });
+}
+
+/**
+ * Lists the expected files without an outcome. The validator names a file as it was passed or by its absolute path,
+ * so files are compared by their path relative to the end: `a/b.json` matches `/x/a/b.json`.
+ *
+ * @param {readonly string[]} validated - The files the validator wrote an outcome for.
+ * @param {readonly string[]} expected - The files passed to the validator.
+ * @returns {string[]} One problem per expected file without an outcome.
+ */
+export function findMissingFiles(validated, expected) {
+  const normalized = validated.map((file) => file.replaceAll("\\", "/"));
+  return expected
+    .filter(
+      (file) =>
+        !normalized.some((name) => name === file || name.endsWith(`/${file}`)),
+    )
+    .map((file) => `the validator output has no outcome for ${file}`);
+}
+
+/**
+ * @param {unknown} output - The parsed JSON the validator wrote.
+ * @returns {Record<string, unknown>[]} The OperationOutcomes, one per validated file.
+ */
+function collectOutcomes(output) {
   const outcomes = isResource(output, "Bundle")
     ? asArray(output["entry"]).map((entry) =>
         isRecord(entry) ? entry["resource"] : undefined,
@@ -40,16 +87,13 @@ export function collectIssues(output) {
   // A run that validated nothing must not pass as a clean one.
   if (outcomes.length === 0)
     throw new Error("The validator output is a Bundle without entries");
-  return outcomes.flatMap((outcome) => {
+  return outcomes.map((outcome) => {
     if (!isResource(outcome, "OperationOutcome")) {
       throw new Error(
         "The validator output is neither an OperationOutcome nor a Bundle of them",
       );
     }
-    const file = extensionValue(outcome, fileExtension) ?? "<unknown file>";
-    return asArray(outcome["issue"])
-      .filter(isRecord)
-      .map((issue) => toValidatorIssue(issue, file));
+    return outcome;
   });
 }
 
@@ -183,17 +227,22 @@ function stringOr(value, fallback) {
 // Exercised by spawning the script in the tests; V8 coverage cannot follow child processes.
 /* v8 ignore start */
 if (import.meta.main) {
-  const [outputPath, allowlistPath] = process.argv.slice(2);
+  const [outputPath, allowlistPath, ...expectedFiles] = process.argv.slice(2);
   if (outputPath === undefined || allowlistPath === undefined) {
     throw new Error(
-      "Usage: check-validator-results.mjs <validator-output.json> <validator-allowlist.json>",
+      "Usage: check-validator-results.mjs <validator-output.json> <validator-allowlist.json> [validated file...]",
     );
   }
-  const issues = collectIssues(JSON.parse(readFileSync(outputPath, "utf8")));
+  /** @type {unknown} */
+  const output = JSON.parse(readFileSync(outputPath, "utf8"));
+  const issues = collectIssues(output);
   const allowlist = parseAllowlist(
     JSON.parse(readFileSync(allowlistPath, "utf8")),
   );
-  const problems = findValidationProblems(issues, allowlist);
+  const problems = [
+    ...findMissingFiles(collectValidatedFiles(output), expectedFiles),
+    ...findValidationProblems(issues, allowlist),
+  ];
   for (const problem of problems) console.error(problem);
   console.log(
     `FHIR validator: ${String(issues.length)} issue(s), ${String(problems.length)} problem(s).`,

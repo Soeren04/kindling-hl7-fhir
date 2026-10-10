@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   collectIssues,
+  collectValidatedFiles,
+  findMissingFiles,
   findValidationProblems,
   parseAllowlist,
 } from "./check-validator-results.mjs";
@@ -124,6 +126,51 @@ describe("collectIssues", () => {
   });
 });
 
+describe("collectValidatedFiles", () => {
+  it("names the file of every OperationOutcome", () => {
+    const output = {
+      resourceType: "Bundle",
+      entry: [
+        { resource: outcome("/home/runner/work/a.json", []) },
+        { resource: outcome("b.json", [warning]) },
+        { resource: { resourceType: "OperationOutcome", issue: [] } },
+      ],
+    };
+    expect(collectValidatedFiles(output)).toStrictEqual([
+      "/home/runner/work/a.json",
+      "b.json",
+    ]);
+  });
+});
+
+describe("findMissingFiles", () => {
+  it("matches files by the end of their path", () => {
+    expect(
+      findMissingFiles(
+        ["/home/runner/work/golden/a.bundle.json", "golden\\b.bundle.json"],
+        ["golden/a.bundle.json", "golden/b.bundle.json"],
+      ),
+    ).toStrictEqual([]);
+  });
+
+  it("reports an expected file the validator wrote no outcome for", () => {
+    expect(
+      findMissingFiles(
+        ["golden/a.bundle.json"],
+        ["golden/a.bundle.json", "golden/c.bundle.json"],
+      ),
+    ).toStrictEqual([
+      "the validator output has no outcome for golden/c.bundle.json",
+    ]);
+  });
+
+  it("does not take a file for another that only ends like it", () => {
+    expect(
+      findMissingFiles(["xa.bundle.json"], ["a.bundle.json"]),
+    ).toHaveLength(1);
+  });
+});
+
 describe("findValidationProblems", () => {
   const issue = {
     severity: "warning",
@@ -213,16 +260,18 @@ afterEach(() => {
     rmSync(directory, { recursive: true, force: true });
 });
 
-function check(output: unknown, allowlist: unknown) {
+function check(output: unknown, allowlist: unknown, ...files: string[]) {
   const directory = mkdtempSync(path.join(tmpdir(), "validator-results-"));
   directories.push(directory);
   const outputPath = path.join(directory, "output.json");
   const allowlistPath = path.join(directory, "allowlist.json");
   writeFileSync(outputPath, JSON.stringify(output));
   writeFileSync(allowlistPath, JSON.stringify(allowlist));
-  return spawnSync(process.execPath, [script, outputPath, allowlistPath], {
-    encoding: "utf8",
-  });
+  return spawnSync(
+    process.execPath,
+    [script, outputPath, allowlistPath, ...files],
+    { encoding: "utf8" },
+  );
 }
 
 describe("check-validator-results.mjs", () => {
@@ -246,6 +295,19 @@ describe("check-validator-results.mjs", () => {
     expect(result.stdout).toBe("FHIR validator: 1 issue(s), 1 problem(s).\n");
     expect(result.stderr).toBe(
       "warning BUNDLE_BUNDLE_ENTRY_NOTFOUND in bundle.json at Bundle.entry[0]: Example warning\n",
+    );
+  });
+
+  it("fails when a file passed after the allowlist has no outcome", () => {
+    const result = check(
+      outcome("bundle.json", [warning]),
+      allowlist,
+      "bundle.json",
+      "skipped.json",
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe(
+      "the validator output has no outcome for skipped.json\n",
     );
   });
 

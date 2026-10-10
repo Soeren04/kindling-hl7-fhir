@@ -1,4 +1,17 @@
 {
   "$comment": "Warnings of the official HL7 FHIR validator that CI accepts. Each entry needs the exact message id and the reason why the warning does not indicate a defect. Unused entries fail CI, so the list never goes stale.",
-  "warnings": []
+  "warnings": [
+    {
+      "messageId": "http://hl7.org/fhir/StructureDefinition/DomainResource#dom-6",
+      "reason": "Best-practice invariant: a resource should have a narrative. The converter writes data, not human-readable text; a generated narrative would only repeat the data, and the receiving system renders it as it needs."
+    },
+    {
+      "messageId": "All_observations_should_have_a_performer",
+      "reason": "Best-practice recommendation. The performer comes from OBX-16 (responsible observer), which the sample messages leave empty; the converter does not invent one."
+    },
+    {
+      "messageId": "All_observations_should_have_an_effectiveDateTime_or_an_effectivePeriod",
+      "reason": "Best-practice recommendation. The time comes from OBX-14, or from the time of its order (OBR-7, OBR-8); an observation of an ADT message without OBX-14 has none, and the converter does not invent one."
+    }
+  ]
 }
