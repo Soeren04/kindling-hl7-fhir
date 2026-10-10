@@ -49,7 +49,7 @@ import {
 import { joinedLines, type TextDelimiters } from "./text";
 
 /** The value elements of an Observation (and of its components) that OBX-5 maps to. */
-type ValueElement = Pick<
+export type ValueElement = Pick<
   Observation,
   | "valueQuantity"
   | "valueCodeableConcept"
