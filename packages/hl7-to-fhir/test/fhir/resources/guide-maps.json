@@ -3,6 +3,19 @@
   "package": "hl7.fhir.uv.v2mappings@1.0.0",
   "integrity": "sha512-+7QMv/hd2qTt6njhjzcJXkJtmA0FU+y1N0XhPZnBYJZUjZK22grjZSoB0dh0/X3vOAIVzuu6dNMUeT1MoONooA==",
   "conceptMaps": {
+    "segment-obr-to-diagnosticreport": [
+      "OBR-2",
+      "OBR-3",
+      "OBR-4",
+      "OBR-7",
+      "OBR-8",
+      "OBR-22",
+      "OBR-24",
+      "OBR-25",
+      "OBR-32",
+      "OBR-34",
+      "OBR-35"
+    ],
     "segment-obx-to-observation": [
       "OBX-3",
       "OBX-4",
