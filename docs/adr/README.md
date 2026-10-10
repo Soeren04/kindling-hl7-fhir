@@ -17,3 +17,8 @@ rewritten, they are superseded.
 | [0009](0009-paths-and-their-types.md)                  | Paths and their types                                 |
 | [0010](0010-public-result-and-failure-shapes.md)       | Public result and failure shapes                      |
 | [0011](0011-structures-groups-and-validation.md)       | Message structures, segment groups and validation     |
+| [0012](0012-mapping-source-and-fhir-types.md)          | Mapping source and FHIR types                         |
+| [0013](0013-dates-and-times.md)                        | Dates and times                                       |
+| [0014](0014-logical-references.md)                     | Practitioners and locations as logical references     |
+| [0015](0015-null-semantics.md)                         | The explicit null in FHIR output                      |
+| [0016](0016-numbers.md)                                | Numbers and their precision                           |
