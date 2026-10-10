@@ -8,11 +8,14 @@ import { describe, expect, it } from "vitest";
 import { cweCitations } from "../../../src/fhir/datatypes/cwe";
 import { cxCitation } from "../../../src/fhir/datatypes/cx";
 import { drCitation, tsCitations } from "../../../src/fhir/datatypes/date-time";
+import { eiCitation } from "../../../src/fhir/datatypes/ei";
 import { hdCitation } from "../../../src/fhir/datatypes/hd";
 import { nmCitation } from "../../../src/fhir/datatypes/nm";
+import { plCitation } from "../../../src/fhir/datatypes/pl";
 import { snCitations } from "../../../src/fhir/datatypes/sn";
 import { xadCitations } from "../../../src/fhir/datatypes/xad";
 import { xtnCitation } from "../../../src/fhir/datatypes/xtn";
+import { xcnCitation } from "../../../src/fhir/datatypes/xcn";
 import { xpnCitations } from "../../../src/fhir/datatypes/xpn";
 import {
   type MappingCitation,
@@ -34,10 +37,13 @@ const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   "CWE, CE": cweCitations,
   CX: [cxCitation],
   DR: [drCitation],
+  EI: [eiCitation],
   HD: [hdCitation],
   NM: [nmCitation],
+  PL: [plCitation],
   SN: snCitations,
   XAD: xadCitations,
+  XCN: [xcnCitation],
   XPN: xpnCitations,
   XTN: [xtnCitation],
 };
