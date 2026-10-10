@@ -64,7 +64,7 @@ builds on `src/hl7v2`, and only `src/cli` may use Node APIs. See [ADR 0002](docs
 | `pnpm bench`                   | Builds, then measures the throughput of `parse` and `splitBatch` (not part of `verify`)     |
 | `pnpm bench:memory`            | Builds, then measures the heap a parsed message retains (not part of `verify`)              |
 | `pnpm lint:workflows`          | actionlint and zizmor on the GitHub workflows (needs Go and pipx)                           |
-| `pnpm verify:fast`             | Format check, lint, typecheck and tests; needs no build; skips the scaling tests            |
+| `pnpm verify:fast`             | Format, lint, typecheck, tests, boundaries, unused code; no build, no scaling tests         |
 | `pnpm verify:ci`               | Every gate except `lint:workflows`: needs neither Go nor pipx                               |
 | `pnpm verify`                  | `verify:ci` plus `lint:workflows`: everything CI runs                                       |
 

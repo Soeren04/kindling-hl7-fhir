@@ -26,7 +26,7 @@
     "check:type-performance": "pnpm --filter hl7-to-fhir run check:type-performance",
     "check:api": "pnpm --filter hl7-to-fhir run check:api",
     "update:api": "pnpm build && pnpm --filter hl7-to-fhir run update:api",
-    "verify:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "verify:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm depcruise && pnpm knip",
     "verify:ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm depcruise && pnpm knip && pnpm check:type-performance && pnpm build && pnpm check:api && pnpm check:package",
     "verify": "pnpm verify:ci && pnpm lint:workflows",
     "lint:workflows": "go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 && pipx run zizmor==1.30.1 ."
