@@ -1,0 +1,2 @@
+UNSUPPORTED_MESSAGE: The message structure (MSH-9) is not one the library converts: ADT_A01 (events A01, A04, A08, A13) or ORU_R01.
+info MESSAGE_STRUCTURE_UNSUPPORTED MSH-9[1].3 "ADT_A03"

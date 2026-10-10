@@ -22,6 +22,7 @@
     "knip": "knip --treat-config-hints-as-errors",
     "check:package": "pnpm --filter hl7-to-fhir run check:package",
     "update:known-paths": "jiti scripts/update-known-paths.ts",
+    "update:fhir-goldens": "jiti scripts/update-fhir-goldens.ts",
     "update:validation-rules": "jiti scripts/update-validation-rules.ts",
     "check:type-performance": "pnpm --filter hl7-to-fhir run check:type-performance",
     "check:api": "pnpm --filter hl7-to-fhir run check:api",

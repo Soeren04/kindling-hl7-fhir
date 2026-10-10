@@ -1,0 +1,62 @@
+{
+  "resourceType": "Bundle",
+  "identifier": { "value": "MSG00002" },
+  "type": "collection",
+  "timestamp": "2024-01-15T10:30:00+01:00",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:e6a46347-0000-4000-8000-000000000001",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "type": { "text": "QQ" },
+            "value": "PATID1234",
+            "assigner": { "display": "GOOD HEALTH HOSPITAL" }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e6a46347-0000-4000-8000-000000000002",
+      "resource": {
+        "resourceType": "Encounter",
+        "status": "in-progress",
+        "class": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "unknown"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:e6a46347-0000-4000-8000-000000000001"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e6a46347-0000-4000-8000-000000000003",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "unknown",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2093-3",
+              "display": "Cholesterol"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:e6a46347-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:e6a46347-0000-4000-8000-000000000002"
+        },
+        "valueString": "1,5"
+      }
+    }
+  ]
+}
