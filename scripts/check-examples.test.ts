@@ -243,6 +243,26 @@ describe("findBrokenExamples", () => {
     ).toStrictEqual([]);
   });
 
+  it("resolves the FHIR types the declarations and examples name from the package's @types/fhir", () => {
+    const withFhir = {
+      "index.d.ts": `import type { Bundle } from "fhir/r4";\nexport declare function convert(input: string): Bundle;`,
+      "hl7v2.d.ts": "export {};",
+    };
+    const example = (gender: string): string[] =>
+      broken({
+        ...withFhir,
+        "api.d.ts": `${documented(
+          'import type { Patient } from "fhir/r4";',
+          'import { convert } from "hl7-to-fhir";',
+          `const patient: Patient = { resourceType: "Patient", gender: "${gender}" };`,
+          'console.log(convert("MSH").type, patient.gender);',
+        )}\nexport declare function run(): void;`,
+      });
+    expect(example("female")).toStrictEqual([]);
+    // The types are the real ones, not `any`: a gender FHIR does not have fails.
+    expect(example("woman")).toHaveLength(1);
+  });
+
   it("keeps the declarations of different examples apart", () => {
     expect(
       broken({
