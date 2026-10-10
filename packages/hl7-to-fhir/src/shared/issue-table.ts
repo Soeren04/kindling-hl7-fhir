@@ -339,6 +339,11 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The telecommunication number has a part that does not fit its equipment type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.",
   },
+  INVALID_ENCAPSULATED_DATA: {
+    severity: "warning",
+    message:
+      "The data of the encapsulated value (ED) cannot be decoded: its encoding (ED.4) is unknown or the data does not match it. It was left out.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { cweCitations } from "../../../src/fhir/datatypes/cwe";
 import { cxCitation } from "../../../src/fhir/datatypes/cx";
 import { drCitation, tsCitations } from "../../../src/fhir/datatypes/date-time";
+import { edCitation } from "../../../src/fhir/datatypes/ed";
 import { eiCitation } from "../../../src/fhir/datatypes/ei";
 import { hdCitation } from "../../../src/fhir/datatypes/hd";
 import { nmCitation } from "../../../src/fhir/datatypes/nm";
@@ -37,6 +38,7 @@ const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   "CWE, CE": cweCitations,
   CX: [cxCitation],
   DR: [drCitation],
+  ED: [edCitation],
   EI: [eiCitation],
   HD: [hdCitation],
   NM: [nmCitation],
@@ -52,6 +54,15 @@ describe("the citations of the data type mappers", () => {
   it("refer to the release of the guide the rows were extracted from", () => {
     expect(guideMaps.package).toBe(
       `hl7.fhir.uv.v2mappings@${mappingGuide.version}`,
+    );
+  });
+
+  it("cover every map of the extract, so it holds no map that nothing cites", () => {
+    const cited = Object.values(citations)
+      .flat()
+      .map(({ conceptMap }) => conceptMap);
+    expect(new Set(cited)).toStrictEqual(
+      new Set(Object.keys(guideMaps.conceptMaps)),
     );
   });
 

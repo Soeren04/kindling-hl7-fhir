@@ -186,6 +186,8 @@ type Severity = "error" | "warning" | "info";
  * - `CONTACT_DETAIL_DROPPED` (warning): a telecommunication number (XTN) has a part that does not fit its equipment
  *   type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.
  *   `value` is the part that was left out.
+ * - `INVALID_ENCAPSULATED_DATA` (warning): the data of an encapsulated value (ED) cannot be decoded, so it was left
+ *   out. `value` is the encoding (ED.4) when it is unknown; absent when the data does not match its encoding.
  *
  * Limits:
  *
@@ -262,6 +264,7 @@ type IssueCode =
   | "NUMBER_PRECISION_LOST"
   | "STRUCTURED_NUMERIC_UNSUPPORTED"
   | "CONTACT_DETAIL_DROPPED"
+  | "INVALID_ENCAPSULATED_DATA"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
