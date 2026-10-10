@@ -1,7 +1,7 @@
 {
   "name": "hl7-to-fhir",
   "version": "1.0.0",
-  "description": "Convert HL7 v2 messages to FHIR R4. TypeScript, zero dependencies, browser and Node.",
+  "description": "Convert HL7 v2 messages to FHIR R4. TypeScript, no runtime dependencies, browser and Node.",
   "keywords": [
     "hl7",
     "hl7v2",
@@ -65,6 +65,9 @@
     "check:api": "node ../../scripts/check-api-report.mjs && node ../../scripts/check-declarations.mjs dist && node ../../scripts/check-examples.mjs dist",
     "update:api": "node ../../scripts/check-api-report.mjs --update",
     "publish:dry-run": "npm publish --dry-run"
+  },
+  "dependencies": {
+    "@types/fhir": "0.0.44"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

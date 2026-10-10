@@ -1,15 +1,16 @@
 name: FHIR validator
 
-# Validates FHIR output with the official HL7 FHIR validator: zero errors, and only allowlisted warnings.
+# Validates FHIR output with the official HL7 FHIR validator: zero errors, and only allowlisted warnings. It checks the
+# bundles of the FHIR golden files (test/golden/fhir/*.bundle.json), which a unit test keeps equal to what the sources
+# produce from the samples, so a change in src/ that changes the output changes the goldens validated here.
 on:
   pull_request:
-    # The src/** filter only becomes meaningful in Phase 3, when generated goldens are validated; until then the
-    # validator checks the committed spike bundle and nothing in src/ changes its result.
     paths:
       - packages/hl7-to-fhir/src/**
       - packages/hl7-to-fhir/test/fhir-spike/**
       - packages/hl7-to-fhir/test/golden/**
       - packages/hl7-to-fhir/test/validator-allowlist.json
+      - samples/**
       - scripts/check-validator-results.mjs
       - .github/workflows/validator.yml
   push:
@@ -19,6 +20,7 @@ on:
       - packages/hl7-to-fhir/test/fhir-spike/**
       - packages/hl7-to-fhir/test/golden/**
       - packages/hl7-to-fhir/test/validator-allowlist.json
+      - samples/**
       - scripts/check-validator-results.mjs
       - .github/workflows/validator.yml
   workflow_dispatch:
@@ -75,14 +77,19 @@ jobs:
           fi
           echo "$VALIDATOR_SHA256  $jar" | sha256sum --check --strict
       - name: Run the validator
-        # The validator exits non-zero on errors; the next step evaluates its output either way.
+        # The validator exits non-zero on errors; the next step evaluates its output either way. With several files it
+        # writes a Bundle of one OperationOutcome per file, which the next step reads.
         run: >-
           java -jar ~/fhir-validator/validator_cli.jar
           packages/hl7-to-fhir/test/fhir-spike/bundle.json
+          packages/hl7-to-fhir/test/golden/fhir/*.bundle.json
           -version 4.0.1 -tx n/a -output "$RUNNER_TEMP/validator-output.json"
           || echo "The validator exited with status $?"
       - name: Check the results against the allowlist
+        # The same files as above: each must have an outcome, so a file the validator skipped fails the job.
         run: >-
           node scripts/check-validator-results.mjs
           "$RUNNER_TEMP/validator-output.json"
           packages/hl7-to-fhir/test/validator-allowlist.json
+          packages/hl7-to-fhir/test/fhir-spike/bundle.json
+          packages/hl7-to-fhir/test/golden/fhir/*.bundle.json

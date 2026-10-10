@@ -3,5 +3,7 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["src", "test", "*.ts"]
+  "include": ["src", "test", "*.ts"],
+  // A consumer project of the published package with its own tsconfig, compiled by test/consumer.test.ts and in CI.
+  "exclude": ["test/consumer"]
 }

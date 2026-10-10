@@ -69,6 +69,17 @@ jobs:
           node --input-type=commonjs --eval 'require("hl7-to-fhir");'
           node --input-type=module --eval 'const { parse } = await import("hl7-to-fhir/hl7v2"); if (!parse("MSH|^~\\&|A").ok) process.exit(1);'
           node --input-type=commonjs --eval 'const { parse } = require("hl7-to-fhir/hl7v2"); if (!parse("MSH|^~\\&|A").ok) process.exit(1);'
+      # The public declarations name FHIR types from the `fhir/r4` module of @types/fhir, a dependency of the package.
+      # A strict project with `"types": []` must compile against them with the TypeScript version of the repository.
+      - name: Type-check a consumer without global types
+        run: | # zizmor: ignore[adhoc-packages]
+          typescript="$(node --print 'require("./package.json").devDependencies.typescript')"
+          fixture="$PWD/packages/hl7-to-fhir/test/consumer"
+          cd "$(mktemp -d)"
+          npm init --yes > /dev/null
+          npm install --save-exact "$RUNNER_TEMP"/pack/hl7-to-fhir-*.tgz "typescript@$typescript"
+          cp "$fixture/consumer.ts" "$fixture/tsconfig.json" .
+          npx tsc --project tsconfig.json
 
   commits:
     name: Every commit passes

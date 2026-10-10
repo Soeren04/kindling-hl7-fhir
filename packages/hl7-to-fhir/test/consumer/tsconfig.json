@@ -1,0 +1,16 @@
+{
+  // The settings of a strict consumer project that loads no global type package. CI copies this file next to
+  // consumer.ts into a project that installed the packed tarball.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "types": [],
+    "skipLibCheck": false,
+    "noEmit": true
+  },
+  "files": ["consumer.ts"]
+}

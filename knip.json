@@ -12,7 +12,8 @@
       "entry": [
         "test/**/*.test.ts",
         "test/**/*.test-d.ts",
-        "test/type-perf/paths.ts"
+        "test/type-perf/paths.ts",
+        "test/consumer/consumer.ts"
       ],
       "vitest": false
     }

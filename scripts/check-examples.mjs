@@ -34,6 +34,18 @@ const packageEntries = {
 };
 
 /**
+ * The FHIR types the declarations name (`fhir/r4`), from the @types/fhir dependency of the package, as an installed
+ * copy of the package would resolve them. The declarations live in memory, outside any node_modules, so TypeScript
+ * cannot find them on its own.
+ */
+const fhirTypes = ts.resolveModuleName(
+  "fhir/r4",
+  path.resolve(import.meta.dirname, "../packages/hl7-to-fhir/src/index.ts"),
+  { moduleResolution: ts.ModuleResolutionKind.Bundler },
+  ts.sys,
+).resolvedModule?.resolvedFileName;
+
+/**
  * One code block of an `@example` tag.
  *
  * @typedef {object} Example
@@ -47,6 +59,18 @@ const packageEntries = {
  * @typedef {object} Run
  * @property {{ line: number, actual: unknown, expected: unknown }[]} claims
  */
+
+/**
+ * @returns {Record<string, string[]>} The file of each module the snippets and declarations import.
+ */
+function modulePaths() {
+  /** @type {Record<string, string[]>} */
+  const paths = Object.fromEntries(
+    Object.entries(packageEntries).map(([name, file]) => [name, [file]]),
+  );
+  if (fhirTypes !== undefined) paths["fhir/r4"] = [fhirTypes];
+  return paths;
+}
 
 /**
  * @param {string} name
@@ -75,9 +99,7 @@ function createProgram(files, rootNames) {
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     // Every snippet is a module of its own, so the `declare const` lines of different snippets cannot collide.
     moduleDetection: ts.ModuleDetectionKind.Force,
-    paths: Object.fromEntries(
-      Object.entries(packageEntries).map(([name, file]) => [name, [file]]),
-    ),
+    paths: modulePaths(),
     strict: true,
     noUncheckedIndexedAccess: true,
     exactOptionalPropertyTypes: true,

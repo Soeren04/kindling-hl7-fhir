@@ -136,7 +136,7 @@ export type Severity = "error" | "warning" | "info";
  * - `UNEXPECTED_COMPONENT` (warning): a component or subcomponent beyond those its data type defines holds something;
  *   a primitive type has one of each. No `value`.
  *
- * Values (validation; `value` is the decoded value, as the message tree holds it):
+ * Values (validation and mapping; `value` is the decoded value, as the message tree holds it):
  *
  * - `INVALID_NUMBER` (error): a value of type NM is not an optional sign, digits and at most one decimal point.
  * - `INVALID_SEQUENCE_ID` (error): a value of type SI is not a non-negative whole number.
@@ -150,6 +150,66 @@ export type Severity = "error" | "warning" | "info";
  * - `UNKNOWN_CODE` (error): a coded value is not in the HL7-defined table its field or component refers to.
  * - `UNKNOWN_USER_DEFINED_CODE` (warning): a coded value is not in the user-defined table its field or component refers
  *   to, as HL7 suggests it; sites may add codes to such tables.
+ *
+ * Mapping to FHIR (`value` is the decoded value the issue is about, unless stated otherwise):
+ *
+ * - `HL7_NULL_IGNORED` (info): an explicit null `""` was left out of a transaction bundle, which has no way to say
+ *   "delete this value"; reported only for transaction bundles. No `value`.
+ * - `UNKNOWN_IDENTIFIER_SYSTEM` (warning): the assigning authority of an identifier is named but gives no system: it is
+ *   not in the `identifierSystems` option and no ISO OID, UUID or URI. The identifier has no system. `value` is the
+ *   namespace ID (HD.1), or the universal ID (HD.2) when there is none. An identifier without any assigning authority
+ *   is not reported.
+ * - `UNKNOWN_CODE_SYSTEM` (warning): the coding system of a code is named but is not in the `codeSystems` option nor one
+ *   HL7 table 0396 names with a known URI, so the coding has no system. `value` is the name of the coding system. A
+ *   code without a coding system, where no HL7 table gives one, is not reported.
+ * - `UNMAPPED_CODE` (warning): a code has no equivalent in the FHIR value set of the element it maps to and is not one
+ *   the HL7 to FHIR guide lists as deliberately without equivalent, which are left out silently; the element is left
+ *   out or holds a generic value instead.
+ * - `DATE_TIME_PRECISION_ADJUSTED` (info): a date and time or a time stops at the hour or minute, which FHIR cannot
+ *   write; zeros were added for the missing minutes and seconds.
+ * - `DATE_TIME_OFFSET_ASSUMED` (info): a date and time has a time of day but no offset from UTC, so the offset of the
+ *   message time (MSH-7) or of the `timezone` option was used. Daylight saving time can make it differ from the offset
+ *   in effect at the time of the value.
+ * - `DATE_TIME_OFFSET_MISSING` (warning): a date and time has a time of day but no offset can be found, neither in the
+ *   value nor in MSH-7 nor in the `timezone` option, and FHIR requires one: a date and time was cut to its date, an
+ *   instant was left out. Setting the `timezone` option avoids it.
+ * - `DATE_TIME_TRUNCATED` (info): a date and time was cut to its date, because the FHIR element holds a date only.
+ * - `DATE_TIME_OMITTED` (warning): a date and time was left out, because the FHIR element is an instant, which needs a
+ *   time of day, and the value is a date only.
+ * - `TIME_OFFSET_DROPPED` (warning): a time carries an offset, which a FHIR time cannot hold; the time of day is kept.
+ * - `NON_NUMERIC_VALUE` (warning): a value that FHIR needs as a number is not a number (NM); it was left out. An
+ *   observation value declared as a number keeps the text instead (`NUMERIC_RESULT_KEPT_AS_TEXT`).
+ * - `NUMBER_PRECISION_LOST` (warning): a number has more than 15 significant digits, which a JSON number cannot hold;
+ *   the nearest number was used.
+ * - `STRUCTURED_NUMERIC_UNSUPPORTED` (warning): a structured numeric (SN) combines its comparator, numbers and separator
+ *   in a way FHIR cannot express as a quantity, range or ratio, or it is a range from a larger to a smaller number; it
+ *   was left out. `value` is the comparator or separator that cannot be expressed, absent when a number is missing or
+ *   the range is inverted.
+ * - `CONTACT_DETAIL_DROPPED` (warning): a telecommunication number (XTN) has a part that does not fit its equipment
+ *   type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.
+ *   `value` is the part that was left out.
+ * - `INVALID_ENCAPSULATED_DATA` (warning): the data of an encapsulated value (ED) cannot be decoded, so it was left
+ *   out. `value` is the encoding (ED.4) when it is unknown; absent when the data does not match its encoding.
+ * - `REQUIRED_ELEMENT_DEFAULTED` (warning): an element FHIR requires has no value in the message, so a fallback was
+ *   written: the status `unknown`, or a data-absent-reason extension in place of a code or an encounter class. No
+ *   `value`.
+ * - `NUMERIC_RESULT_KEPT_AS_TEXT` (warning): OBX-2 declares a number (NM), but the value in OBX-5 is none; the
+ *   observation keeps it as text (`valueString`). A number elsewhere that is none is `NON_NUMERIC_VALUE`, and left out.
+ * - `UNSUPPORTED_VALUE_TYPE` (warning): the value type of an observation (OBX-2) has no mapping, or an encapsulated
+ *   value (ED) has no report to attach it to; the observation has a data-absent-reason instead of a value. `value` is
+ *   OBX-2, absent when it is empty.
+ * - `ATTACHMENT_LEFT_OUT` (warning): the encapsulated data of an observation was not attached to its report, because
+ *   the result status (OBX-11) says the result was withdrawn, deleted or could not be obtained. `value` is OBX-11.
+ * - `ATTACHMENT_DETAIL_DROPPED` (warning): an observation whose encapsulated data became an attachment of its report
+ *   has a result status other than final (OBX-11) or notes (NTE), which an attachment cannot carry; they were left
+ *   out. `value` is OBX-11 for the status; absent for a note, which is located at its NTE segment.
+ * - `CONDITIONAL_REQUEST_UNAVAILABLE` (warning): in a transaction bundle, a Patient or Encounter has no identifier with
+ *   a system, so it is created without a condition and may duplicate one the server already has. No `value`.
+ * - `EXTENSION_TARGET_MISSING` (warning): a segment mapper extended a resource type of which the bundle has none, so
+ *   the extension had no effect. Located at the mapped segment; `value` is the resource type.
+ * - `SEGMENT_NOT_MAPPED` (info): the message has a segment the conversion does not map, and no segment mapper of the
+ *   options maps it; its content is not in the bundle. Reported once per segment identifier, at its first occurrence
+ *   that was not mapped. No `value`.
  *
  * Limits:
  *
@@ -212,6 +272,29 @@ export type IssueCode =
   | "MALFORMED_CODE"
   | "UNKNOWN_CODE"
   | "UNKNOWN_USER_DEFINED_CODE"
+  | "HL7_NULL_IGNORED"
+  | "UNKNOWN_IDENTIFIER_SYSTEM"
+  | "UNKNOWN_CODE_SYSTEM"
+  | "UNMAPPED_CODE"
+  | "DATE_TIME_PRECISION_ADJUSTED"
+  | "DATE_TIME_OFFSET_ASSUMED"
+  | "DATE_TIME_OFFSET_MISSING"
+  | "DATE_TIME_TRUNCATED"
+  | "DATE_TIME_OMITTED"
+  | "TIME_OFFSET_DROPPED"
+  | "NON_NUMERIC_VALUE"
+  | "NUMBER_PRECISION_LOST"
+  | "STRUCTURED_NUMERIC_UNSUPPORTED"
+  | "CONTACT_DETAIL_DROPPED"
+  | "INVALID_ENCAPSULATED_DATA"
+  | "REQUIRED_ELEMENT_DEFAULTED"
+  | "NUMERIC_RESULT_KEPT_AS_TEXT"
+  | "UNSUPPORTED_VALUE_TYPE"
+  | "ATTACHMENT_LEFT_OUT"
+  | "ATTACHMENT_DETAIL_DROPPED"
+  | "CONDITIONAL_REQUEST_UNAVAILABLE"
+  | "EXTENSION_TARGET_MISSING"
+  | "SEGMENT_NOT_MAPPED"
   | "TOO_MANY_ISSUES";
 
 /**

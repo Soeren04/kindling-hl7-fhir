@@ -135,7 +135,7 @@ type Severity = "error" | "warning" | "info";
  * - `UNEXPECTED_COMPONENT` (warning): a component or subcomponent beyond those its data type defines holds something;
  *   a primitive type has one of each. No `value`.
  *
- * Values (validation; `value` is the decoded value, as the message tree holds it):
+ * Values (validation and mapping; `value` is the decoded value, as the message tree holds it):
  *
  * - `INVALID_NUMBER` (error): a value of type NM is not an optional sign, digits and at most one decimal point.
  * - `INVALID_SEQUENCE_ID` (error): a value of type SI is not a non-negative whole number.
@@ -149,6 +149,66 @@ type Severity = "error" | "warning" | "info";
  * - `UNKNOWN_CODE` (error): a coded value is not in the HL7-defined table its field or component refers to.
  * - `UNKNOWN_USER_DEFINED_CODE` (warning): a coded value is not in the user-defined table its field or component refers
  *   to, as HL7 suggests it; sites may add codes to such tables.
+ *
+ * Mapping to FHIR (`value` is the decoded value the issue is about, unless stated otherwise):
+ *
+ * - `HL7_NULL_IGNORED` (info): an explicit null `""` was left out of a transaction bundle, which has no way to say
+ *   "delete this value"; reported only for transaction bundles. No `value`.
+ * - `UNKNOWN_IDENTIFIER_SYSTEM` (warning): the assigning authority of an identifier is named but gives no system: it is
+ *   not in the `identifierSystems` option and no ISO OID, UUID or URI. The identifier has no system. `value` is the
+ *   namespace ID (HD.1), or the universal ID (HD.2) when there is none. An identifier without any assigning authority
+ *   is not reported.
+ * - `UNKNOWN_CODE_SYSTEM` (warning): the coding system of a code is named but is not in the `codeSystems` option nor one
+ *   HL7 table 0396 names with a known URI, so the coding has no system. `value` is the name of the coding system. A
+ *   code without a coding system, where no HL7 table gives one, is not reported.
+ * - `UNMAPPED_CODE` (warning): a code has no equivalent in the FHIR value set of the element it maps to and is not one
+ *   the HL7 to FHIR guide lists as deliberately without equivalent, which are left out silently; the element is left
+ *   out or holds a generic value instead.
+ * - `DATE_TIME_PRECISION_ADJUSTED` (info): a date and time or a time stops at the hour or minute, which FHIR cannot
+ *   write; zeros were added for the missing minutes and seconds.
+ * - `DATE_TIME_OFFSET_ASSUMED` (info): a date and time has a time of day but no offset from UTC, so the offset of the
+ *   message time (MSH-7) or of the `timezone` option was used. Daylight saving time can make it differ from the offset
+ *   in effect at the time of the value.
+ * - `DATE_TIME_OFFSET_MISSING` (warning): a date and time has a time of day but no offset can be found, neither in the
+ *   value nor in MSH-7 nor in the `timezone` option, and FHIR requires one: a date and time was cut to its date, an
+ *   instant was left out. Setting the `timezone` option avoids it.
+ * - `DATE_TIME_TRUNCATED` (info): a date and time was cut to its date, because the FHIR element holds a date only.
+ * - `DATE_TIME_OMITTED` (warning): a date and time was left out, because the FHIR element is an instant, which needs a
+ *   time of day, and the value is a date only.
+ * - `TIME_OFFSET_DROPPED` (warning): a time carries an offset, which a FHIR time cannot hold; the time of day is kept.
+ * - `NON_NUMERIC_VALUE` (warning): a value that FHIR needs as a number is not a number (NM); it was left out. An
+ *   observation value declared as a number keeps the text instead (`NUMERIC_RESULT_KEPT_AS_TEXT`).
+ * - `NUMBER_PRECISION_LOST` (warning): a number has more than 15 significant digits, which a JSON number cannot hold;
+ *   the nearest number was used.
+ * - `STRUCTURED_NUMERIC_UNSUPPORTED` (warning): a structured numeric (SN) combines its comparator, numbers and separator
+ *   in a way FHIR cannot express as a quantity, range or ratio, or it is a range from a larger to a smaller number; it
+ *   was left out. `value` is the comparator or separator that cannot be expressed, absent when a number is missing or
+ *   the range is inverted.
+ * - `CONTACT_DETAIL_DROPPED` (warning): a telecommunication number (XTN) has a part that does not fit its equipment
+ *   type (XTN.3), an email address with a phone type or phone number parts with an email type; the part was left out.
+ *   `value` is the part that was left out.
+ * - `INVALID_ENCAPSULATED_DATA` (warning): the data of an encapsulated value (ED) cannot be decoded, so it was left
+ *   out. `value` is the encoding (ED.4) when it is unknown; absent when the data does not match its encoding.
+ * - `REQUIRED_ELEMENT_DEFAULTED` (warning): an element FHIR requires has no value in the message, so a fallback was
+ *   written: the status `unknown`, or a data-absent-reason extension in place of a code or an encounter class. No
+ *   `value`.
+ * - `NUMERIC_RESULT_KEPT_AS_TEXT` (warning): OBX-2 declares a number (NM), but the value in OBX-5 is none; the
+ *   observation keeps it as text (`valueString`). A number elsewhere that is none is `NON_NUMERIC_VALUE`, and left out.
+ * - `UNSUPPORTED_VALUE_TYPE` (warning): the value type of an observation (OBX-2) has no mapping, or an encapsulated
+ *   value (ED) has no report to attach it to; the observation has a data-absent-reason instead of a value. `value` is
+ *   OBX-2, absent when it is empty.
+ * - `ATTACHMENT_LEFT_OUT` (warning): the encapsulated data of an observation was not attached to its report, because
+ *   the result status (OBX-11) says the result was withdrawn, deleted or could not be obtained. `value` is OBX-11.
+ * - `ATTACHMENT_DETAIL_DROPPED` (warning): an observation whose encapsulated data became an attachment of its report
+ *   has a result status other than final (OBX-11) or notes (NTE), which an attachment cannot carry; they were left
+ *   out. `value` is OBX-11 for the status; absent for a note, which is located at its NTE segment.
+ * - `CONDITIONAL_REQUEST_UNAVAILABLE` (warning): in a transaction bundle, a Patient or Encounter has no identifier with
+ *   a system, so it is created without a condition and may duplicate one the server already has. No `value`.
+ * - `EXTENSION_TARGET_MISSING` (warning): a segment mapper extended a resource type of which the bundle has none, so
+ *   the extension had no effect. Located at the mapped segment; `value` is the resource type.
+ * - `SEGMENT_NOT_MAPPED` (info): the message has a segment the conversion does not map, and no segment mapper of the
+ *   options maps it; its content is not in the bundle. Reported once per segment identifier, at its first occurrence
+ *   that was not mapped. No `value`.
  *
  * Limits:
  *
@@ -211,6 +271,29 @@ type IssueCode =
   | "MALFORMED_CODE"
   | "UNKNOWN_CODE"
   | "UNKNOWN_USER_DEFINED_CODE"
+  | "HL7_NULL_IGNORED"
+  | "UNKNOWN_IDENTIFIER_SYSTEM"
+  | "UNKNOWN_CODE_SYSTEM"
+  | "UNMAPPED_CODE"
+  | "DATE_TIME_PRECISION_ADJUSTED"
+  | "DATE_TIME_OFFSET_ASSUMED"
+  | "DATE_TIME_OFFSET_MISSING"
+  | "DATE_TIME_TRUNCATED"
+  | "DATE_TIME_OMITTED"
+  | "TIME_OFFSET_DROPPED"
+  | "NON_NUMERIC_VALUE"
+  | "NUMBER_PRECISION_LOST"
+  | "STRUCTURED_NUMERIC_UNSUPPORTED"
+  | "CONTACT_DETAIL_DROPPED"
+  | "INVALID_ENCAPSULATED_DATA"
+  | "REQUIRED_ELEMENT_DEFAULTED"
+  | "NUMERIC_RESULT_KEPT_AS_TEXT"
+  | "UNSUPPORTED_VALUE_TYPE"
+  | "ATTACHMENT_LEFT_OUT"
+  | "ATTACHMENT_DETAIL_DROPPED"
+  | "CONDITIONAL_REQUEST_UNAVAILABLE"
+  | "EXTENSION_TARGET_MISSING"
+  | "SEGMENT_NOT_MAPPED"
   | "TOO_MANY_ISSUES";
 /**
  * Where in the input an {@link Issue}, or in a tree a stringify failure, was found.
@@ -301,6 +384,323 @@ interface Issue {
   readonly value?: string | undefined;
 }
 //#endregion
+//#region src/hl7v2/model.d.ts
+/**
+ * The delimiters a message declares in MSH-1 and MSH-2.
+ *
+ * MSH-2 lists the encoding characters by position: component, repetition, escape, subcomponent and, from version 2.7
+ * on, truncation. The standard lets a message omit the trailing ones it does not use. An omitted delimiter is
+ * `undefined` and has no effect: without a subcomponent separator values are not split into subcomponents, and without
+ * an escape character they contain no escape sequences. Each declared delimiter is a single printable ASCII character
+ * that is neither a letter nor a digit, and all of them are distinct.
+ *
+ * @example
+ * ```ts
+ * import type { Delimiters } from "hl7-to-fhir/hl7v2";
+ *
+ * // MSH|^~\&|...
+ * const standard: Delimiters = {
+ *   field: "|",
+ *   component: "^",
+ *   repetition: "~",
+ *   escape: "\\",
+ *   subcomponent: "&",
+ * };
+ * ```
+ */
+interface Delimiters {
+  /** Separates fields (MSH-1, usually `|`). */
+  readonly field: string;
+  /** Separates components (first character of MSH-2, usually `^`). */
+  readonly component: string;
+  /** Separates repetitions (second character of MSH-2, usually `~`). */
+  readonly repetition: string;
+  /** Starts and ends escape sequences (third character of MSH-2, usually `\`); `undefined` when MSH-2 omits it. */
+  readonly escape?: string | undefined;
+  /** Separates subcomponents (fourth character of MSH-2, usually `&`); `undefined` when MSH-2 omits it. */
+  readonly subcomponent?: string | undefined;
+  /**
+   * Marks a value the sender truncated (fifth character of MSH-2, usually `#`). Only declared from version 2.7 on;
+   * `undefined` otherwise. It is a marker inside values, never a separator.
+   */
+  readonly truncation?: string | undefined;
+}
+/**
+ * A parsed HL7 v2 message: its delimiters, version and segments in input order.
+ *
+ * @example
+ * ```ts
+ * import type { Hl7Message } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const message: Hl7Message;
+ *
+ * const pid = message.segments.find((segment) => segment.id === "PID");
+ * ```
+ */
+interface Hl7Message {
+  /** The delimiters declared in MSH-1 and MSH-2. */
+  readonly delimiters: Delimiters;
+  /**
+   * The version ID (for example `2.5.1`): the value of MSH-12.1, the first subcomponent of the first component of the
+   * first repetition of MSH-12, decoded like every value; absent when that position holds no text.
+   */
+  readonly version?: string | undefined;
+  /** Every segment in input order, including Z segments and segments with unknown identifiers. */
+  readonly segments: readonly Segment[];
+}
+/**
+ * One segment: a line of the message such as `PID|1||...`.
+ *
+ * `fields` is a 0-based array, so **`fields[n - 1]` is field `n`** in HL7 notation: `PID-5` is `fields[4]`. In MSH,
+ * `fields[0]` is MSH-1 (the field separator itself) and `fields[1]` is MSH-2 (the encoding characters, never split
+ * or unescaped), so the numbering is the same for every segment.
+ *
+ * Trailing empty fields are not represented; `span` still covers them.
+ *
+ * @example
+ * ```ts
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
+ * // PID-5: patient name
+ * const name = pid.fields[5 - 1];
+ * ```
+ */
+interface Segment {
+  /**
+   * The segment identifier, such as `PID` or `ZPI`, as written: the text before the first field separator. For a line
+   * without a field separator, it is the whole line (reported as `INVALID_SEGMENT_ID` unless it is a valid identifier).
+   */
+  readonly id: string;
+  /** The fields after the identifier; `fields[n - 1]` is field `n`. */
+  readonly fields: readonly Field[];
+  /** The segment text without its terminator. */
+  readonly span: Span;
+}
+/**
+ * A field: one or more repetitions separated by the repetition delimiter.
+ *
+ * An empty field has no repetitions. Trailing empty repetitions are not represented; `span` still covers them.
+ *
+ * @example
+ * ```ts
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
+ * // Every repetition of PID-3, the patient identifier list
+ * for (const identifier of pid.fields[3 - 1]?.repetitions ?? []) console.log(identifier.components.length);
+ * ```
+ */
+interface Field {
+  /** The repetitions in input order. */
+  readonly repetitions: readonly Repetition[];
+  /** The field text between its field delimiters. */
+  readonly span: Span;
+}
+/**
+ * One repetition of a field: components separated by the component delimiter.
+ *
+ * An empty repetition has no components. Trailing empty components are not represented; `span` still covers them.
+ *
+ * @example
+ * ```ts
+ * import type { Segment } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const pid: Segment;
+ *
+ * // The first component (XPN.1, the family name) of the first repetition of PID-5
+ * const family = pid.fields[5 - 1]?.repetitions[0]?.components[1 - 1];
+ * ```
+ */
+interface Repetition {
+  /** The components in input order; `components[n - 1]` is component `n`. */
+  readonly components: readonly Component[];
+  /** The repetition text between its delimiters. */
+  readonly span: Span;
+}
+/**
+ * One component: subcomponents separated by the subcomponent delimiter.
+ *
+ * An empty component has no subcomponents. Trailing empty subcomponents are not represented; `span` still covers
+ * them.
+ *
+ * @example
+ * ```ts
+ * import type { Component } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const component: Component;
+ *
+ * const first = component.subcomponents[0];
+ * if (first?.kind === "value") console.log(first.value);
+ * ```
+ */
+interface Component {
+  /** The subcomponents in input order; `subcomponents[n - 1]` is subcomponent `n`. */
+  readonly subcomponents: readonly Subcomponent[];
+  /** The component text between its delimiters. */
+  readonly span: Span;
+}
+/**
+ * A subcomponent with content.
+ *
+ * `value` is the decoded text: delimiter, truncation and hexadecimal escape sequences are decoded, the line break
+ * commands `\.br\`, `\.sp\` and `\.ce\` become `"\n"`, and highlighting and other formatting commands are removed. Escape
+ * sequences that cannot be interpreted stay verbatim. Each of these cases except plain delimiter escapes is reported
+ * as an issue. The raw text is `input.slice(span.start, span.end)`.
+ *
+ * A value that ends with the truncation character MSH-2 declares (version 2.7 and later), outside an escape sequence,
+ * was cut off by the sender: `truncated` is `true`, the character is not part of `value`, and an info issue
+ * (`VALUE_TRUNCATED`) reports it. `\P\` stands for the truncation character as content.
+ *
+ * `value` is empty only when the raw text consists of removed formatting commands or of the truncation character.
+ *
+ * @example
+ * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
+ * if (subcomponent.kind === "value") console.log(subcomponent.value);
+ * ```
+ */
+interface ValueSubcomponent {
+  /** Discriminant: this subcomponent has content. */
+  readonly kind: "value";
+  /**
+   * The decoded text. It may contain any character the input or a hexadecimal escape holds, including NUL, other
+   * control characters and lone surrogates, without an issue; check before passing it on where they are not allowed.
+   */
+  readonly value: string;
+  /** `true` when the sender truncated the value; absent otherwise. */
+  readonly truncated?: true | undefined;
+  /** The raw text, escape sequences included. */
+  readonly span: Span;
+}
+/**
+ * The explicit HL7 null `""`: the sender states that the value is null (for example, to delete it in the
+ * receiving system). It differs from an empty value, which means "not sent".
+ *
+ * @example
+ * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
+ * const deleted = subcomponent.kind === "null";
+ * ```
+ */
+interface NullSubcomponent {
+  /** Discriminant: this subcomponent is the explicit null `""`. */
+  readonly kind: "null";
+  /** The two quote characters. */
+  readonly span: Span;
+}
+/**
+ * An empty subcomponent between two subcomponent delimiters, as in `a&&c`.
+ *
+ * Empty fields, repetitions and components are represented by empty child arrays; only subcomponents, which have no
+ * children, need a node of their own to keep the positions of later siblings.
+ *
+ * @example
+ * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * declare const subcomponent: Subcomponent;
+ *
+ * const present = subcomponent.kind !== "empty";
+ * ```
+ */
+interface EmptySubcomponent {
+  /** Discriminant: this subcomponent has no content. */
+  readonly kind: "empty";
+  /** An empty range at the position of the subcomponent. */
+  readonly span: Span;
+}
+/**
+ * The smallest unit of a message: a value, the explicit null `""`, or nothing.
+ *
+ * @example
+ * ```ts
+ * import type { Subcomponent } from "hl7-to-fhir/hl7v2";
+ *
+ * function text(subcomponent: Subcomponent): string | undefined {
+ *   return subcomponent.kind === "value" ? subcomponent.value : undefined;
+ * }
+ * ```
+ */
+type Subcomponent = ValueSubcomponent | NullSubcomponent | EmptySubcomponent;
+//#endregion
+//#region src/hl7v2/definitions/types.d.ts
+/**
+ * Whether a sender must populate an element. `validate` reports a missing element only when it is required, and a
+ * populated one only when it is not used.
+ *
+ * - `R`: required.
+ * - `O`: optional.
+ * - `C`: conditional; the condition depends on other elements and is not modelled here.
+ * - `B`: kept only for backward compatibility with older versions.
+ * - `X`: not used with this trigger event, or not supported; a field marked `X` that holds something is reported as
+ *   `UNEXPECTED_FIELD`. The reserved positions of 2.5.1, such as OBX-20 to OBX-22, are marked `X`.
+ *
+ * @example
+ * ```ts
+ * import type { Optionality } from "hl7-to-fhir/hl7v2";
+ *
+ * const optionality: Optionality = "R";
+ * ```
+ */
+type Optionality = "R" | "O" | "C" | "B" | "X";
+/**
+ * One field of a segment, as `defineSegment` returns it.
+ *
+ * @example
+ * ```ts
+ * import type { FieldDefinition } from "hl7-to-fhir/hl7v2";
+ *
+ * // PID-3, the patient identifier list
+ * const pid3: FieldDefinition = {
+ *   position: 3,
+ *   name: "patientIdentifierList",
+ *   dataType: "CX",
+ *   optionality: "R",
+ *   maxRepetitions: "unbounded",
+ * };
+ * ```
+ */
+interface FieldDefinition {
+  /** The 1-based field number, as in HL7 notation (`PID-3` has position 3). */
+  readonly position: number;
+  /** A short identifier-style name, unique within the segment (for example `patientName`). */
+  readonly name: string;
+  /** The identifier of the field's data type (for example `XPN`); see `FieldDefinitionInput.dataType`. */
+  readonly dataType: string;
+  /** Whether the field is required. */
+  readonly optionality: Optionality;
+  /** How often the field may repeat: a count, or `"unbounded"` when there is no limit. */
+  readonly maxRepetitions: number | "unbounded";
+  /** The number of the HL7 table that lists the field's codes (for example `0001`), when there is one. */
+  readonly table?: string | undefined;
+}
+/**
+ * A segment: its identifier and its fields in order. Make one with `defineSegment` and pass it to `validate` or
+ * `group` in `options.segments`.
+ *
+ * @example
+ * ```ts
+ * import { defineSegment, type SegmentDefinition } from "hl7-to-fhir/hl7v2";
+ *
+ * const zpi: SegmentDefinition = defineSegment({ id: "ZPI", fields: [{ name: "setId", dataType: "SI" }] });
+ * ```
+ */
+interface SegmentDefinition {
+  /** The three-character segment identifier, such as `PID`. */
+  readonly id: string;
+  /** The fields, ordered by position and numbered contiguously from 1. */
+  readonly fields: readonly FieldDefinition[];
+}
+//#endregion
 //#region src/shared/result.d.ts
 /**
  * The successful outcome of an operation that can fail in an expected way.
@@ -340,4 +740,4 @@ interface Err<E> {
  */
 type Result<T, E> = Ok<T> | Err<E>;
 //#endregion
-export { IssueCode as a, Span as c, Issue as i, Ok as n, Location as o, Result as r, Severity as s, Err as t };
+export { Issue as _, Optionality as a, Severity as b, Delimiters as c, Hl7Message as d, NullSubcomponent as f, ValueSubcomponent as g, Subcomponent as h, FieldDefinition as i, EmptySubcomponent as l, Segment as m, Ok as n, SegmentDefinition as o, Repetition as p, Result as r, Component as s, Err as t, Field as u, IssueCode as v, Span as x, Location as y };

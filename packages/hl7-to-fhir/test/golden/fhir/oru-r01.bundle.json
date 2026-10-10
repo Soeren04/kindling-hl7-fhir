@@ -1,0 +1,282 @@
+{
+  "resourceType": "Bundle",
+  "identifier": { "value": "MSG00002" },
+  "type": "collection",
+  "timestamp": "2024-01-16T09:15:00+01:00",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000001",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR"
+                }
+              ]
+            },
+            "value": "PATID1234",
+            "assigner": { "display": "GOOD HEALTH HOSPITAL" }
+          }
+        ],
+        "name": [{ "family": "Everyman", "given": ["Adam"] }],
+        "gender": "male",
+        "birthDate": "1980-01-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000002",
+      "resource": {
+        "resourceType": "Encounter",
+        "status": "in-progress",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000003",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "PLAC"
+                }
+              ]
+            },
+            "value": "ORD0001"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "FILL"
+                }
+              ]
+            },
+            "value": "FIL0001"
+          }
+        ],
+        "status": "unknown",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "24331-1",
+              "display": "Lipid panel"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "result": [
+          { "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000004" },
+          { "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000005" }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000004",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2093-3",
+              "display": "Cholesterol"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "valueQuantity": { "value": 196, "unit": "mg/dL" },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "N",
+                "display": "Normal"
+              }
+            ]
+          }
+        ],
+        "referenceRange": [{ "text": "<200" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000005",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2571-8",
+              "display": "Triglyceride"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "valueQuantity": { "value": 110, "unit": "mg/dL" },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "N",
+                "display": "Normal"
+              }
+            ]
+          }
+        ],
+        "note": [{ "text": "Fasting sample.\nDrawn at 08:00." }],
+        "referenceRange": [{ "text": "<150" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000006",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "PLAC"
+                }
+              ]
+            },
+            "value": "ORD0002"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "FILL"
+                }
+              ]
+            },
+            "value": "FIL0002"
+          }
+        ],
+        "status": "unknown",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "58410-2",
+              "display": "CBC panel"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "result": [
+          { "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000007" },
+          { "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000008" }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000007",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "718-7",
+              "display": "Hemoglobin"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "valueQuantity": { "value": 14.2, "unit": "g/dL" },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "N",
+                "display": "Normal"
+              }
+            ]
+          }
+        ],
+        "referenceRange": [{ "text": "13.5-17.5" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8993a87b-0000-4000-8000-000000000008",
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8251-1",
+              "display": "Service comment"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000001"
+        },
+        "encounter": {
+          "reference": "urn:uuid:8993a87b-0000-4000-8000-000000000002"
+        },
+        "effectiveDateTime": "2024-01-16T08:00:00+01:00",
+        "valueString": "Reviewed by the laboratory",
+        "note": [{ "text": "First comment\nSecond comment" }]
+      }
+    }
+  ]
+}

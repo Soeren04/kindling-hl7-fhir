@@ -1,4 +1,26 @@
 {
-  "$comment": "Warnings of the official HL7 FHIR validator that CI accepts. Each entry needs the exact message id and the reason why the warning does not indicate a defect. Unused entries fail CI, so the list never goes stale.",
-  "warnings": []
+  "$comment": "Warnings of the official HL7 FHIR validator that CI accepts. An entry gives a text (a substring of the issue text), a messageId (exact), or both, and optionally a file (a path suffix) that restricts it to one validated file; a warning matches when it satisfies every key the entry gives. Match on text: the validator 7.0.1 that CI runs writes no message id, other versions do. Each entry needs the reason why the warning does not indicate a defect. Entries that match no warning fail CI, so the list never goes stale.",
+  "warnings": [
+    {
+      "text": "Constraint failed: dom-6: 'A resource should have narrative for robust management'",
+      "reason": "Best-practice invariant: a resource should have a narrative. The converter writes data, not human-readable text; a generated narrative would only repeat the data, and the receiving system renders it as it needs."
+    },
+    {
+      "text": "In general, all observations should have a performer",
+      "reason": "Best-practice recommendation. The performer comes from OBX-16 (responsible observer), which the sample messages leave empty; the converter does not invent one."
+    },
+    {
+      "text": "In general, all observations should have an effective[x]",
+      "reason": "Best-practice recommendation. The time comes from OBX-14, or from the time of its order (OBR-7, OBR-8); an observation of an ADT message without OBX-14 has none, and the converter does not invent one."
+    },
+    {
+      "text": "codes = http://terminology.hl7.org/CodeSystem/v2-0203#SS)",
+      "reason": "The guide maps CX.5 to the code system v2-0203, whose code SS (social security number) the R4 identifier-type value set lacks. The binding is extensible and the converter keeps the code of the guide instead of dropping it to fit the R4 value set."
+    },
+    {
+      "text": "No code provided, and a code should be provided from the value set 'IdentifierType'",
+      "file": "test/golden/fhir/invalid-adt-a01.bundle.json",
+      "reason": "Only the deliberately invalid sample has this: its CX.5 is QQ, which is not in table 0203. The converter keeps just type.text and reports UNMAPPED_CODE (see invalid-adt-a01.issues.txt), so the identifier type has no code."
+    }
+  ]
 }

@@ -1,0 +1,52 @@
+{
+  "resourceType": "Bundle",
+  "identifier": { "value": "MSG10001" },
+  "type": "collection",
+  "timestamp": "2024-01-17T08:00:01+01:00",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:10ec9a5a-0000-4000-8000-000000000001",
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR"
+                }
+              ]
+            },
+            "value": "PATID1234",
+            "assigner": { "display": "GOOD HEALTH HOSPITAL" }
+          }
+        ],
+        "name": [{ "family": "Everyman", "given": ["Adam"] }],
+        "gender": "male",
+        "birthDate": "1980-01-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:10ec9a5a-0000-4000-8000-000000000002",
+      "resource": {
+        "resourceType": "Encounter",
+        "status": "in-progress",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "subject": {
+          "reference": "urn:uuid:10ec9a5a-0000-4000-8000-000000000001"
+        },
+        "location": [
+          {
+            "location": { "type": "Location", "display": "2000, 2012, 01" },
+            "status": "active"
+          }
+        ]
+      }
+    }
+  ]
+}
