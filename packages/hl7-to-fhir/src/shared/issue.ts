@@ -177,7 +177,8 @@ export type Severity = "error" | "warning" | "info";
  * - `DATE_TIME_OMITTED` (warning): a date and time was left out, because the FHIR element is an instant, which needs a
  *   time of day, and the value is a date only.
  * - `TIME_OFFSET_DROPPED` (warning): a time carries an offset, which a FHIR time cannot hold; the time of day is kept.
- * - `NON_NUMERIC_VALUE` (warning): a value that FHIR needs as a number is not a number (NM); it was left out.
+ * - `NON_NUMERIC_VALUE` (warning): a value that FHIR needs as a number is not a number (NM); it was left out. An
+ *   observation value declared as a number keeps the text instead (`NUMERIC_RESULT_KEPT_AS_TEXT`).
  * - `NUMBER_PRECISION_LOST` (warning): a number has more than 15 significant digits, which a JSON number cannot hold;
  *   the nearest number was used.
  * - `STRUCTURED_NUMERIC_UNSUPPORTED` (warning): a structured numeric (SN) combines its comparator, numbers and separator
@@ -189,6 +190,26 @@ export type Severity = "error" | "warning" | "info";
  *   `value` is the part that was left out.
  * - `INVALID_ENCAPSULATED_DATA` (warning): the data of an encapsulated value (ED) cannot be decoded, so it was left
  *   out. `value` is the encoding (ED.4) when it is unknown; absent when the data does not match its encoding.
+ * - `REQUIRED_ELEMENT_DEFAULTED` (warning): an element FHIR requires has no value in the message, so a fallback was
+ *   written: the status `unknown`, or a data-absent-reason extension in place of a code or an encounter class. No
+ *   `value`.
+ * - `NUMERIC_RESULT_KEPT_AS_TEXT` (warning): OBX-2 declares a number (NM), but the value in OBX-5 is none; the
+ *   observation keeps it as text (`valueString`). A number elsewhere that is none is `NON_NUMERIC_VALUE`, and left out.
+ * - `UNSUPPORTED_VALUE_TYPE` (warning): the value type of an observation (OBX-2) has no mapping, or an encapsulated
+ *   value (ED) has no report to attach it to; the observation has a data-absent-reason instead of a value. `value` is
+ *   OBX-2, absent when it is empty.
+ * - `ATTACHMENT_LEFT_OUT` (warning): the encapsulated data of an observation was not attached to its report, because
+ *   the result status (OBX-11) says the result was withdrawn, deleted or could not be obtained. `value` is OBX-11.
+ * - `ATTACHMENT_DETAIL_DROPPED` (warning): an observation whose encapsulated data became an attachment of its report
+ *   has a result status other than final (OBX-11) or notes (NTE), which an attachment cannot carry; they were left
+ *   out. `value` is OBX-11 for the status; absent for a note, which is located at its NTE segment.
+ * - `CONDITIONAL_REQUEST_UNAVAILABLE` (warning): in a transaction bundle, a Patient or Encounter has no identifier with
+ *   a system, so it is created without a condition and may duplicate one the server already has. No `value`.
+ * - `EXTENSION_TARGET_MISSING` (warning): a segment mapper extended a resource type of which the bundle has none, so
+ *   the extension had no effect. Located at the mapped segment; `value` is the resource type.
+ * - `SEGMENT_NOT_MAPPED` (info): the message has a segment the conversion does not map, and no segment mapper of the
+ *   options maps it; its content is not in the bundle. Reported once per segment identifier, at its first occurrence
+ *   that was not mapped. No `value`.
  *
  * Limits:
  *
@@ -266,6 +287,14 @@ export type IssueCode =
   | "STRUCTURED_NUMERIC_UNSUPPORTED"
   | "CONTACT_DETAIL_DROPPED"
   | "INVALID_ENCAPSULATED_DATA"
+  | "REQUIRED_ELEMENT_DEFAULTED"
+  | "NUMERIC_RESULT_KEPT_AS_TEXT"
+  | "UNSUPPORTED_VALUE_TYPE"
+  | "ATTACHMENT_LEFT_OUT"
+  | "ATTACHMENT_DETAIL_DROPPED"
+  | "CONDITIONAL_REQUEST_UNAVAILABLE"
+  | "EXTENSION_TARGET_MISSING"
+  | "SEGMENT_NOT_MAPPED"
   | "TOO_MANY_ISSUES";
 
 /**

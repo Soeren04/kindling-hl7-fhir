@@ -344,6 +344,46 @@ export const issueDefinitions: Readonly<Record<IssueCode, IssueDefinition>> = {
     message:
       "The data of the encapsulated value (ED) cannot be decoded: its encoding (ED.4) is unknown or the data does not match it. It was left out.",
   },
+  REQUIRED_ELEMENT_DEFAULTED: {
+    severity: "warning",
+    message:
+      "An element FHIR requires has no value in the message; a fallback was written: the status unknown, or a data-absent-reason extension in place of the code or class.",
+  },
+  NUMERIC_RESULT_KEPT_AS_TEXT: {
+    severity: "warning",
+    message:
+      "OBX-2 declares a number (NM), but the observation value is not a number; it was kept as text (valueString).",
+  },
+  UNSUPPORTED_VALUE_TYPE: {
+    severity: "warning",
+    message:
+      "The value type of the observation (OBX-2) has no FHIR mapping, or an encapsulated value (ED) has no report to attach it to; the observation states a data-absent-reason instead of a value.",
+  },
+  ATTACHMENT_LEFT_OUT: {
+    severity: "warning",
+    message:
+      "The encapsulated data of the observation was not attached to the report, because its result status (OBX-11) says the result was withdrawn, deleted or could not be obtained.",
+  },
+  ATTACHMENT_DETAIL_DROPPED: {
+    severity: "warning",
+    message:
+      "The observation became an attachment of its report, which cannot carry its result status (OBX-11) other than final or its notes (NTE); they were left out.",
+  },
+  CONDITIONAL_REQUEST_UNAVAILABLE: {
+    severity: "warning",
+    message:
+      "The transaction creates a Patient or Encounter without a condition, because it has no identifier with a system; the server may already hold it and create a duplicate.",
+  },
+  EXTENSION_TARGET_MISSING: {
+    severity: "warning",
+    message:
+      "A segment mapper extended a resource type of which the bundle has none; the extension had no effect.",
+  },
+  SEGMENT_NOT_MAPPED: {
+    severity: "info",
+    message:
+      "The conversion does not map this segment, and no segment mapper of the options does; its content is not in the bundle. Reported once per segment identifier.",
+  },
   TOO_MANY_ISSUES: {
     severity: "warning",
     message:
