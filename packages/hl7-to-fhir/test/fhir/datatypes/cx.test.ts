@@ -1,7 +1,6 @@
 import type { Identifier } from "fhir/r4";
 import { describe, expect, it } from "vitest";
 
-import { toLookup } from "../../../src/fhir/context";
 import { mapCx } from "../../../src/fhir/datatypes/cx";
 import type { IssueCode } from "../../../src/shared/issue";
 import { codes, mapping, type MappingOptions } from "../helpers";
@@ -19,7 +18,7 @@ function cx(
 
 const hospital = {
   settings: {
-    identifierSystems: toLookup({ HOSP: "http://hospital.example/mrn" }),
+    identifierSystems: { HOSP: "http://hospital.example/mrn" },
   },
 };
 
@@ -57,9 +56,9 @@ describe("mapCx", () => {
     ).toBe("http://hospital.example/mrn");
     const byUniversalId = {
       settings: {
-        identifierSystems: toLookup({
+        identifierSystems: {
           "2.16.840.1.113883.19.5": "http://hospital.example/oid",
-        }),
+        },
       },
     };
     expect(
@@ -77,7 +76,7 @@ describe("mapCx", () => {
   it("looks up a universal ID of another type in the option", () => {
     const options = {
       settings: {
-        identifierSystems: toLookup({ "hosp.example": "urn:oid:1.2.3" }),
+        identifierSystems: { "hosp.example": "urn:oid:1.2.3" },
       },
     };
     expect(cx("12345^^^&hosp.example&DNS", options).identifier?.system).toBe(
@@ -127,7 +126,7 @@ describe("mapCx", () => {
     const hostile = JSON.parse(
       '{"__proto__":"urn:oid:1.1","HOSP":"urn:oid:1.2"}',
     ) as Record<string, unknown>;
-    const options = { settings: { identifierSystems: toLookup(hostile) } };
+    const options = { settings: { identifierSystems: hostile } };
     for (const name of ["constructor", "toString", "hasOwnProperty"]) {
       expect(cx(`12345^^^${name}`, options)).toStrictEqual({
         identifier: { value: "12345", assigner: { display: name } },

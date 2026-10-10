@@ -49,17 +49,11 @@ export interface InvalidSetting {
   readonly value: string;
 }
 
-/** The settings of a conversion without caller options: no lookup tables, no time zone, nulls not reported. */
-export const defaultMappingSettings: MappingSettings = {
-  identifierSystems: new Map(),
-  codeSystems: new Map(),
-  timezone: undefined,
-  reportNulls: false,
-};
-
 /**
  * The settings of the caller's options: lookup tables that keys such as `__proto__` cannot subvert (see
  * {@link toLookup}) and a validated time zone.
+ *
+ * Without options, there are no lookup tables and no time zone, and nulls are not reported.
  *
  * @returns The settings, or the option that cannot be used: a `timezone` that is no FHIR offset.
  *
@@ -90,8 +84,11 @@ export function createMappingSettings(
  * @example
  * ```ts
  * const issues: Issue[] = [];
- * const context = createMappingContext(message, { ...defaultMappingSettings, timezone: "+01:00" }, issues);
- * const birthDate = mapTs(context, fieldValue(pid, pidIndex, 7), "date");
+ * const settings = createMappingSettings({ timezone: "+01:00" });
+ * if (settings.ok) {
+ *   const context = createMappingContext(message, settings.value, issues);
+ *   const birthDate = mapTs(context, fieldValue(pid, pidIndex, 7), "date");
+ * }
  * ```
  */
 export function createMappingContext(

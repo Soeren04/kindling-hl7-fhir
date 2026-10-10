@@ -1,7 +1,6 @@
 import type { CodeableConcept } from "fhir/r4";
 import { describe, expect, it } from "vitest";
 
-import { toLookup } from "../../../src/fhir/context";
 import { mapCwe } from "../../../src/fhir/datatypes/cwe";
 import type { IssueCode } from "../../../src/shared/issue";
 import { codes, mapping, type MappingOptions } from "../helpers";
@@ -82,10 +81,10 @@ describe("mapCwe", () => {
   it("takes the codeSystems option before table 0396", () => {
     const options = {
       settings: {
-        codeSystems: toLookup({
+        codeSystems: {
           L: "http://lab.example/codes",
           LN: "http://lab.example/loinc-copy",
-        }),
+        },
       },
     };
     expect(cwe("GLU^Glucose^L", options).concept?.coding?.[0]?.system).toBe(
@@ -97,7 +96,7 @@ describe("mapCwe", () => {
   });
 
   it("does not resolve keys of Object.prototype", () => {
-    const options = { settings: { codeSystems: toLookup({}) } };
+    const options = { settings: { codeSystems: {} } };
     for (const name of ["__proto__", "constructor", "toString"]) {
       expect(cwe(`X^^${name}`, options)).toStrictEqual({
         concept: { coding: [{ code: "X" }] },

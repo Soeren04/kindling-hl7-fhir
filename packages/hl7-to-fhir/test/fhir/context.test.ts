@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createMappingSettings,
-  defaultMappingSettings,
   isIgnoredNull,
   present,
   reportIssue,
@@ -17,7 +16,12 @@ describe("createMappingSettings", () => {
   it("has the defaults without options", () => {
     expect(createMappingSettings()).toStrictEqual({
       ok: true,
-      value: defaultMappingSettings,
+      value: {
+        identifierSystems: new Map(),
+        codeSystems: new Map(),
+        timezone: undefined,
+        reportNulls: false,
+      },
     });
   });
 
@@ -89,12 +93,15 @@ describe("createMappingContext", () => {
   });
 
   it("keeps the settings and the issue list it is given", () => {
-    const identifierSystems = new Map([["HOSP", "urn:oid:1.2.3"]]);
     const { context, issues } = mapping("PID|1", {
-      settings: { identifierSystems, timezone: "Z", reportNulls: true },
+      settings: {
+        identifierSystems: { HOSP: "urn:oid:1.2.3" },
+        timezone: "Z",
+        reportNulls: true,
+      },
     });
     expect(context).toMatchObject({
-      identifierSystems,
+      identifierSystems: new Map([["HOSP", "urn:oid:1.2.3"]]),
       timezone: "Z",
       reportNulls: true,
     });

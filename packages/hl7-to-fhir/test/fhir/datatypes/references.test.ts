@@ -1,7 +1,6 @@
 import type { Reference } from "fhir/r4";
 import { describe, expect, it } from "vitest";
 
-import { toLookup } from "../../../src/fhir/context";
 import { mapEi } from "../../../src/fhir/datatypes/ei";
 import { mapPl } from "../../../src/fhir/datatypes/pl";
 import { mapXcn } from "../../../src/fhir/datatypes/xcn";
@@ -11,7 +10,7 @@ import { codes, mapping } from "../helpers";
 
 const hospital = {
   settings: {
-    identifierSystems: toLookup({ HOSP: "http://hospital.example/staff" }),
+    identifierSystems: { HOSP: "http://hospital.example/staff" },
   },
 };
 
@@ -154,7 +153,7 @@ describe("mapEi", () => {
   ])("resolves the system of %j", (value, system) => {
     const { context, field } = mapping(`ORC|NW|${value}`, {
       settings: {
-        identifierSystems: toLookup({ LAB: "http://hospital.example/staff" }),
+        identifierSystems: { LAB: "http://hospital.example/staff" },
       },
     });
     expect(mapEi(context, field(2))).toStrictEqual({ system, value: "ORD1" });

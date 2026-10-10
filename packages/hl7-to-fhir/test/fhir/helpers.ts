@@ -2,9 +2,10 @@ import { expect } from "vitest";
 
 import {
   createMappingContext,
-  defaultMappingSettings,
+  createMappingSettings,
   type MappingContext,
   type MappingSettings,
+  type MappingSettingsOptions,
 } from "../../src/fhir/context";
 import { fieldValues, type Source } from "../../src/fhir/source";
 import type { Issue, IssueCode } from "../../src/shared/issue";
@@ -20,10 +21,17 @@ export interface Mapping {
   readonly issues: Issue[];
 }
 
-/** Options of {@link mapping}: the message time (MSH-7) and settings that differ from the defaults. */
+/** Options of {@link mapping}: the message time (MSH-7) and the options of the conversion, as a caller writes them. */
 export interface MappingOptions {
   readonly sent?: string;
-  readonly settings?: Partial<MappingSettings>;
+  readonly settings?: MappingSettingsOptions;
+}
+
+/** The settings of the options, normalized as a conversion normalizes them; the options must be valid. */
+function settingsOf(options: MappingSettingsOptions = {}): MappingSettings {
+  const settings = createMappingSettings(options);
+  if (!settings.ok) expect.fail(`invalid option ${settings.error.option}`);
+  return settings.value;
 }
 
 /**
@@ -41,11 +49,7 @@ export function mapping(
   const parsedSegment = message.segments[1];
   if (parsedSegment === undefined) expect.fail("expected a second segment");
   const issues: Issue[] = [];
-  const context = createMappingContext(
-    message,
-    { ...defaultMappingSettings, ...settings },
-    issues,
-  );
+  const context = createMappingContext(message, settingsOf(settings), issues);
   return {
     input,
     field: (field, repetition = 1) =>
