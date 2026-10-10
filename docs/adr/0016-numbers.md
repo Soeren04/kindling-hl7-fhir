@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-10
-- Implementation: partial (`mapNm` and `mapSn` in `src/fhir/datatypes/`; the resource mappers of phase 3, which put
-  the quantities into observations, follow)
+- Implementation: implemented (`mapNm` and `mapSn` in `src/fhir/datatypes/`, used for the quantities of observations
+  in `src/fhir/resources/observation-value.ts` and for the birth order of the Patient)
 
 ## Context
 

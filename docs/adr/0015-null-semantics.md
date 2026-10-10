@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-10
-- Implementation: partial (the mapping context leaves out every `""` and reports `HL7_NULL_IGNORED` when asked;
-  the `transaction` bundle of phase 3.4 sets the flag that asks)
+- Implementation: implemented (the mapping context leaves out every `""` and reports `HL7_NULL_IGNORED` when asked;
+  `convert` asks for `transaction` bundles)
 
 ## Context
 

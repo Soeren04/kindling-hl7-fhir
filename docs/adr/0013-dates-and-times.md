@@ -2,9 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-10
-- Implementation: partial (the rules are implemented in `src/fhir/datatypes/date-time.ts` and
-  `src/fhir/date-time-parse.ts`; the resource mappers of phase 3, which choose the target type of each element,
-  follow)
+- Implementation: implemented (the rules are in `src/fhir/datatypes/date-time.ts` and `src/fhir/date-time-parse.ts`;
+  the resource mappers choose the target type of each element, and `convert` takes the `timezone` option)
 
 ## Context
 

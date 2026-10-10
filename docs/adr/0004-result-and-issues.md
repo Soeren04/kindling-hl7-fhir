@@ -2,8 +2,9 @@
 
 - Status: accepted
 - Date: 2026-10-08
-- Implementation: partial (`Result` and `Issue` exist in `src/shared/`, and the parser tests check that
-  issue messages contain no message content; the CLI output rule follows in phase 4)
+- Implementation: partial (`Result` and `Issue` exist in `src/shared/`, the parser tests check that issue messages
+  contain no message content, and `convert` runs every hook inside a guard (ADR 0019); the CLI output rule follows in
+  phase 4)
 
 ## Context
 

@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-10
-- Implementation: partial (`mapXcn` in `src/fhir/datatypes/xcn.ts` and `mapPl` in `pl.ts`; the resource mappers of
-  phase 3, which use them for providers, observers and the patient location, follow)
+- Implementation: implemented (`mapXcn` in `src/fhir/datatypes/xcn.ts` and `mapPl` in `pl.ts`, used by the Encounter
+  for its participants and locations and by the Observation for its performers)
 
 ## Context
 

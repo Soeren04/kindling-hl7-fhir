@@ -2,8 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-10
-- Implementation: partial (the data type mappers in `src/fhir/datatypes/` cite the guide and a test checks every
-  citation; the resource mappers of phase 3 follow)
+- Implementation: implemented (the data type, resource, message and bundle mappers in `src/fhir/` cite the guide, and
+  two tests check every citation against the guide's npm package; the documentation's mapping table follows in phase 5)
 
 ## Context
 
