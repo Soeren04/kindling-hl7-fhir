@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MappingCitation } from "../../../src/fhir/mapping-guide";
 import { mappingGuide } from "../../../src/fhir/mapping-guide";
+import { encounterCitations } from "../../../src/fhir/resources/encounter";
 import { patientCitation } from "../../../src/fhir/resources/patient";
 
 interface GuideMaps {
@@ -20,6 +21,7 @@ const guideMaps = JSON.parse(
 
 const citations: Readonly<Record<string, readonly MappingCitation[]>> = {
   Patient: [patientCitation],
+  Encounter: encounterCitations,
 };
 
 describe("the citations of the resource mappers", () => {
