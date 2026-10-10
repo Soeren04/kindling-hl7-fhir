@@ -25,3 +25,16 @@ export function compact<T extends object>(object: T): Compact<T> {
     Object.entries(object).filter(([, value]) => value !== undefined),
   ) as Compact<T>;
 }
+
+/**
+ * The elements of `array`, or `undefined` when it has none: FHIR JSON has no empty arrays, so a list element without
+ * items is left out.
+ *
+ * @example
+ * ```ts
+ * compact({ telecom: nonEmpty([]) }); // {}
+ * ```
+ */
+export function nonEmpty<T>(array: readonly T[]): T[] | undefined {
+  return array.length === 0 ? undefined : [...array];
+}

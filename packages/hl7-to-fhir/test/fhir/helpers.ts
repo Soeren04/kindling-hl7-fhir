@@ -28,7 +28,9 @@ export interface MappingOptions {
 }
 
 /** The settings of the options, normalized as a conversion normalizes them; the options must be valid. */
-function settingsOf(options: MappingSettingsOptions = {}): MappingSettings {
+export function settingsOf(
+  options: MappingSettingsOptions = {},
+): MappingSettings {
   const settings = createMappingSettings(options);
   if (!settings.ok) expect.fail(`invalid option ${settings.error.option}`);
   return settings.value;
